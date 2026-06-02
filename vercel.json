@@ -1,0 +1,10 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/email/dispatch-due",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

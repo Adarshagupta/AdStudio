@@ -1,0 +1,381 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum WorkspaceInviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum EmailTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum EmailChannel {
+  AUTH
+  INVITE
+  MARKETING
+  ADS
+  REMINDER
+  SYSTEM
+}
+
+enum EmailEventStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum EmailCampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum EmailAudience {
+  WORKSPACE_MEMBERS
+}
+
+enum EmailReminderStatus {
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum GenerationFormat {
+  UGC
+  BRAIN_ROT
+  STATIC
+  REVIEW
+}
+
+enum GenerationStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum BrandAssetType {
+  LOGO
+  PRODUCT_IMAGE
+  FONT
+}
+
+enum SocialProvider {
+  INSTAGRAM
+  TIKTOK
+  FACEBOOK
+  REDDIT
+}
+
+model Workspace {
+  id               String        @id @default(cuid())
+  name             String
+  slug             String        @unique
+  plan             Plan          @default(FREE)
+  creditsRemaining Int           @default(25)
+  createdAt        DateTime      @default(now())
+  users            User[]
+  generations      Generation[]
+  avatars          Avatar[]
+  brandAssets      BrandAsset[]
+  sessions           Session[]
+  studioFlows        StudioFlow[]
+  socialConnections  SocialConnection[]
+  invites            WorkspaceInvite[]
+  emailEvents        EmailEvent[]
+  emailTemplates     EmailTemplate[]
+  emailCampaigns     EmailCampaign[]
+  emailReminders     EmailReminder[]
+}
+
+model User {
+  id          String       @id @default(cuid())
+  clerkId     String?      @unique
+  email       String       @unique
+  name        String?
+  passwordHash String?
+  workspaceId String
+  role        Role         @default(MEMBER)
+  permissions Json         @default("{}")
+  isActive    Boolean      @default(true)
+  emailVerifiedAt DateTime?
+  createdAt   DateTime     @default(now())
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id])
+  generations Generation[]
+  sessions    Session[]
+  studioFlows StudioFlow[]
+  sentWorkspaceInvites WorkspaceInvite[] @relation("WorkspaceInvitesSent")
+  emailTokens EmailToken[]
+  emailPreference EmailPreference?
+  emailEvents EmailEvent[]
+  createdEmailCampaigns EmailCampaign[]
+  receivedEmailReminders EmailReminder[] @relation("EmailReminderRecipient")
+  createdEmailReminders EmailReminder[] @relation("EmailReminderCreator")
+
+  @@index([workspaceId])
+  @@index([workspaceId, isActive])
+  @@index([emailVerifiedAt])
+}
+
+model Session {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  userId      String
+  workspaceId String
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([expiresAt])
+}
+
+model Generation {
+  id           String           @id @default(cuid())
+  workspaceId  String
+  userId       String
+  format       GenerationFormat
+  status       GenerationStatus @default(QUEUED)
+  prompt       String
+  productUrl   String?
+  scriptText   String?
+  avatarId     String?
+  xaiRequestId String?
+  errorMessage String?
+  style        Json?
+  videoUrl     String?
+  thumbnailUrl String?
+  durationSec  Int?
+  renderTimeMs Int?
+  createdAt    DateTime         @default(now())
+  startedAt     DateTime?
+  completedAt  DateTime?
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id])
+  user         User             @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId, createdAt])
+  @@index([userId])
+  @@index([xaiRequestId])
+}
+
+model Avatar {
+  id          String    @id @default(cuid())
+  workspaceId String?
+  name        String
+  previewUrl  String
+  isSystem    Boolean   @default(false)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+}
+
+model BrandAsset {
+  id          String         @id @default(cuid())
+  workspaceId String
+  type        BrandAssetType
+  url         String
+  name        String
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+}
+
+model WorkspaceInvite {
+  id          String                @id @default(cuid())
+  workspaceId String
+  invitedById String
+  email       String
+  name        String?
+  role        Role                  @default(MEMBER)
+  permissions Json                  @default("{}")
+  tokenHash   String                @unique
+  status      WorkspaceInviteStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime              @default(now())
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User                  @relation("WorkspaceInvitesSent", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([email])
+  @@index([expiresAt])
+}
+
+model EmailToken {
+  id        String         @id @default(cuid())
+  userId    String
+  email     String
+  type      EmailTokenType
+  tokenHash String         @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([email, type])
+  @@index([expiresAt])
+}
+
+model EmailPreference {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  marketingEnabled      Boolean  @default(true)
+  adsEnabled            Boolean  @default(true)
+  remindersEnabled      Boolean  @default(true)
+  productUpdatesEnabled Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailEvent {
+  id                String           @id @default(cuid())
+  workspaceId       String?
+  userId            String?
+  toEmail           String
+  fromEmail         String
+  subject           String
+  channel           EmailChannel
+  status            EmailEventStatus
+  provider          String
+  providerMessageId String?
+  errorMessage      String?
+  metadata          Json             @default("{}")
+  createdAt         DateTime         @default(now())
+  sentAt            DateTime?
+  workspace         Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user              User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
+  @@index([channel, createdAt])
+  @@index([status, createdAt])
+}
+
+model EmailTemplate {
+  id          String       @id @default(cuid())
+  workspaceId String?
+  key         String
+  channel     EmailChannel
+  name        String
+  subject     String
+  previewText String?
+  textBody    String
+  htmlBody    String?
+  isSystem    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  workspace   Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId, channel])
+}
+
+model EmailCampaign {
+  id          String              @id @default(cuid())
+  workspaceId String
+  createdById String
+  name        String
+  channel     EmailChannel
+  audience    EmailAudience       @default(WORKSPACE_MEMBERS)
+  subject     String
+  textBody    String
+  htmlBody    String?
+  status      EmailCampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User                @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, status, scheduledAt])
+}
+
+model EmailReminder {
+  id          String              @id @default(cuid())
+  workspaceId String
+  userId      String?
+  createdById String
+  title       String
+  message     String
+  sendAt      DateTime
+  status      EmailReminderStatus @default(SCHEDULED)
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User?               @relation("EmailReminderRecipient", fields: [userId], references: [id], onDelete: SetNull)
+  createdBy   User                @relation("EmailReminderCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status, sendAt])
+  @@index([userId, sendAt])
+}
+
+model StudioFlow {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  name        String    @default("Untitled flow")
+  nodes       Json      @default("[]")
+  edges       Json      @default("[]")
+  viewport    Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, updatedAt])
+  @@index([userId])
+}
+
+model SocialConnection {
+  id              String         @id @default(cuid())
+  workspaceId     String
+  provider        SocialProvider
+  externalId      String
+  username        String?
+  displayName     String?
+  avatarUrl       String?
+  accessTokenEnc  String
+  refreshTokenEnc String?
+  expiresAt       DateTime?
+  scopes          String[]
+  profileMeta     Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  workspace       Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
+}
