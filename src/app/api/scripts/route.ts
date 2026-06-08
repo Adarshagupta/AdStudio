@@ -3,12 +3,15 @@ import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
 import { generateScript } from "@/lib/cloudflare-ai";
+import { parseRequestJson } from "@/lib/http/json";
+import { MAX_TEXT_PROMPT_CHARS, truncateTextPrompt } from "@/lib/text-prompt";
 
 const scriptSchema = z.object({
   format: z.enum(["UGC", "BRAIN_ROT", "STATIC", "REVIEW"]),
-  prompt: z.string().min(10),
+  prompt: z.string().min(10).max(MAX_TEXT_PROMPT_CHARS * 4),
   productUrl: z.string().url().optional().or(z.literal("")),
   model: z.string().optional(),
+  purpose: z.enum(["studio", "dashboard"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -22,7 +25,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "You do not have access to generate scripts." }, { status: 403 });
   }
 
-  const body = await request.json();
+  const body = await parseRequestJson(request);
+
+  if (!body) {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
   const result = scriptSchema.safeParse(body);
 
   if (!result.success) {
@@ -31,10 +39,11 @@ export async function POST(request: Request) {
 
   try {
     const scriptText = await generateScript({
-      prompt: result.data.prompt,
+      prompt: truncateTextPrompt(result.data.prompt),
       format: result.data.format,
       productUrl: result.data.productUrl || undefined,
       model: result.data.model,
+      purpose: result.data.purpose ?? "dashboard",
     });
 
     return NextResponse.json({ scriptText });

@@ -16,7 +16,9 @@ export async function GET() {
 
   const [videosGenerated, teamMembers, recentGenerations] = await Promise.all([
     prisma.generation.count({ where: { workspaceId: currentUser.workspace.id } }),
-    prisma.user.count({ where: { workspaceId: currentUser.workspace.id, isActive: true } }),
+    prisma.workspaceMember.count({
+      where: { workspaceId: currentUser.workspace.id, isActive: true },
+    }),
     prisma.generation.findMany({
       where: { workspaceId: currentUser.workspace.id },
       orderBy: { createdAt: "desc" },

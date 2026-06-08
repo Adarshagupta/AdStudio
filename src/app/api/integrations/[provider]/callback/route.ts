@@ -11,8 +11,8 @@ type RouteContext = {
   params: { provider: string };
 };
 
-function redirectToIntegrations(params: Record<string, string>) {
-  const url = new URL("/settings/integrations", getAppUrl());
+function redirectToIntegrations(request: Request, params: Record<string, string>) {
+  const url = new URL("/settings/integrations", getAppUrl(request));
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
@@ -25,7 +25,7 @@ export async function GET(request: Request, context: RouteContext) {
   const provider = context.params.provider;
 
   if (!isSocialProviderId(provider)) {
-    return redirectToIntegrations({ error: "unknown_provider" });
+    return redirectToIntegrations(request, { error: "unknown_provider" });
   }
 
   const url = new URL(request.url);
@@ -34,11 +34,11 @@ export async function GET(request: Request, context: RouteContext) {
   const statePayload = consumeOAuthState(provider);
 
   if (error) {
-    return redirectToIntegrations({ error: "oauth_denied", provider });
+    return redirectToIntegrations(request, { error: "oauth_denied", provider });
   }
 
   if (!code || !statePayload) {
-    return redirectToIntegrations({ error: "invalid_callback", provider });
+    return redirectToIntegrations(request, { error: "invalid_callback", provider });
   }
 
   const currentUser = await getCurrentUser();
@@ -48,17 +48,17 @@ export async function GET(request: Request, context: RouteContext) {
     currentUser.workspace.id !== statePayload.workspaceId ||
     currentUser.user.id !== statePayload.userId
   ) {
-    return redirectToIntegrations({ error: "session_mismatch", provider });
+    return redirectToIntegrations(request, { error: "session_mismatch", provider });
   }
 
   if (!currentUserCan(currentUser, "manageIntegrations")) {
-    return redirectToIntegrations({ error: "permission_denied", provider });
+    return redirectToIntegrations(request, { error: "permission_denied", provider });
   }
 
   const config = getProviderConfig(provider);
 
   if (!config.configured) {
-    return redirectToIntegrations({ error: "not_configured", provider });
+    return redirectToIntegrations(request, { error: "not_configured", provider });
   }
 
   try {
@@ -78,9 +78,9 @@ export async function GET(request: Request, context: RouteContext) {
       profileMeta: profile.profileMeta,
     });
 
-    return redirectToIntegrations({ connected: provider });
+    return redirectToIntegrations(request, { connected: provider });
   } catch (callbackError) {
     const message = callbackError instanceof Error ? callbackError.message : "Connection failed.";
-    return redirectToIntegrations({ error: "connect_failed", provider, message });
+    return redirectToIntegrations(request, { error: "connect_failed", provider, message });
   }
 }

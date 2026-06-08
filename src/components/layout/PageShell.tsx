@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Topbar } from "@/components/layout/Topbar";
+import { NotificationProvider } from "@/components/layout/NotificationProvider";
+import { ShellLayout } from "@/components/layout/ShellLayout";
 
 export function PageShell({
   children,
@@ -9,6 +9,7 @@ export function PageShell({
   workspace,
   fullWidth = false,
   fullscreen = false,
+  hideTopbar = false,
 }: {
   children: ReactNode;
   user: {
@@ -18,32 +19,33 @@ export function PageShell({
     permissions?: unknown;
   };
   workspace: {
+    id: string;
     name: string;
     plan: string;
     creditsRemaining: number;
   };
   fullWidth?: boolean;
   fullscreen?: boolean;
+  hideTopbar?: boolean;
 }) {
   if (fullscreen) {
-    return <div className="h-screen w-screen overflow-hidden bg-[#fcfcfc]">{children}</div>;
+    return (
+      <NotificationProvider>
+        <div className="relative h-screen w-screen overflow-hidden bg-[#fcfcfc]">
+          {children}
+        </div>
+      </NotificationProvider>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfcfc]">
-      <Sidebar user={user} workspace={workspace} />
-      <div className="min-h-screen md:pl-[220px]">
-        <Topbar user={user} workspace={workspace} />
-        <main
-          className={
-            fullWidth
-              ? "flex h-[calc(100vh-4rem)] flex-col overflow-hidden"
-              : "mx-auto max-w-6xl px-4 pb-10 pt-2 md:px-8"
-          }
-        >
-          {children}
-        </main>
-      </div>
-    </div>
+    <ShellLayout
+      user={user}
+      workspace={workspace}
+      fullWidth={fullWidth}
+      hideTopbar={hideTopbar}
+    >
+      {children}
+    </ShellLayout>
   );
 }

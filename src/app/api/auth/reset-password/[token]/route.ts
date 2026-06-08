@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hashPassword } from "@/lib/auth";
+import { parseRequestJson } from "@/lib/http/json";
 import { prisma } from "@/lib/db";
 import { hashEmailToken } from "@/lib/email/tokens";
 
@@ -14,7 +15,7 @@ type RouteContext = {
 };
 
 export async function POST(request: Request, context: RouteContext) {
-  const body = await request.json().catch(() => null);
+  const body = await parseRequestJson(request);
   const result = resetPasswordSchema.safeParse(body);
 
   if (!result.success) {

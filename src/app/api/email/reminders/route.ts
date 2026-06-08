@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
+import { parseRequestJson } from "@/lib/http/json";
 import { prisma } from "@/lib/db";
 import { sendReminder } from "@/lib/email/service";
 
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "You do not have access to manage email reminders." }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => null);
+  const body = await parseRequestJson(request);
   const result = reminderSchema.safeParse(body);
 
   if (!result.success) {
@@ -31,9 +32,9 @@ export async function POST(request: Request) {
   }
 
   if (result.data.userId) {
-    const member = await prisma.user.findFirst({
+    const member = await prisma.workspaceMember.findFirst({
       where: {
-        id: result.data.userId,
+        userId: result.data.userId,
         workspaceId: currentUser.workspace.id,
         isActive: true,
       },

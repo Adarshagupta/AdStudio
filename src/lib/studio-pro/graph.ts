@@ -1,3 +1,12 @@
+import {
+  compressContextSections,
+  compressStudioContextText,
+  compressStudioScriptText,
+  STUDIO_CONTEXT_BUDGETS,
+  type ContextSection,
+} from "@/lib/studio-pro/context-compression";
+import { formatStudioNodeText } from "@/lib/studio-pro/display-text";
+import { stripEmbeddedMediaUrls, summarizeMediaUrl, truncateTextPrompt } from "@/lib/text-prompt";
 import type { StudioEdge, StudioNode } from "@/lib/studio-pro/types";
 import { getNodeHeight } from "@/lib/studio-pro/types";
 
@@ -47,6 +56,17 @@ export function wouldCreateCycle(source: string, target: string, edges: StudioEd
   return false;
 }
 
+export function explainConnectFailure(source: string, target: string, edges: StudioEdge[]) {
+  if (source === target) return "cannot connect a node to itself";
+  if (edges.some((edge) => edge.source === source && edge.target === target)) {
+    return "already connected";
+  }
+  if (wouldCreateCycle(source, target, edges)) {
+    return "would create a cycle — remove conflicting edges with disconnect_node direction all first";
+  }
+  return "connection blocked";
+}
+
 export function findSnapTarget(
   point: { x: number; y: number },
   nodes: StudioNode[],
@@ -72,57 +92,492 @@ export function getUpstreamNodes(nodeId: string, nodes: StudioNode[], edges: Stu
   return nodes.filter((node) => sourceIds.includes(node.id));
 }
 
+/** All nodes upstream in the flow (not only direct parents). */
+export function getAncestorNodes(nodeId: string, nodes: StudioNode[], edges: StudioEdge[]) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const ancestors: StudioNode[] = [];
+  const visited = new Set<string>();
+  const queue = edges.filter((edge) => edge.target === nodeId).map((edge) => edge.source);
+
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+
+    const node = byId.get(id);
+    if (node) ancestors.push(node);
+
+    edges
+      .filter((edge) => edge.target === id)
+      .forEach((edge) => {
+        if (!visited.has(edge.source)) queue.push(edge.source);
+      });
+  }
+
+  return ancestors;
+}
+
+function nodeTextContent(node: StudioNode) {
+  const raw = node.data.scriptText || node.data.output || node.data.prompt || "";
+  const text = formatStudioNodeText(raw) || raw.trim();
+  return stripEmbeddedMediaUrls(text);
+}
+
+export type VideoMediaReference = {
+  imageUrl?: string;
+  imageUrls: string[];
+  videoUrl?: string;
+  imageSourceLabel?: string;
+  videoSourceLabel?: string;
+};
+
+export type VideoGenerationPlan = {
+  scriptText: string;
+  scriptSourceLabel: string | null;
+  visualDirection: string;
+  shotNotes: string;
+  continuityNotes: string;
+  segmentIndex: number;
+  segmentCount: number;
+  media: VideoMediaReference;
+};
+
+function orderedAncestorVideos(videoNodeId: string, ancestors: StudioNode[]) {
+  return ancestors
+    .filter((node) => node.type === "video" && node.id !== videoNodeId)
+    .sort((a, b) => a.x - b.x || a.y - b.y);
+}
+
+function buildCharacterConsistencyBible(characterNodes: StudioNode[]) {
+  const sections: ContextSection[] = [];
+
+  for (const node of characterNodes) {
+    const name = node.data.characterName?.trim();
+    const profile = stripEmbeddedMediaUrls(
+      (node.data.output || node.data.scriptText || node.data.prompt || "").trim(),
+    );
+    const brief = node.data.prompt?.trim();
+
+    if (!name && !profile && !brief) continue;
+
+    const content = [profile, brief && profile && !profile.includes(brief) ? `Brief: ${brief}` : brief]
+      .filter(Boolean)
+      .join("\n");
+
+    sections.push({
+      label: name ? `Character bible (${name})` : `Character bible (${node.title || "character"})`,
+      content,
+      priority: "critical",
+    });
+  }
+
+  return compressContextSections(sections, STUDIO_CONTEXT_BUDGETS.characterBible);
+}
+
+function buildClipContinuityContext(
+  videoNode: StudioNode,
+  ancestors: StudioNode[],
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+) {
+  const upstreamVideos = orderedAncestorVideos(videoNode.id, ancestors);
+  const directParents = getUpstreamNodes(videoNode.id, nodes, edges);
+  const characterBible = buildCharacterConsistencyBible(ancestors.filter((node) => node.type === "character"));
+  const segmentIndex = upstreamVideos.length + 1;
+  const segmentCount = Math.max(segmentIndex, upstreamVideos.length);
+
+  const parts: string[] = [
+    "MULTI-CLIP CONTINUITY: Each video node is a joinable segment for final output. Keep the same on-camera talent, wardrobe, lighting, color grade, product placement, and set dressing across segments unless shot notes say otherwise.",
+  ];
+
+  if (upstreamVideos.length > 0) {
+    const directVideo = directParents.find((node) => node.type === "video" && node.data.videoUrl);
+    const chainLabel = directVideo
+      ? `Continue directly from "${directVideo.title || "upstream clip"}"`
+      : `Continue the ${upstreamVideos.length}-clip chain`;
+
+    parts.push(
+      `${chainLabel}. Match the end state of the prior clip (pose, expression, background) at the opening frame. End this segment on a clean cut point for editing.`,
+    );
+
+    for (let index = 0; index < upstreamVideos.length; index += 1) {
+      const clip = upstreamVideos[index]!;
+      const notes = (clip.data.prompt || "").trim();
+      parts.push(
+        `Prior segment ${index + 1} (${clip.title || "video"}): ${
+          notes
+            ? compressStudioContextText(notes, 220, { label: `Segment ${index + 1}` })
+            : "Match subject, wardrobe, and lighting from the connected clip."
+        }`,
+      );
+    }
+
+    parts.push(`This render is segment ${segmentIndex} of an editable multi-clip ad.`);
+  } else if (segmentCount > 1) {
+    parts.push("First segment in a multi-clip ad — establish look, talent, and setting for downstream clips to match.");
+  }
+
+  if (characterBible) {
+    parts.push(characterBible);
+  }
+
+  return compressStudioContextText(parts.join("\n\n"), STUDIO_CONTEXT_BUDGETS.continuityBlock, {
+    label: "Continuity",
+  });
+}
+
+export function buildVideoGenerationContext(
+  videoNode: StudioNode,
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+): VideoGenerationPlan {
+  const ancestors = getAncestorNodes(videoNode.id, nodes, edges);
+  const directParents = getUpstreamNodes(videoNode.id, nodes, edges);
+  const upstreamVideos = orderedAncestorVideos(videoNode.id, ancestors);
+  const shotNotes = compressStudioContextText(
+    (videoNode.data.prompt || "").trim(),
+    STUDIO_CONTEXT_BUDGETS.sectionShotNotes,
+    { label: "Shot notes" },
+  );
+  const media: VideoMediaReference = { imageUrls: [] };
+
+  let scriptText = "";
+  let scriptSourceLabel: string | null = null;
+  let scriptSourceId: string | null = null;
+
+  const scriptPriority: StudioNode["type"][] = ["prompt", "character", "audio"];
+
+  for (const type of scriptPriority) {
+    for (const node of ancestors.filter((item) => item.type === type)) {
+      const text = nodeTextContent(node);
+      if (text.length >= 10 && text.length > scriptText.length) {
+        scriptText = text;
+        scriptSourceId = node.id;
+        scriptSourceLabel = node.title || type;
+      }
+    }
+    if (scriptText) break;
+  }
+
+  const visualSections: ContextSection[] = [];
+  const continuityNotes = buildClipContinuityContext(videoNode, ancestors, nodes, edges);
+
+  if (scriptSourceLabel) {
+    visualSections.push({
+      label: "Primary script source",
+      content: `${scriptSourceLabel} node supplies spoken lines.`,
+      priority: "high",
+    });
+  }
+
+  for (const node of ancestors) {
+    if (node.id === scriptSourceId) continue;
+
+    if (node.type === "prompt") {
+      const text = nodeTextContent(node);
+      if (text) {
+        visualSections.push({
+          label: `Product / brief (${node.title || "text"})`,
+          content: text,
+          priority: "high",
+        });
+      }
+      continue;
+    }
+
+    if (node.type === "character") {
+      const name = node.data.characterName?.trim();
+      const profile = stripEmbeddedMediaUrls(
+        (node.data.output || node.data.scriptText || node.data.prompt || "").trim(),
+      );
+      const content = [name ? `Talent: ${name}` : null, profile].filter(Boolean).join("\n");
+      if (content) {
+        visualSections.push({
+          label: `On-camera talent (${name || node.title || "character"})`,
+          content,
+          priority: "critical",
+        });
+      }
+      continue;
+    }
+
+    if (node.type === "audio") {
+      const voiceScript = stripEmbeddedMediaUrls((node.data.prompt || node.data.output || "").trim());
+      const title = node.data.audioTitle?.trim();
+      const style = node.data.voiceStyle?.trim();
+      const audioRef = summarizeMediaUrl(node.data.audioUrl);
+      const lines = [
+        audioRef ? `Voice reference (${node.title || "audio"}): ${audioRef}` : null,
+        style ? `Voice delivery: ${style}` : null,
+        title ? `Audio segment: ${title}` : null,
+        voiceScript ? `Voice script excerpt: ${voiceScript}` : null,
+      ].filter(Boolean) as string[];
+
+      if (lines.length) {
+        visualSections.push({
+          label: `Audio direction (${node.title || "audio"})`,
+          content: lines.join("\n"),
+          priority: "normal",
+        });
+      }
+
+      if (!scriptText && voiceScript.length >= 10) {
+        scriptText = voiceScript;
+        scriptSourceId = node.id;
+        scriptSourceLabel = node.title || "audio";
+      }
+      continue;
+    }
+
+    if (node.type === "image") {
+      if (node.data.imageUrl) {
+        if (!media.imageUrl) {
+          media.imageUrl = node.data.imageUrl;
+          media.imageSourceLabel = node.title || "image";
+        }
+        if (!media.imageUrls.includes(node.data.imageUrl)) {
+          media.imageUrls.push(node.data.imageUrl);
+        }
+        const refIndex = media.imageUrls.indexOf(node.data.imageUrl) + 1;
+        visualSections.push({
+          label: `Reference image @image${refIndex}`,
+          content: `Match subject identity, wardrobe, lighting, and composition from ${node.title || "image"}${node.data.mediaSource === "upload" ? " (uploaded)" : ""}.`,
+          priority: "critical",
+        });
+      }
+      const imagePrompt = stripEmbeddedMediaUrls((node.data.prompt || node.data.output || "").trim());
+      if (imagePrompt) {
+        visualSections.push({
+          label: `Image scene (${node.title || "image"})`,
+          content: imagePrompt,
+          priority: "high",
+        });
+      }
+      continue;
+    }
+
+    if (node.type === "video" && node.id !== videoNode.id) {
+      const clipNotes = (node.data.prompt || "").trim();
+      visualSections.push({
+        label: `Prior clip (${node.title || "video"})`,
+        content:
+          clipNotes ||
+          "Preserve motion rhythm and visual identity from the connected clip while applying the script below.",
+        priority: "high",
+      });
+      continue;
+    }
+  }
+
+  const directVideoParent = directParents.find((node) => node.type === "video" && node.data.videoUrl);
+  const chainVideo =
+    directVideoParent?.data.videoUrl ??
+    upstreamVideos.filter((node) => node.data.videoUrl).at(-1)?.data.videoUrl;
+
+  if (chainVideo) {
+    media.videoUrl = chainVideo;
+    media.videoSourceLabel = directVideoParent?.title ?? upstreamVideos.at(-1)?.title ?? "video";
+  }
+
+  const visualDirection = compressContextSections(visualSections, STUDIO_CONTEXT_BUDGETS.visualDirection);
+
+  return {
+    scriptText: compressStudioScriptText(scriptText),
+    scriptSourceLabel,
+    visualDirection,
+    shotNotes,
+    continuityNotes,
+    segmentIndex: upstreamVideos.length + 1,
+    segmentCount: Math.max(upstreamVideos.length + 1, upstreamVideos.length),
+    media,
+  };
+}
+
+export type ImageGenerationPlan = {
+  scenePrompt: string;
+  shotNotes: string;
+};
+
+export function buildImageGenerationContext(
+  imageNode: StudioNode,
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+): ImageGenerationPlan {
+  const ancestors = getAncestorNodes(imageNode.id, nodes, edges);
+  const shotNotes = compressStudioContextText(
+    (imageNode.data.prompt || "").trim(),
+    STUDIO_CONTEXT_BUDGETS.sectionShotNotes,
+    { label: "Shot notes" },
+  );
+  const contextSections: ContextSection[] = [
+    {
+      label: "Frame goal",
+      content:
+        "Create one photorealistic UGC ad frame. Honor every upstream detail for on-camera talent, wardrobe, product, lighting, and setting. This frame anchors visual consistency for downstream video clips.",
+      priority: "critical",
+    },
+  ];
+
+  const characterBible = buildCharacterConsistencyBible(ancestors.filter((node) => node.type === "character"));
+  if (characterBible) {
+    contextSections.push({
+      label: "Character consistency",
+      content: characterBible,
+      priority: "critical",
+    });
+  }
+
+  for (const node of ancestors) {
+    if (node.type === "prompt") {
+      const text = nodeTextContent(node);
+      if (text) {
+        contextSections.push({
+          label: `Campaign brief (${node.title || "text"})`,
+          content: text,
+          priority: "high",
+        });
+      }
+      continue;
+    }
+
+    if (node.type === "character") {
+      continue;
+    }
+
+    if (node.type === "audio") {
+      const script = stripEmbeddedMediaUrls((node.data.prompt || node.data.output || "").trim());
+      const style = node.data.voiceStyle?.trim();
+      const title = node.data.audioTitle?.trim();
+      const lines = [
+        script ? `Voiceover / mood reference: ${script}` : null,
+        style ? `Delivery tone: ${style}` : null,
+        title ? `Audio segment: ${title}` : null,
+      ].filter(Boolean) as string[];
+
+      if (lines.length) {
+        contextSections.push({
+          label: `Audio mood (${node.title || "audio"})`,
+          content: lines.join("\n"),
+          priority: "normal",
+        });
+      }
+      continue;
+    }
+
+    if (node.type === "image" && node.id !== imageNode.id) {
+      const imagePrompt = stripEmbeddedMediaUrls((node.data.prompt || node.data.output || "").trim());
+      const lines = [
+        imagePrompt ? `Upstream image direction: ${imagePrompt}` : null,
+        node.data.imageUrl
+          ? "Match visual style from the connected upstream image (subject, lighting, color grade)."
+          : null,
+      ].filter(Boolean) as string[];
+
+      if (lines.length) {
+        contextSections.push({
+          label: `Upstream image (${node.title || "image"})`,
+          content: lines.join("\n"),
+          priority: "high",
+        });
+      }
+    }
+  }
+
+  if (shotNotes) {
+    contextSections.push({
+      label: "Composition / shot notes",
+      content: shotNotes,
+      priority: "high",
+    });
+  }
+
+  const scenePrompt = compressContextSections(contextSections, STUDIO_CONTEXT_BUDGETS.scenePrompt);
+
+  return { scenePrompt, shotNotes };
+}
+
 export function composePrompt(nodes: StudioNode[]) {
-  return nodes
-    .map((node) => {
+  const sections: ContextSection[] = nodes
+    .map((node): ContextSection | null => {
       if (node.type === "prompt") {
-        const text = node.data.scriptText || node.data.output || node.data.prompt;
-        return text ? `Brief: ${text}` : null;
+        const text = nodeTextContent(node);
+        return text
+          ? { label: `Brief (${node.title || "text"})`, content: text, priority: "high" }
+          : null;
       }
       if (node.type === "character") {
-        const text = node.data.output || node.data.scriptText;
-        if (text) return `Character profile: ${text}`;
+        const text =
+          formatStudioNodeText(node.data.output || node.data.scriptText) ||
+          (node.data.output || node.data.scriptText || "").trim();
         const name = node.data.characterName?.trim();
         const brief = node.data.prompt?.trim();
-        if (!name && !brief) return null;
-        if (name && brief) return `Character (${name}): ${brief}`;
-        return name ? `Character: ${name}` : `Character brief: ${brief}`;
+        const content = text
+          ? stripEmbeddedMediaUrls(text)
+          : name && brief
+            ? `${name}: ${brief}`
+            : name || brief || "";
+        if (!content) return null;
+        return {
+          label: name ? `Character (${name})` : "Character profile",
+          content,
+          priority: "critical",
+        };
       }
       if (node.type === "audio") {
-        const script = node.data.prompt?.trim() || node.data.output?.trim();
-        if (script) return `Voiceover script: ${script.slice(0, 500)}`;
+        const script = stripEmbeddedMediaUrls(node.data.prompt?.trim() || node.data.output?.trim() || "");
         const title = node.data.audioTitle?.trim();
         const style = node.data.voiceStyle?.trim();
-        if (!title && !style) return null;
-        if (title && style) return `Audio direction (${style}): ${title}`;
-        return style ? `Audio direction: ${style}` : `Audio: ${title}`;
+        const content = [
+          script ? `Voiceover script: ${script}` : null,
+          title ? `Track: ${title}` : null,
+          style ? `Voice style: ${style}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n");
+        if (!content) return null;
+        return { label: `Audio (${node.title || "audio"})`, content, priority: "normal" };
       }
-      if (node.type === "image" && node.data.imageUrl) {
-        return `Image reference: ${node.data.imageUrl}`;
-      }
-      if (node.type === "image" && node.data.output) {
-        return `Image context: ${node.data.output.slice(0, 240)}`;
+      if (node.type === "image") {
+        const notes = node.data.prompt?.trim();
+        const label = node.data.mediaSource === "upload" ? "uploaded" : "generated";
+        const content = notes
+          ? `Connected image (${label}) — creator notes: ${notes}`
+          : node.data.imageUrl || node.data.output
+            ? `Connected image (${label}) — use the written brief only; do not invent image analysis.`
+            : "";
+        if (!content) return null;
+        return { label: `Image (${node.title || "image"})`, content, priority: "normal" };
       }
       return null;
     })
-    .filter(Boolean)
-    .join("\n");
+    .filter((section): section is ContextSection => Boolean(section));
+
+  return truncateTextPrompt(
+    compressContextSections(sections, STUDIO_CONTEXT_BUDGETS.composeNode * Math.max(1, nodes.length)),
+  );
 }
 
 export function getNodeLocalContent(node: StudioNode) {
   switch (node.type) {
-    case "prompt":
-      return (node.data.scriptText || node.data.output || node.data.prompt || "").trim();
+    case "prompt": {
+      const brief = (node.data.prompt ?? "").trim();
+      if (brief) return stripEmbeddedMediaUrls(brief);
+      return nodeTextContent(node);
+    }
     case "character":
-      if (node.data.output?.trim()) return node.data.output.trim();
+      if (node.data.output?.trim()) {
+        return formatStudioNodeText(node.data.output) || node.data.output.trim();
+      }
       {
         const name = node.data.characterName?.trim();
         const brief = node.data.prompt?.trim();
         if (name && brief) return `${name}: ${brief}`;
         return name || brief || "";
       }
-    case "audio":
-      return (node.data.prompt || node.data.output || "").trim();
+    case "audio": {
+      const raw = node.data.prompt || node.data.output || "";
+      return formatStudioNodeText(raw) || raw.trim();
+    }
     case "image":
     case "video":
       return (node.data.prompt || "").trim();
@@ -136,10 +591,10 @@ export function resolveNodePrompt(node: StudioNode, upstream: StudioNode[]) {
   const local = getNodeLocalContent(node);
 
   if (local && upstreamContext) {
-    return `${upstreamContext}\n\n${local}`;
+    return truncateTextPrompt(`${upstreamContext}\n\n${local}`);
   }
 
-  return local || upstreamContext || "";
+  return truncateTextPrompt(local || upstreamContext || "");
 }
 
 export function extractSpeakableText(node: StudioNode) {

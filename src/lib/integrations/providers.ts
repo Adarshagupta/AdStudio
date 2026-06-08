@@ -158,7 +158,7 @@ const PROVIDERS: Record<SocialProviderId, ProviderConfig> = {
   ]),
   tiktok: {
     configured: Boolean(getTikTokCredentials().clientKey && getTikTokCredentials().clientSecret),
-    scopes: ["user.info.basic", "video.list"],
+    scopes: ["user.info.basic", "video.list", "video.publish"],
     buildAuthorizeUrl(state) {
       const { clientKey } = getTikTokCredentials();
       const params = new URLSearchParams({

@@ -1,7 +1,11 @@
 import { Worker } from "bullmq";
 import type { GenerationFormat } from "@prisma/client";
 
-import { generateScript, startVideoGeneration } from "@/lib/cloudflare-ai";
+import { generateScript } from "@/lib/cloudflare-ai";
+import { getBullmqConnection } from "@/lib/redis";
+import { renderLongFormVideo } from "@/lib/studio-pro/long-form";
+import { LONG_FORM_QUEUE_NAME, type LongFormRenderQueuePayload } from "@/lib/studio-pro/long-form-queue";
+import { startVideoGeneration } from "@/lib/video-generation";
 
 type GenerationJob = {
   generationId: string;
@@ -20,7 +24,8 @@ type GenerationJob = {
 };
 
 export function startGenerationWorker() {
-  if (!process.env.REDIS_URL) {
+  const connection = getBullmqConnection();
+  if (!connection) {
     return null;
   }
 
@@ -48,10 +53,35 @@ export function startGenerationWorker() {
       };
     },
     {
-      connection: {
-        url: process.env.REDIS_URL,
-      },
+      connection,
       autorun: false,
+    },
+  );
+}
+
+export function startLongFormRenderWorker() {
+  const connection = getBullmqConnection();
+  if (!connection) {
+    return null;
+  }
+
+  return new Worker<LongFormRenderQueuePayload>(
+    LONG_FORM_QUEUE_NAME,
+    async (job) => {
+      const rendered = await renderLongFormVideo(job.data.jobId, {
+        requestOrOrigin: job.data.origin,
+      });
+
+      return {
+        jobId: rendered.id,
+        status: rendered.status,
+        finalVideoUrl: rendered.finalVideoUrl,
+      };
+    },
+    {
+      connection,
+      autorun: false,
+      concurrency: 1,
     },
   );
 }

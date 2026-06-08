@@ -1,6 +1,9 @@
+"use client";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveStudioFlow } from "@/lib/studio-pro/flow-client";
+import { notify } from "@/lib/notify";
 import type { StudioViewport } from "@/lib/studio-pro/flows";
 import type { StudioEdge, StudioNode } from "@/lib/studio-pro/types";
 
@@ -20,48 +23,73 @@ export function useStudioFlowAutoSave(
   sessionId: string,
   state: StudioFlowPersistState,
   initialState: StudioFlowPersistState,
+  collaboration?: { clientId?: string; deferScheduledSave?: boolean },
 ) {
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const latestRef = useRef(state);
   const savedSnapshotRef = useRef(snapshotOf(initialState));
   const timerRef = useRef<number | null>(null);
+  const clientIdRef = useRef(collaboration?.clientId);
+  const isMountedRef = useRef(true);
+  clientIdRef.current = collaboration?.clientId;
 
   latestRef.current = state;
 
   const isDirty = useCallback(() => snapshotOf(latestRef.current) !== savedSnapshotRef.current, []);
 
   const persist = useCallback(
-    async (options?: { keepalive?: boolean }) => {
+    async (options?: { keepalive?: boolean; silent?: boolean }) => {
       if (!isDirty()) {
-        setSaveState("saved");
+        if (isMountedRef.current) {
+          setSaveState("saved");
+        }
         return true;
       }
 
       try {
-        await saveStudioFlow(sessionId, latestRef.current, options);
+        await saveStudioFlow(sessionId, latestRef.current, {
+          keepalive: options?.keepalive,
+          clientId: clientIdRef.current,
+        });
         savedSnapshotRef.current = snapshotOf(latestRef.current);
-        setSaveState("saved");
+        if (isMountedRef.current) {
+          setSaveState("saved");
+        }
         return true;
-      } catch {
-        setSaveState("error");
+      } catch (error) {
+        if (options?.silent) {
+          return false;
+        }
+        if (isMountedRef.current) {
+          setSaveState("error");
+          notify.error(error instanceof Error ? error.message : "Could not save flow.");
+        }
         return false;
       }
     },
     [isDirty, sessionId],
   );
 
+  const persistOnExit = useCallback(async () => {
+    await persist({ keepalive: true, silent: true });
+  }, [persist]);
+
   const flushSave = useCallback(async () => {
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    setSaveState("saving");
+    if (isMountedRef.current) {
+      setSaveState("saving");
+    }
     return persist();
   }, [persist]);
 
   const scheduleSave = useCallback(() => {
     if (!isDirty()) {
-      setSaveState("saved");
+      if (isMountedRef.current) {
+        setSaveState("saved");
+      }
       return;
     }
 
@@ -69,7 +97,9 @@ export function useStudioFlowAutoSave(
       window.clearTimeout(timerRef.current);
     }
 
-    setSaveState("saving");
+    if (isMountedRef.current) {
+      setSaveState("saving");
+    }
     timerRef.current = window.setTimeout(() => {
       timerRef.current = null;
       void persist();
@@ -77,6 +107,17 @@ export function useStudioFlowAutoSave(
   }, [isDirty, persist]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (collaboration?.deferScheduledSave) {
+      return undefined;
+    }
+
     scheduleSave();
     return () => {
       if (timerRef.current) {
@@ -84,17 +125,17 @@ export function useStudioFlowAutoSave(
         timerRef.current = null;
       }
     };
-  }, [state.nodes, state.edges, state.viewport, scheduleSave]);
+  }, [collaboration?.deferScheduledSave, state.nodes, state.edges, state.viewport, scheduleSave]);
 
   useEffect(() => {
     const flushOnHide = () => {
       if (document.visibilityState !== "hidden" || !isDirty()) return;
-      void persist({ keepalive: true });
+      void persistOnExit();
     };
 
     const flushOnUnload = () => {
       if (!isDirty()) return;
-      void saveStudioFlow(sessionId, latestRef.current, { keepalive: true });
+      void persistOnExit();
     };
 
     document.addEventListener("visibilitychange", flushOnHide);
@@ -105,10 +146,21 @@ export function useStudioFlowAutoSave(
       window.removeEventListener("pagehide", flushOnUnload);
 
       if (isDirty()) {
-        void saveStudioFlow(sessionId, latestRef.current, { keepalive: true });
+        void persistOnExit();
       }
     };
-  }, [isDirty, persist, sessionId]);
+  }, [isDirty, persistOnExit]);
 
-  return { saveState, flushSave };
+  const markSynced = useCallback((snapshot?: StudioFlowPersistState) => {
+    savedSnapshotRef.current = snapshotOf(snapshot ?? latestRef.current);
+    if (isMountedRef.current) {
+      setSaveState("saved");
+    }
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  return { saveState, flushSave, markSynced };
 }

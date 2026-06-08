@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
+import { parseRequestJson } from "@/lib/http/json";
 import { prisma } from "@/lib/db";
 
 const preferencesSchema = z.object({
@@ -34,7 +35,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => null);
+  const body = await parseRequestJson(request);
   const result = preferencesSchema.safeParse(body);
 
   if (!result.success) {

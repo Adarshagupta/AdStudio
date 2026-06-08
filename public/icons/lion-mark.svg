@@ -1,0 +1,33 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="112" fill="#FFFFFF"/>
+  <rect width="512" height="512" rx="112" stroke="#E4E4E7" stroke-width="8"/>
+  <g transform="translate(96 72) scale(1)">
+    <ellipse cx="160" cy="268" rx="88" ry="14" fill="#E8D9A8" opacity="0.35" />
+    <circle cx="160" cy="168" r="92" fill="#F4C84A" />
+    <circle cx="160" cy="168" r="92" fill="url(#lionBody)" />
+    <circle cx="118" cy="118" r="34" fill="#8B5A2B" />
+    <circle cx="202" cy="118" r="34" fill="#8B5A2B" />
+    <circle cx="160" cy="108" r="48" fill="#8B5A2B" />
+    <circle cx="160" cy="178" r="72" fill="#F4C84A" />
+    <ellipse cx="160" cy="188" rx="58" ry="50" fill="#F7D56B" />
+    <circle cx="132" cy="162" r="10" fill="#1F2937" />
+    <circle cx="188" cy="162" r="10" fill="#1F2937" />
+    <circle cx="135" cy="159" r="3" fill="#fff" />
+    <circle cx="191" cy="159" r="3" fill="#fff" />
+    <ellipse cx="160" cy="188" rx="18" ry="12" fill="#E8A83A" />
+    <ellipse cx="160" cy="198" rx="10" ry="7" fill="#C97B2D" />
+    <path d="M108 198c-8 14-4 28 8 34M212 198c8 14 4 28-8 34" stroke="#E8A83A" stroke-width="8" stroke-linecap="round" />
+    <rect x="78" y="208" width="52" height="16" rx="8" fill="#0D9488" transform="rotate(-28 78 208)" />
+    <rect x="78" y="204" width="40" height="10" rx="5" fill="#14B8A6" transform="rotate(-28 78 204)" />
+    <rect x="196" y="206" width="12" height="48" rx="6" fill="#0D9488" transform="rotate(18 202 230)" />
+    <rect x="200" y="210" width="8" height="36" rx="4" fill="#14B8A6" transform="rotate(18 204 228)" />
+    <circle cx="88" cy="214" r="10" fill="#14B8A6" />
+    <circle cx="228" cy="248" r="8" fill="#14B8A6" />
+  </g>
+  <defs>
+    <radialGradient id="lionBody" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(286 212) rotate(45) scale(180)">
+      <stop stop-color="#FFE08A" />
+      <stop offset="1" stop-color="#F4B942" />
+    </radialGradient>
+  </defs>
+</svg>

@@ -1,0 +1,8 @@
+# Mobile app — built and run locally/Android only, not part of the Next.js deployment
+flutter_app
+
+# Local Python / tooling caches
+.venv-aws
+
+# Test coverage output
+coverage

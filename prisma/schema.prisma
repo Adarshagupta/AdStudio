@@ -62,8 +62,9 @@ enum EmailReminderStatus {
 
 enum Plan {
   FREE
+  STARTER
+  PLUS
   PRO
-  ENTERPRISE
 }
 
 enum GenerationFormat {
@@ -86,6 +87,17 @@ enum BrandAssetType {
   FONT
 }
 
+enum MediaAssetKind {
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum MediaAssetSource {
+  UPLOADED
+  GENERATED
+}
+
 enum SocialProvider {
   INSTAGRAM
   TIKTOK
@@ -93,54 +105,116 @@ enum SocialProvider {
   REDDIT
 }
 
+enum NotificationType {
+  GENERATION_COMPLETE
+  GENERATION_FAILED
+  MEMBER_JOINED
+  SYSTEM
+}
+
+enum StudioTemplateListingStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CompanySize {
+  SIZE_1_5
+  SIZE_6_50
+  SIZE_51_100
+  SIZE_100_PLUS
+}
+
+enum MonthlyAdSpend {
+  UNDER_20K
+  SPEND_20K_100K
+  SPEND_100K_1M
+  SPEND_1M_PLUS
+}
+
 model Workspace {
   id               String        @id @default(cuid())
   name             String
   slug             String        @unique
   plan             Plan          @default(FREE)
-  creditsRemaining Int           @default(25)
-  createdAt        DateTime      @default(now())
-  users            User[]
+  stripeCustomerId          String?       @unique
+  stripeSubscriptionId      String?       @unique
+  billingInterval           String?
+  creditsRemaining          Int           @default(0)
+  welcomeCreditsClaimedAt   DateTime?
+  paymentSetupSkippedAt     DateTime?
+  paymentSetupCompletedAt   DateTime?
+  agentBrandTone            String?
+  agentTargetAudience       String?
+  agentDefaultAspectRatio   String?
+  createdAt                 DateTime      @default(now())
+  members          WorkspaceMember[]
   generations      Generation[]
+  longFormVideos   StudioLongFormVideo[]
   avatars          Avatar[]
   brandAssets      BrandAsset[]
   sessions           Session[]
   studioFlows        StudioFlow[]
+  mediaAssets        UserMediaAsset[]
   socialConnections  SocialConnection[]
   invites            WorkspaceInvite[]
   emailEvents        EmailEvent[]
   emailTemplates     EmailTemplate[]
   emailCampaigns     EmailCampaign[]
   emailReminders     EmailReminder[]
+  lastWorkspaceUsers User[]            @relation("UserLastWorkspace")
+  onboarding         WorkspaceOnboarding?
+  notifications      Notification[]
+  templateListings   StudioTemplateListing[]
+  templatePurchases  StudioTemplatePurchase[]
 }
 
 model User {
-  id          String       @id @default(cuid())
-  clerkId     String?      @unique
-  email       String       @unique
-  name        String?
-  passwordHash String?
-  workspaceId String
-  role        Role         @default(MEMBER)
-  permissions Json         @default("{}")
-  isActive    Boolean      @default(true)
-  emailVerifiedAt DateTime?
-  createdAt   DateTime     @default(now())
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id])
-  generations Generation[]
-  sessions    Session[]
-  studioFlows StudioFlow[]
+  id               String       @id @default(cuid())
+  clerkId          String?      @unique
+  email            String       @unique
+  name             String?
+  passwordHash     String?
+  lastWorkspaceId  String?
+  isActive         Boolean      @default(true)
+  emailVerifiedAt  DateTime?
+  createdAt        DateTime     @default(now())
+  lastWorkspace    Workspace?   @relation("UserLastWorkspace", fields: [lastWorkspaceId], references: [id])
+  memberships      WorkspaceMember[]
+  generations      Generation[]
+  longFormVideos   StudioLongFormVideo[]
+  sessions         Session[]
+  studioFlows      StudioFlow[]
+  mediaAssets      UserMediaAsset[]
   sentWorkspaceInvites WorkspaceInvite[] @relation("WorkspaceInvitesSent")
-  emailTokens EmailToken[]
-  emailPreference EmailPreference?
-  emailEvents EmailEvent[]
+  emailTokens      EmailToken[]
+  emailPreference  EmailPreference?
+  emailEvents      EmailEvent[]
   createdEmailCampaigns EmailCampaign[]
   receivedEmailReminders EmailReminder[] @relation("EmailReminderRecipient")
   createdEmailReminders EmailReminder[] @relation("EmailReminderCreator")
+  notifications         Notification[]
+  publishedTemplates    StudioTemplateListing[]
+  templatePurchases     StudioTemplatePurchase[]
 
-  @@index([workspaceId])
-  @@index([workspaceId, isActive])
+  @@index([lastWorkspaceId])
   @@index([emailVerifiedAt])
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        Role      @default(MEMBER)
+  permissions Json      @default("{}")
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId, isActive])
+  @@index([userId, isActive])
 }
 
 model Session {
@@ -184,6 +258,54 @@ model Generation {
   @@index([workspaceId, createdAt])
   @@index([userId])
   @@index([xaiRequestId])
+}
+
+model StudioLongFormVideo {
+  id                String                  @id @default(cuid())
+  workspaceId       String
+  userId            String
+  studioFlowId      String?
+  title             String                  @default("Long-form video")
+  prompt            String?
+  targetDurationSec Int?
+  status            GenerationStatus        @default(QUEUED)
+  settings          Json                    @default("{}")
+  finalVideoUrl     String?
+  thumbnailUrl      String?
+  errorMessage      String?
+  renderTimeMs      Int?
+  createdAt         DateTime                @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  workspace         Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  segments          StudioLongFormSegment[]
+
+  @@index([workspaceId, createdAt])
+  @@index([userId])
+  @@index([studioFlowId])
+}
+
+model StudioLongFormSegment {
+  id              String              @id @default(cuid())
+  longFormVideoId String
+  generationId    String?
+  nodeId          String?
+  index           Int
+  title           String
+  prompt          String?
+  status          GenerationStatus    @default(QUEUED)
+  videoUrl        String?
+  durationSec     Int?
+  errorMessage    String?
+  createdAt       DateTime            @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  longFormVideo   StudioLongFormVideo @relation(fields: [longFormVideoId], references: [id], onDelete: Cascade)
+
+  @@unique([longFormVideoId, index])
+  @@index([generationId])
+  @@index([nodeId])
 }
 
 model Avatar {
@@ -342,6 +464,28 @@ model EmailReminder {
   @@index([userId, sendAt])
 }
 
+model UserMediaAsset {
+  id          String           @id @default(cuid())
+  userId      String
+  workspaceId String
+  kind        MediaAssetKind
+  source      MediaAssetSource
+  url         String
+  name        String?
+  mimeType    String?
+  width       Int?
+  height      Int?
+  durationSec Int?
+  byteSize    Int?
+  createdAt   DateTime         @default(now())
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, url])
+  @@index([userId, kind, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
 model StudioFlow {
   id          String    @id @default(cuid())
   workspaceId String
@@ -350,6 +494,7 @@ model StudioFlow {
   nodes       Json      @default("[]")
   edges       Json      @default("[]")
   viewport    Json      @default("{}")
+  agentChat   Json      @default("{\"messages\":[],\"requestHistory\":[],\"updatedAt\":\"\"}")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -357,6 +502,86 @@ model StudioFlow {
 
   @@index([workspaceId, updatedAt])
   @@index([userId])
+}
+
+model StudioTemplateListing {
+  id                   String                      @id @default(cuid())
+  slug                 String                      @unique
+  title                String
+  description          String                      @default("")
+  previewImageUrl      String?
+  sampleOutputs        Json                        @default("[]")
+  priceCents           Int                         @default(0)
+  currency             String                      @default("usd")
+  status               StudioTemplateListingStatus @default(DRAFT)
+  publisherUserId      String
+  publisherWorkspaceId String
+  sourceFlowId         String?
+  nodes                Json                        @default("[]")
+  edges                Json                        @default("[]")
+  viewport             Json                        @default("{}")
+  category             String?
+  tags                 Json                        @default("[]")
+  useCount             Int                         @default(0)
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  publisherUser        User                        @relation(fields: [publisherUserId], references: [id], onDelete: Cascade)
+  publisherWorkspace   Workspace                   @relation(fields: [publisherWorkspaceId], references: [id], onDelete: Cascade)
+  purchases            StudioTemplatePurchase[]
+
+  @@index([status, createdAt])
+  @@index([publisherWorkspaceId, status])
+  @@index([category])
+}
+
+model StudioTemplatePurchase {
+  id                      String                @id @default(cuid())
+  workspaceId             String
+  listingId               String
+  purchasedByUserId       String
+  stripeCheckoutSessionId String                @unique
+  stripePaymentIntentId   String?
+  amountCents             Int
+  currency                String                @default("usd")
+  createdAt               DateTime              @default(now())
+  workspace               Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  listing                 StudioTemplateListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  purchasedByUser         User                  @relation(fields: [purchasedByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, listingId])
+  @@index([listingId])
+  @@index([workspaceId])
+}
+
+model WorkspaceOnboarding {
+  id              String          @id @default(cuid())
+  workspaceId     String          @unique
+  companyName     String?
+  companySize     CompanySize?
+  monthlyAdSpend  MonthlyAdSpend?
+  hearAboutSource String?
+  hearAboutOther  String?
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  workspaceId String
+  type        NotificationType
+  title       String
+  message     String
+  href        String?
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([workspaceId, createdAt])
 }
 
 model SocialConnection {

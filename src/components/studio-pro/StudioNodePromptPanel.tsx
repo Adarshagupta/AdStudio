@@ -1,5 +1,7 @@
 "use client";
 
+import { StudioNodeAssetUpload } from "@/components/studio-pro/StudioNodeAssetUpload";
+import { studioNodeDisplayText } from "@/lib/studio-pro/display-text";
 import type { StudioNode } from "@/lib/studio-pro/types";
 
 const compactField =
@@ -13,26 +15,57 @@ export function StudioNodePromptPanel({
   onChange: (data: Partial<StudioNode["data"]>) => void;
 }) {
   return (
-    <div
-      className="mt-2 w-full rounded-lg bg-white/95 px-3 py-2.5 shadow-sm ring-1 ring-zinc-200/80 backdrop-blur-sm"
-      onPointerDown={(event) => event.stopPropagation()}
-    >
+    <div className="w-full" onPointerDown={(event) => event.stopPropagation()}>
       {renderFields(node, onChange)}
     </div>
   );
 }
 
+function NodeTextarea({
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  rows?: number;
+}) {
+  return (
+    <textarea
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      rows={rows}
+      className={`${compactField} min-h-[52px] max-h-80 resize-y dark:border-zinc-700 dark:text-zinc-100`}
+      placeholder={placeholder}
+    />
+  );
+}
+
 function renderFields(node: StudioNode, onChange: (data: Partial<StudioNode["data"]>) => void) {
   if (node.type === "prompt") {
+    const generated = studioNodeDisplayText(node);
+    const showGenerated = Boolean(
+      generated && generated !== (node.data.prompt ?? "").trim(),
+    );
+
     return (
-      <textarea
-        value={node.data.prompt ?? ""}
-        onChange={(event) => onChange({ prompt: event.target.value })}
-        rows={2}
-        className={`${compactField} min-h-[44px] resize-none`}
-        placeholder="Prompt..."
-        autoFocus
-      />
+      <div className="space-y-2">
+        <NodeTextarea
+          value={node.data.prompt ?? ""}
+          onChange={(value) => onChange({ prompt: value })}
+          placeholder="Prompt..."
+        />
+        {showGenerated ? (
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2">
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+              Generated
+            </p>
+            <p className="whitespace-pre-wrap text-[11px] leading-[1.45] text-zinc-700">{generated}</p>
+          </div>
+        ) : null}
+      </div>
     );
   }
 
@@ -45,41 +78,52 @@ function renderFields(node: StudioNode, onChange: (data: Partial<StudioNode["dat
           className={compactField}
           placeholder="Name"
         />
-        <textarea
+        <NodeTextarea
           value={node.data.prompt ?? ""}
-          onChange={(event) => onChange({ prompt: event.target.value })}
-          rows={2}
-          className={`${compactField} min-h-[44px] resize-none`}
+          onChange={(value) => onChange({ prompt: value })}
           placeholder="Character brief..."
-          autoFocus
         />
       </div>
     );
   }
 
-  if (node.type === "image" || node.type === "video") {
+  if (node.type === "image") {
     return (
-      <textarea
-        value={node.data.prompt ?? ""}
-        onChange={(event) => onChange({ prompt: event.target.value })}
-        rows={2}
-        className={`${compactField} min-h-[44px] resize-none`}
-        placeholder={node.type === "image" ? "Image prompt..." : "Video prompt..."}
-        autoFocus
-      />
+      <div className="space-y-2">
+        <StudioNodeAssetUpload node={node} onChange={onChange} compact />
+        <NodeTextarea
+          value={node.data.prompt ?? ""}
+          onChange={(value) => onChange({ prompt: value })}
+          placeholder="Shot notes (uses upstream Text / Character context)..."
+          rows={2}
+        />
+      </div>
+    );
+  }
+
+  if (node.type === "video") {
+    return (
+      <div className="space-y-2">
+        <StudioNodeAssetUpload node={node} onChange={onChange} compact />
+        <NodeTextarea
+          value={node.data.prompt ?? ""}
+          onChange={(value) => onChange({ prompt: value })}
+          placeholder="Segment shot notes — lines & scene for THIS clip only (character/script live upstream)..."
+          rows={2}
+        />
+      </div>
     );
   }
 
   if (node.type === "audio") {
     return (
       <div className="space-y-2">
-        <textarea
+        <StudioNodeAssetUpload node={node} onChange={onChange} compact />
+        <NodeTextarea
           value={node.data.prompt ?? ""}
-          onChange={(event) => onChange({ prompt: event.target.value })}
-          rows={2}
-          className={`${compactField} min-h-[44px] resize-none`}
+          onChange={(value) => onChange({ prompt: value })}
           placeholder="Speech script..."
-          autoFocus
+          rows={2}
         />
         <div className="flex gap-4 pt-0.5">
           <input

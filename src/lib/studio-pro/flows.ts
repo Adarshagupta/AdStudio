@@ -3,6 +3,11 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import {
+  emptyAgentChatSnapshot,
+  parseAgentChatSnapshot,
+  type StudioAgentChatSnapshot,
+} from "@/lib/studio-pro/agent-sessions";
 import type { StudioEdge, StudioNode } from "@/lib/studio-pro/types";
 
 export type StudioViewport = {
@@ -17,7 +22,10 @@ export type StudioFlowSnapshot = {
   nodes: StudioNode[];
   edges: StudioEdge[];
   viewport: StudioViewport;
+  agentChat: StudioAgentChatSnapshot;
 };
+
+export { parseAgentChatSnapshot, type StudioAgentChatSnapshot };
 
 const defaultViewport: StudioViewport = { zoom: 0.9, pan: { x: 0, y: 0 } };
 
@@ -35,6 +43,7 @@ export function parseFlowSnapshot(
   nodes: Prisma.JsonValue,
   edges: Prisma.JsonValue,
   viewport: Prisma.JsonValue,
+  agentChat?: Prisma.JsonValue,
 ): StudioFlowSnapshot {
   const parsedNodes = Array.isArray(nodes) ? (nodes as StudioNode[]) : [];
   const parsedEdges = Array.isArray(edges) ? (edges as StudioEdge[]) : [];
@@ -59,6 +68,7 @@ export function parseFlowSnapshot(
             }
           : undefined,
     },
+    agentChat: parseAgentChatSnapshot(agentChat),
   };
 }
 
@@ -71,6 +81,7 @@ export async function createStudioFlow(workspaceId: string, userId: string, name
       nodes: [],
       edges: [],
       viewport: defaultViewport,
+      agentChat: emptyAgentChatSnapshot(),
     },
     select: {
       id: true,
@@ -84,6 +95,40 @@ export async function createStudioFlow(workspaceId: string, userId: string, name
 export async function getStudioFlowForUser(flowId: string, workspaceId: string) {
   return prisma.studioFlow.findFirst({
     where: { id: flowId, workspaceId },
+  });
+}
+
+export async function studioFlowAccessForUser(flowId: string, workspaceId: string) {
+  return prisma.studioFlow.findFirst({
+    where: { id: flowId, workspaceId },
+    select: { id: true },
+  });
+}
+
+export async function createStudioFlowFromSnapshot(
+  workspaceId: string,
+  userId: string,
+  snapshot: {
+    nodes: StudioNode[];
+    edges: StudioEdge[];
+    viewport?: StudioViewport;
+  },
+  name?: string,
+) {
+  return prisma.studioFlow.create({
+    data: {
+      workspaceId,
+      userId,
+      name: name?.trim() || "Untitled flow",
+      nodes: normalizeFlowNodes(snapshot.nodes) as Prisma.InputJsonValue,
+      edges: snapshot.edges as Prisma.InputJsonValue,
+      viewport: (snapshot.viewport ?? defaultViewport) as Prisma.InputJsonValue,
+      agentChat: emptyAgentChatSnapshot(),
+    },
+    select: {
+      id: true,
+      name: true,
+    },
   });
 }
 
@@ -109,6 +154,7 @@ export async function updateStudioFlow(
     nodes?: StudioNode[];
     edges?: StudioEdge[];
     viewport?: StudioViewport;
+    agentChat?: StudioAgentChatSnapshot;
   },
 ) {
   return prisma.studioFlow.updateMany({
@@ -118,6 +164,9 @@ export async function updateStudioFlow(
       ...(data.nodes !== undefined ? { nodes: normalizeFlowNodes(data.nodes) as Prisma.InputJsonValue } : {}),
       ...(data.edges !== undefined ? { edges: data.edges as Prisma.InputJsonValue } : {}),
       ...(data.viewport !== undefined ? { viewport: data.viewport as Prisma.InputJsonValue } : {}),
+      ...(data.agentChat !== undefined
+        ? { agentChat: data.agentChat as Prisma.InputJsonValue }
+        : {}),
     },
   });
 }

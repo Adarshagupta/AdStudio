@@ -1,4 +1,4 @@
-import { createNode, type StudioEdge, type StudioNode, type StudioNodeType } from "@/lib/studio-pro/types";
+import { createNode, type StudioEdge, type StudioNode, type StudioNodeData, type StudioNodeType } from "@/lib/studio-pro/types";
 
 export type StudioTemplate = {
   id: string;
@@ -10,11 +10,82 @@ export type StudioTemplate = {
     type: StudioNodeType;
     x: number;
     y: number;
+    title?: string;
+    data?: Partial<StudioNodeData>;
   }>;
   edgeSpecs: Array<{ source: string; target: string }>;
 };
 
 export const studioTemplates: StudioTemplate[] = [
+  {
+    id: "multi-clip",
+    name: "Multi-Clip Ad",
+    description: "Consistent segments you export as one long-form video.",
+    accent: "from-purple-500/30 to-purple-500/5",
+    nodeSpecs: [
+      {
+        key: "character",
+        type: "character",
+        x: 60,
+        y: 200,
+        title: "Character",
+        data: {
+          prompt:
+            "Full look & voice bible: age, wardrobe, hair, skin, energy, speaking style. Keep identical in every clip.",
+        },
+      },
+      {
+        key: "prompt",
+        type: "prompt",
+        x: 60,
+        y: 520,
+        title: "Campaign script",
+        data: {
+          prompt: "Full script or campaign brief. Long copy is fine — context is compressed smartly at run time.",
+        },
+      },
+      {
+        key: "image",
+        type: "image",
+        x: 400,
+        y: 200,
+        title: "Hero frame",
+        data: {
+          prompt: "Hero frame: subject, product, lighting, setting. Locks visual consistency for all video segments.",
+        },
+      },
+      {
+        key: "video1",
+        type: "video",
+        x: 780,
+        y: 140,
+        title: "Segment 1",
+        data: {
+          prompt: "Segment 1 — opening hook, scene, and spoken lines for THIS clip only.",
+        },
+      },
+      {
+        key: "video2",
+        type: "video",
+        x: 1140,
+        y: 140,
+        title: "Segment 2",
+        data: {
+          prompt: "Segment 2 — continue from segment 1. Match end-state; same talent, wardrobe, and lighting.",
+        },
+      },
+    ],
+    edgeSpecs: [
+      { source: "character", target: "image" },
+      { source: "prompt", target: "image" },
+      { source: "image", target: "video1" },
+      { source: "character", target: "video1" },
+      { source: "prompt", target: "video1" },
+      { source: "video1", target: "video2" },
+      { source: "character", target: "video2" },
+      { source: "prompt", target: "video2" },
+    ],
+  },
   {
     id: "ugc-video",
     name: "UGC Video",
@@ -81,6 +152,8 @@ export function buildTemplateFlow(template: StudioTemplate): { nodes: StudioNode
     const node = createNode(spec.type, spec.x, spec.y, {
       id: `${spec.key}-${crypto.randomUUID().slice(0, 8)}`,
       zIndex: index,
+      title: spec.title,
+      data: spec.data,
     });
     idMap.set(spec.key, node.id);
     return node;

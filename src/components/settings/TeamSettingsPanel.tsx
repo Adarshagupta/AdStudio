@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -26,6 +27,8 @@ import {
   type WorkspacePermissions,
   type WorkspaceRole,
 } from "@/lib/permissions";
+import { formatValidationErrors, readJsonResponse as readApiResponse } from "@/lib/http/json";
+import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 type Member = {
@@ -69,8 +72,6 @@ export function TeamSettingsPanel({
   const [members, setMembers] = useState(initialMembers);
   const [invites, setInvites] = useState(initialInvites);
   const [search, setSearch] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<EditableMember | null>(null);
@@ -96,8 +97,6 @@ export function TeamSettingsPanel({
     role: WorkspaceRole,
     permissions: WorkspacePermissions,
   ) {
-    setError(null);
-    setNotice(null);
     setBusyAction(`member:${memberId}`);
 
     try {
@@ -106,41 +105,39 @@ export function TeamSettingsPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role, permissions }),
       });
-      const data = (await response.json()) as { member?: Member; error?: string };
+      const data = await readApiResponse<{ member?: Member; error?: string }>(response);
 
       if (!response.ok || !data.member) {
         throw new Error(data.error ?? "Could not update member access.");
       }
 
       setMembers((items) => items.map((item) => (item.id === memberId ? data.member! : item)));
-      setNotice("Saved.");
+      notify.success("Saved.");
       setEditingMember(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update member access.");
+      notify.error(err instanceof Error ? err.message : "Could not update member access.");
     } finally {
       setBusyAction(null);
     }
   }
 
   async function removeMember(memberId: string) {
-    setError(null);
-    setNotice(null);
     setBusyAction(`remove:${memberId}`);
 
     try {
       const response = await fetch(`/api/workspace/members/${memberId}`, {
         method: "DELETE",
       });
-      const data = (await response.json()) as { error?: string };
+      const data = await readApiResponse<{ error?: string }>(response);
 
       if (!response.ok) {
         throw new Error(data.error ?? "Could not remove member.");
       }
 
       setMembers((items) => items.filter((item) => item.id !== memberId));
-      setNotice("Removed.");
+      notify.success("Removed.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not remove member.");
+      notify.error(err instanceof Error ? err.message : "Could not remove member.");
     } finally {
       setBusyAction(null);
     }
@@ -148,12 +145,11 @@ export function TeamSettingsPanel({
 
   async function createInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setNotice(null);
+    const form = event.currentTarget;
     setRecentInviteUrl(null);
     setBusyAction("invite:create");
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const payload = {
       email: String(formData.get("email") ?? ""),
       name: String(formData.get("name") ?? ""),
@@ -167,40 +163,47 @@ export function TeamSettingsPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as { invite?: Invite; error?: string; emailError?: string | null };
+      const data = await readApiResponse<{
+        invite?: Invite;
+        error?: string;
+        emailError?: string | null;
+        errors?: {
+          fieldErrors?: Record<string, string[]>;
+          formErrors?: string[];
+        };
+      }>(response);
 
       if (!response.ok || !data.invite) {
-        throw new Error(data.error ?? "Could not create invite.");
+        throw new Error(formatApiError(data, "Could not create invite."));
       }
 
       setInvites((items) => [data.invite!, ...items.filter((item) => item.email !== data.invite!.email)]);
-      setNotice(data.emailError ? `Invite created. Email failed: ${data.emailError}` : "Invite sent.");
+      notify.success(data.emailError ? `Invite created. Email failed: ${data.emailError}` : "Invite sent.");
       setRecentInviteUrl(data.invite.inviteUrl ?? null);
+      selectInvitePreset("creator");
+      if (form.isConnected) {
+        form.reset();
+      }
       setIsInviteOpen(false);
 
       if (data.invite.inviteUrl) {
         await copyToClipboard(data.invite.inviteUrl);
       }
-
-      event.currentTarget.reset();
-      selectInvitePreset("creator");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create invite.");
+      notify.error(err instanceof Error ? err.message : "Could not create invite.");
     } finally {
       setBusyAction(null);
     }
   }
 
   async function refreshInvite(inviteId: string, copy = false) {
-    setError(null);
-    setNotice(null);
     setBusyAction(`invite:${inviteId}`);
 
     try {
       const response = await fetch(`/api/workspace/invites/${inviteId}`, {
         method: "PATCH",
       });
-      const data = (await response.json()) as { invite?: Invite; error?: string; emailError?: string | null };
+      const data = await readApiResponse<{ invite?: Invite; error?: string; emailError?: string | null }>(response);
 
       if (!response.ok || !data.invite) {
         throw new Error(data.error ?? "Could not refresh invite.");
@@ -211,36 +214,34 @@ export function TeamSettingsPanel({
 
       if (copy && data.invite.inviteUrl) {
         await copyToClipboard(data.invite.inviteUrl);
-        setNotice(data.emailError ? "Link copied. Email failed." : "Link copied.");
+        notify.success(data.emailError ? "Link copied. Email failed." : "Link copied.");
       } else {
-        setNotice(data.emailError ? "Refreshed. Email failed." : "Refreshed.");
+        notify.success(data.emailError ? "Refreshed. Email failed." : "Refreshed.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not refresh invite.");
+      notify.error(err instanceof Error ? err.message : "Could not refresh invite.");
     } finally {
       setBusyAction(null);
     }
   }
 
   async function revokeInvite(inviteId: string) {
-    setError(null);
-    setNotice(null);
     setBusyAction(`revoke:${inviteId}`);
 
     try {
       const response = await fetch(`/api/workspace/invites/${inviteId}`, {
         method: "DELETE",
       });
-      const data = (await response.json()) as { error?: string };
+      const data = await readApiResponse<{ error?: string }>(response);
 
       if (!response.ok) {
         throw new Error(data.error ?? "Could not revoke invite.");
       }
 
       setInvites((items) => items.filter((item) => item.id !== inviteId));
-      setNotice("Revoked.");
+      notify.success("Revoked.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not revoke invite.");
+      notify.error(err instanceof Error ? err.message : "Could not revoke invite.");
     } finally {
       setBusyAction(null);
     }
@@ -412,8 +413,6 @@ export function TeamSettingsPanel({
         </Card>
       ) : null}
 
-      {error ? <StatusMessage tone="error" message={error} /> : null}
-      {notice ? <StatusMessage tone="success" message={notice} /> : null}
       {recentInviteUrl ? (
         <p className="truncate rounded-lg border bg-zinc-50 px-3 py-2 text-xs text-muted-foreground">
           {recentInviteUrl}
@@ -424,6 +423,9 @@ export function TeamSettingsPanel({
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Invite</DialogTitle>
+            <DialogDescription>
+              Add a teammate to this workspace and choose their access level.
+            </DialogDescription>
           </DialogHeader>
           <form className="space-y-4" onSubmit={createInvite}>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -539,6 +541,9 @@ function AccessDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{member?.email}</DialogTitle>
+          <DialogDescription>
+            Adjust this member&apos;s role and workspace permissions.
+          </DialogDescription>
         </DialogHeader>
 
         {draft ? (
@@ -654,22 +659,22 @@ function Field({
   );
 }
 
-function StatusMessage({ tone, message }: { tone: "error" | "success"; message: string }) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border px-3 py-2 text-sm",
-        tone === "error"
-          ? "border-red-100 bg-red-50 text-red-700"
-          : "border-green-100 bg-green-50 text-green-700",
-      )}
-    >
-      {message}
-    </div>
-  );
-}
-
 async function copyToClipboard(value: string) {
   if (!navigator.clipboard) return;
   await navigator.clipboard.writeText(value);
+}
+
+function formatApiError(
+  data: {
+    error?: string;
+    errors?: {
+      fieldErrors?: Record<string, string[]>;
+      formErrors?: string[];
+    };
+  },
+  fallback: string,
+) {
+  if (data.error) return data.error;
+  if (data.errors) return formatValidationErrors(data.errors, fallback);
+  return fallback;
 }

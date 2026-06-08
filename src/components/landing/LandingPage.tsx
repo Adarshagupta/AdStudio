@@ -1,308 +1,154 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  BarChart3,
-  Clapperboard,
-  Instagram,
-  Layers3,
-  Share2,
-  Sparkles,
-  Workflow,
-  Zap,
-} from "lucide-react";
+import { Layers3 } from "lucide-react";
 
+import { LandingCreateSection } from "@/components/landing/LandingCreateSection";
+import { LandingHeroInput } from "@/components/landing/LandingHeroInput";
+import { LandingVideoMarquee } from "@/components/landing/LandingVideoMarquee";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 
-const features = [
-  {
-    icon: Clapperboard,
-    title: "UGC ad formats",
-    description: "Talking head, brain rot, review-style, and split-screen templates built for paid social.",
-  },
-  {
-    icon: Workflow,
-    title: "Studio Pro flows",
-    description: "Node-based canvas for prompts, characters, images, audio, and video — run nodes individually or all at once.",
-  },
-  {
-    icon: Share2,
-    title: "Social publishing",
-    description: "Connect Instagram, TikTok, Facebook, and Reddit from one workspace when you're ready to publish.",
-  },
-  {
-    icon: BarChart3,
-    title: "Workspace analytics",
-    description: "Track generations, render times, and team activity without leaving the platform.",
-  },
-];
-
-const steps = [
-  {
-    step: "01",
-    title: "Describe your ad",
-    description: "Drop a product brief, audience, or hook — or wire up a full flow in Studio Pro.",
-  },
-  {
-    step: "02",
-    title: "Generate & refine",
-    description: "Scripts, voice, visuals, and video drafts powered by Cloudflare AI with per-node control.",
-  },
-  {
-    step: "03",
-    title: "Ship to channels",
-    description: "Export from your library or publish through connected social accounts.",
-  },
-];
-
-const formats = [
-  { name: "UGC Talking Head", tone: "Creator-led scripts for Meta & TikTok" },
-  { name: "Brain Rot", tone: "Fast captions and retention hooks" },
-  { name: "Review Style", tone: "Proof-driven outcomes and social proof" },
-  { name: "Split Screen", tone: "Narration plus product motion" },
+const navLinks = [
+  { label: "Product", href: "#product" },
+  { label: "Studio Pro", href: "#studio" },
+  { label: "Plans", href: "#plans" },
+  { label: "Teams", href: "#teams" },
+  { label: "Help", href: "#help" },
 ];
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#fcfcfc] text-zinc-900">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-32 top-0 h-[28rem] w-[28rem] rounded-full bg-purple-200/30 blur-3xl" />
-        <div className="absolute right-0 top-1/3 h-[24rem] w-[24rem] rounded-full bg-violet-100/40 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-fuchsia-100/30 blur-3xl" />
-      </div>
+    <div className="min-h-screen text-white">
+      <section className="relative flex min-h-screen flex-col overflow-x-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, #4c1d95 0%, #5b21b6 12%, #7c3aed 22%, #0ea5e9 48%, #7dd3fc 72%, #e0e7ff 92%, #f5f3ff 100%)",
+          }}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(255,255,255,0.12),transparent_60%)]" />
 
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-4 py-5 md:px-8">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-purple-200 bg-purple-100 text-xs font-semibold text-purple-950">
-            AS
-          </div>
-          <span className="font-display text-lg font-semibold tracking-tight">Ad Studio</span>
-        </Link>
-        <nav className="hidden items-center gap-8 text-sm text-zinc-600 md:flex">
-          <a href="#features" className="transition hover:text-zinc-900">
-            Features
-          </a>
-          <a href="#how-it-works" className="transition hover:text-zinc-900">
-            How it works
-          </a>
-          <a href="#formats" className="transition hover:text-zinc-900">
-            Formats
-          </a>
-        </nav>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/login">Sign in</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/signup">
-              Get started
-              <ArrowRight className="ml-1.5 h-4 w-4" />
+        <header className="relative z-20 mx-auto flex w-full max-w-6xl items-center justify-between px-5 pb-2 pt-5 md:px-8 md:pt-6 md:pb-3">
+          <Link href="/" className="font-display text-2xl font-bold tracking-tight text-white md:text-[1.65rem]">
+            Ad Studio
+          </Link>
+
+          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 text-sm font-medium text-white/95 md:flex">
+            {navLinks.map((link) => (
+              <a key={link.label} href={link.href} className="transition hover:text-white">
+                {link.label}
+              </a>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/signup"
+              className="rounded-full px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 sm:px-4"
+            >
+              Sign up
             </Link>
-          </Button>
+            <Button
+              asChild
+              size="sm"
+              className="h-9 rounded-full border-0 bg-white px-4 text-sm font-semibold text-violet-950 shadow-md hover:bg-white/95"
+            >
+              <Link href="/login">Log in</Link>
+            </Button>
+          </div>
+        </header>
+
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-start px-5 pb-8 pt-16 text-center md:px-8 md:pt-20 md:pb-12">
+          <h1 className="max-w-4xl font-display text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-[3.35rem]">
+            What will you create today?
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/90 sm:text-lg md:text-xl">
+            Make AI-powered UGC ads, Studio Pro flows, and social-ready videos — all in one workspace.
+          </p>
+
+          <LandingHeroInput />
+
+          <LandingVideoMarquee />
+
+          <p className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-white/75">
+            <span className="flex items-center gap-1.5">
+              <Layers3 className="h-4 w-4" />
+              Claim 25 free credits after signup
+            </span>
+            <span>Payment method optional</span>
+          </p>
         </div>
-      </header>
+      </section>
 
-      <main className="relative z-10">
-        <section className="mx-auto max-w-6xl px-4 pb-20 pt-10 md:px-8 md:pb-28 md:pt-16">
-          <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
-            <div className="space-y-8">
-              <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-4 py-1.5 text-xs font-medium text-purple-700 shadow-sm">
-                <Sparkles className="h-3.5 w-3.5" />
-                UGC ads, flows, and social — in one workspace
-              </div>
-              <div className="space-y-5">
-                <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-tight text-zinc-900 md:text-6xl">
-                  Create scroll-stopping ads without a production team.
-                </h1>
-                <p className="max-w-xl text-base leading-7 text-zinc-600 md:text-lg">
-                  Ad Studio helps marketing teams generate UGC-style video ads, orchestrate multi-step AI flows,
-                  and connect social channels — from brief to publish.
-                </p>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" className="h-12 rounded-full px-7" asChild>
-                  <Link href="/signup">
-                    Start free
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" className="h-12 rounded-full bg-white px-7" asChild>
-                  <Link href="/login">Sign in to workspace</Link>
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-6 text-sm text-zinc-500">
-                <span className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-purple-600" />
-                  25 free credits on signup
-                </span>
-                <span className="flex items-center gap-2">
-                  <Layers3 className="h-4 w-4 text-purple-600" />
-                  Studio Pro node editor
-                </span>
-                <span className="flex items-center gap-2">
-                  <Instagram className="h-4 w-4 text-purple-600" />
-                  Instagram · TikTok · Facebook · Reddit
-                </span>
-              </div>
-            </div>
+      <LandingCreateSection />
 
-            <Card className="relative overflow-hidden border-0 bg-white p-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-              <div className="border-b border-zinc-100 bg-zinc-50/80 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                  <span className="ml-2 text-xs text-zinc-500">Studio Pro · Untitled flow</span>
-                </div>
-              </div>
-              <div className="relative min-h-[22rem] bg-[radial-gradient(circle,rgba(161,161,170,0.25)_1px,transparent_1px)] bg-[length:24px_24px] p-6">
-                <div className="absolute left-8 top-8 w-44 rounded-2xl border border-purple-200 bg-white p-3 shadow-lg">
-                  <div className="mb-2 flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50">
-                      <Sparkles className="h-3.5 w-3.5 text-purple-700" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium">Text</p>
-                      <p className="text-[10px] text-zinc-500">Script draft</p>
-                    </div>
-                  </div>
-                  <div className="h-14 rounded-xl bg-zinc-50" />
-                </div>
-                <div className="absolute left-56 top-24 w-44 rounded-2xl border border-zinc-200 bg-white p-3 shadow-lg">
-                  <div className="mb-2 flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50">
-                      <Clapperboard className="h-3.5 w-3.5 text-purple-700" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium">Image Gen</p>
-                      <p className="text-[10px] text-zinc-500">Stable Diffusion XL</p>
-                    </div>
-                  </div>
-                  <div className="flex h-20 items-center justify-center rounded-xl bg-gradient-to-br from-purple-50 to-violet-100">
-                    <div className="h-8 w-8 rounded-lg bg-white/70" />
-                  </div>
-                </div>
-                <svg className="absolute left-[12.5rem] top-[4.5rem] h-16 w-24 text-purple-300" viewBox="0 0 96 64" fill="none">
-                  <path d="M0 32 C24 32, 24 8, 48 8 C72 8, 72 32, 96 32" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
-                </svg>
-                <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 shadow-md">
-                  <span className="text-[10px] text-zinc-500">+ Prompt</span>
-                  <span className="text-[10px] text-zinc-500">+ Image</span>
-                  <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] text-white">Run all</span>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </section>
-
-        <section id="features" className="border-y border-zinc-100 bg-white/70 py-20 backdrop-blur-sm">
-          <div className="mx-auto max-w-6xl px-4 md:px-8">
-            <div className="mx-auto mb-12 max-w-2xl text-center">
-              <p className="text-sm font-medium text-purple-700">Everything in one place</p>
+      <section id="plans" className="bg-white py-16 text-zinc-900 md:py-20">
+        <div className="mx-auto max-w-6xl px-5 md:px-8">
+          <div className="grid gap-10 md:grid-cols-2 md:items-center">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-violet-700">Plans</p>
               <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl">
-                From first prompt to published ad
+                Start free, scale with your team
               </h2>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {features.map((feature) => {
-                const Icon = feature.icon;
-                return (
-                  <Card key={feature.title} className="border-zinc-100 bg-white p-6 shadow-none transition hover:shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
-                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h3 className="text-base font-medium">{feature.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-600">{feature.description}</p>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section id="how-it-works" className="py-20">
-          <div className="mx-auto max-w-6xl px-4 md:px-8">
-            <div className="mb-12 max-w-2xl">
-              <p className="text-sm font-medium text-purple-700">How it works</p>
-              <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl">
-                Three steps to launch-ready creative
-              </h2>
-            </div>
-            <div className="grid gap-6 md:grid-cols-3">
-              {steps.map((item) => (
-                <div key={item.step} className="rounded-3xl border border-zinc-100 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
-                  <p className="font-display text-3xl font-semibold text-purple-200">{item.step}</p>
-                  <h3 className="mt-4 text-lg font-medium">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-zinc-600">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="formats" className="border-t border-zinc-100 bg-white/70 py-20 backdrop-blur-sm">
-          <div className="mx-auto max-w-6xl px-4 md:px-8">
-            <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-700">Ad formats</p>
-                <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl">
-                  Built for performance marketers
-                </h2>
-              </div>
-              <Button variant="outline" className="bg-white" asChild>
-                <Link href="/signup">Explore all formats</Link>
+              <p className="mt-4 text-sm leading-7 text-zinc-600 md:text-base">
+                Every workspace includes generation credits to get started. Upgrade when you need more volume, seats,
+                or billing controls.
+              </p>
+              <Button asChild className="mt-6 rounded-full">
+                <Link href="/signup">Create free workspace</Link>
               </Button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {formats.map((format) => (
-                <Card key={format.name} className="border-zinc-100 bg-white p-5 shadow-none">
-                  <div className="mb-8 h-24 rounded-2xl bg-gradient-to-br from-zinc-50 to-purple-50" />
-                  <h3 className="text-sm font-medium">{format.name}</h3>
-                  <p className="mt-1 text-xs leading-5 text-zinc-500">{format.tone}</p>
-                </Card>
-              ))}
+            <div className="rounded-3xl border border-zinc-100 bg-zinc-50 p-6 md:p-8">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Included on signup</p>
+              <ul className="mt-4 space-y-3 text-sm text-zinc-700">
+                <li>25 generation credits</li>
+                <li>Dashboard chat for video & image</li>
+                <li>Studio Pro flows & autosave</li>
+                <li>Workspace members & roles</li>
+              </ul>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="py-20">
-          <div className="mx-auto max-w-6xl px-4 md:px-8">
-            <Card className="overflow-hidden border-0 bg-gradient-to-br from-purple-700 via-purple-600 to-violet-600 p-8 text-white shadow-[0_20px_60px_rgba(124,58,237,0.25)] md:p-12">
-              <div className="mx-auto max-w-2xl text-center">
-                <h2 className="font-display text-3xl font-semibold tracking-tight md:text-4xl">
-                  Ready to ship your next winning ad?
-                </h2>
-                <p className="mt-4 text-base leading-7 text-purple-100">
-                  Create a free workspace, generate your first UGC ad, and connect social accounts when you&apos;re ready to publish.
-                </p>
-                <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                  <Button size="lg" variant="secondary" className="h-12 rounded-full bg-white text-purple-700 hover:bg-purple-50" asChild>
-                    <Link href="/signup">Create free account</Link>
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="h-12 rounded-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
-                    asChild
-                  >
-                    <Link href="/login">I already have an account</Link>
-                  </Button>
-                </div>
-              </div>
-            </Card>
+      <section id="teams" className="border-t border-zinc-100 bg-zinc-50 py-16 text-zinc-900 md:py-20">
+        <div className="mx-auto max-w-6xl px-5 md:px-8">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-8 text-center md:p-12">
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-violet-700">Teams</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl">
+              Collaborate on the same canvas
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-zinc-600 md:text-base">
+              Invite teammates, set permissions, and edit Studio Pro sessions together with live cursors and synced
+              flows.
+            </p>
+            <Button asChild variant="outline" className="mt-8 rounded-full bg-white">
+              <Link href="/signup">Invite your team</Link>
+            </Button>
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
 
-      <footer className="relative z-10 border-t border-zinc-100 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-zinc-500 md:flex-row md:px-8">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-purple-200 bg-purple-100 text-[10px] font-semibold text-purple-950">
-              AS
-            </div>
-            <span>Ad Studio</span>
+      <footer id="help" className="border-t border-zinc-200 bg-white py-10 text-zinc-600">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-5 text-sm md:flex-row md:px-8">
+          <div className="flex items-center gap-6">
+            <span className="font-display text-lg font-semibold text-zinc-900">Ad Studio</span>
+            <p className="hidden text-zinc-500 md:block">UGC ads and short-video generation for marketing teams.</p>
           </div>
-          <p>UGC ad and short-video generation for marketing teams.</p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link href="/privacy" className="hover:text-zinc-900">Privacy</Link>
+            <Link href="/terms" className="hover:text-zinc-900">Terms</Link>
+            <Link href="/cookies" className="hover:text-zinc-900">Cookies</Link>
+            <Link href="/contact" className="hover:text-zinc-900">Contact</Link>
+            <Link href="/about" className="hover:text-zinc-900">About</Link>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="hover:text-zinc-900">
+              Log in
+            </Link>
+            <Link href="/signup" className="font-medium text-violet-700 hover:text-violet-900">
+              Sign up
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

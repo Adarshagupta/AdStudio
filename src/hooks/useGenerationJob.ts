@@ -9,6 +9,7 @@ import {
   type GenerationJobStatus,
   type GenerationStyle,
 } from "@/lib/generation-client";
+import { notify } from "@/lib/notify";
 import type { GenerationFormat } from "@prisma/client";
 
 export type GenerationPhase = "idle" | "starting" | "processing" | "done" | "failed";
@@ -67,8 +68,10 @@ export function useGenerationJob() {
         setJobStatus("COMPLETED");
         setPhase("done");
       } catch (err) {
+        const message = err instanceof Error ? err.message : "Generation failed.";
         setPhase("failed");
-        setError(err instanceof Error ? err.message : "Generation failed.");
+        setError(message);
+        notify.error(message);
       }
     },
     [],

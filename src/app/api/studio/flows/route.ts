@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
+import { parseRequestJson } from "@/lib/http/json";
 import { createStudioFlow, listStudioFlows } from "@/lib/studio-pro/flows";
 
 const createSchema = z.object({
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "You do not have access to create Studio Pro sessions." }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => ({}));
+  const body = (await parseRequestJson(request)) ?? {};
   const result = createSchema.safeParse(body);
 
   if (!result.success) {

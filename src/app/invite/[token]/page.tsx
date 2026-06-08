@@ -4,6 +4,7 @@ import { AlertCircle } from "lucide-react";
 import { AcceptInviteForm } from "@/components/settings/AcceptInviteForm";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getAccessLabel } from "@/lib/permissions";
 import { hashInviteToken, isInviteUsable } from "@/lib/team";
@@ -29,6 +30,23 @@ export default async function InvitePage({ params }: { params: { token: string }
     return <InviteUnavailable message="This invite link is no longer active." />;
   }
 
+  const [existingUser, existingMembership, currentUser] = await Promise.all([
+    prisma.user.findUnique({ where: { email: invite.email } }),
+    prisma.workspaceMember.findFirst({
+      where: {
+        workspaceId: invite.workspaceId,
+        isActive: true,
+        user: { email: invite.email },
+      },
+    }),
+    getCurrentUser(),
+  ]);
+
+  const hasExistingAccount = Boolean(existingUser?.isActive && existingUser.passwordHash);
+  const alreadyMember = Boolean(existingMembership);
+  const canJoinSignedIn =
+    Boolean(currentUser?.user.email === invite.email && currentUser.user.emailVerifiedAt);
+
   return (
     <div>
       <div className="fixed left-1/2 top-6 z-10 -translate-x-1/2 rounded-full border bg-white px-4 py-2 text-xs text-muted-foreground">
@@ -38,6 +56,9 @@ export default async function InvitePage({ params }: { params: { token: string }
         email={invite.email}
         token={params.token}
         workspaceName={invite.workspace.name}
+        hasExistingAccount={hasExistingAccount}
+        alreadyMember={alreadyMember}
+        canJoinSignedIn={canJoinSignedIn}
       />
     </div>
   );

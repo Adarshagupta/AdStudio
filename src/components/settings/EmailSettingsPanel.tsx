@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { readJsonResponse, responseErrorMessage } from "@/lib/http/json";
+import { notify } from "@/lib/notify";
 
 type EmailConfig = {
   provider: string;
   ready: boolean;
   missing: string[];
+  warnings?: string[];
   from: string | { address: string; name?: string };
 };
 
@@ -42,18 +44,15 @@ export function EmailSettingsPanel({
   events: EmailEventItem[];
   members: MemberOption[];
 }) {
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isCampaignSubmitting, setIsCampaignSubmitting] = useState(false);
   const [isReminderSubmitting, setIsReminderSubmitting] = useState(false);
 
   async function createCampaign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setNotice(null);
-    setError(null);
+    const form = event.currentTarget;
     setIsCampaignSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const scheduledValue = String(formData.get("scheduledAt") ?? "");
 
     try {
@@ -68,23 +67,25 @@ export function EmailSettingsPanel({
           scheduledAt: scheduledValue ? new Date(scheduledValue).toISOString() : "",
         }),
       });
-      const data = (await response.json()) as {
+      const data = await readJsonResponse<{
         error?: string;
         delivery?: { sent?: number; skipped?: number };
-      };
+      }>(response);
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not send.");
+        throw new Error(responseErrorMessage(response, data, "Could not send."));
       }
 
-      setNotice(
+      notify.success(
         data.delivery
           ? `Sent to ${data.delivery.sent ?? 0}${(data.delivery.skipped ?? 0) > 0 ? `, ${data.delivery.skipped} skipped` : ""}.`
           : "Scheduled.",
       );
-      event.currentTarget.reset();
+      if (form.isConnected) {
+        form.reset();
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send.");
+      notify.error(err instanceof Error ? err.message : "Could not send.");
     } finally {
       setIsCampaignSubmitting(false);
     }
@@ -92,11 +93,10 @@ export function EmailSettingsPanel({
 
   async function createReminder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setNotice(null);
-    setError(null);
+    const form = event.currentTarget;
     setIsReminderSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const sendAt = String(formData.get("sendAt") ?? "");
     const userId = String(formData.get("userId") ?? "");
 
@@ -111,19 +111,21 @@ export function EmailSettingsPanel({
           userId: userId || null,
         }),
       });
-      const data = (await response.json()) as {
+      const data = await readJsonResponse<{
         error?: string;
         delivery?: { sent?: number };
-      };
+      }>(response);
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not schedule.");
+        throw new Error(responseErrorMessage(response, data, "Could not schedule."));
       }
 
-      setNotice(data.delivery ? `Sent to ${data.delivery.sent ?? 0}.` : "Scheduled.");
-      event.currentTarget.reset();
+      notify.success(data.delivery ? `Sent to ${data.delivery.sent ?? 0}.` : "Scheduled.");
+      if (form.isConnected) {
+        form.reset();
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not schedule.");
+      notify.error(err instanceof Error ? err.message : "Could not schedule.");
     } finally {
       setIsReminderSubmitting(false);
     }
@@ -140,9 +142,13 @@ export function EmailSettingsPanel({
           Provider {config.provider} · From {formatFrom(config.from)}
         </p>
       )}
-
-      {notice ? <StatusMessage tone="success" message={notice} /> : null}
-      {error ? <StatusMessage tone="error" message={error} /> : null}
+      {config.warnings?.length ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {config.warnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+        </div>
+      ) : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Card className="bg-white p-4">
@@ -249,21 +255,6 @@ function Field({
         {label}
       </label>
       {children}
-    </div>
-  );
-}
-
-function StatusMessage({ tone, message }: { tone: "error" | "success"; message: string }) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border px-3 py-2 text-sm",
-        tone === "error"
-          ? "border-red-100 bg-red-50 text-red-700"
-          : "border-green-100 bg-green-50 text-green-700",
-      )}
-    >
-      {message}
     </div>
   );
 }
