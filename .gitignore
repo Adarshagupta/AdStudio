@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/.venv-aws
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -16,6 +17,10 @@
 # production
 /build
 
+# Flutter mobile app build artifacts
+/flutter_app/build
+/flutter_app/.dart_tool
+
 # misc
 .DS_Store
 *.pem
@@ -28,6 +33,7 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+.env.vercel.*
 
 # vercel
 .vercel
@@ -35,3 +41,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# studio uploads (served from /studio-assets when not using Vercel Blob)
+/public/studio-assets/*
+!/public/studio-assets/.gitkeep
+.env*

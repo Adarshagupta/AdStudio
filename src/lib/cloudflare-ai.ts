@@ -1,6 +1,10 @@
 import type { GenerationFormat } from "@prisma/client";
 
+import { compressStudioContextText } from "@/lib/studio-pro/context-compression";
 import { resolveCloudflareModel } from "@/lib/cloudflare/models";
+import { fireworksChat, resolveFireworksTextModel } from "@/lib/fireworks-ai";
+import { isOpenAIImageModel } from "@/lib/openai-models";
+import { generateOpenAIImage } from "@/lib/openai-ai";
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
@@ -138,16 +142,6 @@ function formatInstruction(format: GenerationFormat) {
   return "Create a UGC talking-head ad script with hook, problem, product demo, proof, and CTA.";
 }
 
-function extractText(data: CloudflareRunPayload) {
-  const nested = data.result;
-  const content =
-    (typeof nested?.response === "string" ? nested.response : undefined) ??
-    (typeof data.response === "string" ? data.response : undefined) ??
-    (typeof nested?.text === "string" ? nested.text : undefined);
-
-  return content?.trim();
-}
-
 function extractImageUrl(data: CloudflareRunPayload) {
   if (typeof data.imageDataUrl === "string") {
     return data.imageDataUrl;
@@ -238,7 +232,7 @@ function buildImageModelInput(model: string, prompt: string, aspectRatio: string
   if (model.startsWith("@cf/stabilityai/") || model.includes("stable-diffusion")) {
     return {
       prompt,
-      num_steps: 20,
+      num_steps: 10,
       guidance: 7.5,
     };
   }
@@ -300,42 +294,64 @@ function buildVideoModelInput(
   };
 }
 
+const STUDIO_SCRIPT_SYSTEM =
+  "You write compact UGC ad scripts for a visual production pipeline (image + video nodes). " +
+  "Output plain text only. Never use markdown tables, pipes (|), section dividers (---), or multiple script variants. " +
+  "Never write an Image Analysis section unless the brief already describes the image in plain text. " +
+  "Do not invent app or product names — use [AppName] when unknown.";
+
 export async function generateScript(input: {
   prompt: string;
   format: GenerationFormat;
   productUrl?: string;
   model?: string;
+  purpose?: "studio" | "dashboard";
 }) {
-  const model = resolveCloudflareModel("text", input.model);
-  const data = await runCloudflareModel(model, {
+  const studio = input.purpose === "studio";
+
+  return fireworksChat({
+    model: input.model,
     messages: [
       {
         role: "system",
-        content:
-          "You are a senior performance creative strategist. Write practical ad scripts that can be filmed or generated. Keep the output directly usable and avoid placeholders.",
+        content: studio
+          ? STUDIO_SCRIPT_SYSTEM
+          : "You are a senior performance creative strategist. Write practical ad scripts that can be filmed or generated. Keep the output directly usable and avoid placeholders.",
       },
       {
         role: "user",
-        content: [
-          formatInstruction(input.format),
-          `Product brief: ${input.prompt}`,
-          input.productUrl ? `Product URL: ${input.productUrl}` : "",
-          "Return a short-form ad script (about 15 seconds). Include visual direction, spoken lines, caption text, and CTA.",
-        ]
-          .filter(Boolean)
-          .join("\n"),
+        content: studio
+          ? [
+              formatInstruction(input.format),
+              `Brief:\n${input.prompt}`,
+              input.productUrl ? `Product URL: ${input.productUrl}` : "",
+              "Write ONE 15-second UGC script using exactly these labels (plain text, no tables):",
+              "SPOKEN: 3-5 short sentences the creator says on camera",
+              "VISUAL: 1-2 sentences of shot direction",
+              "CAPTIONS: a few on-screen words/phrases",
+              "CTA: one closing line",
+              "Keep the full answer under 150 words.",
+            ]
+              .filter(Boolean)
+              .join("\n")
+          : [
+              formatInstruction(input.format),
+              `Product brief: ${input.prompt}`,
+              input.productUrl ? `Product URL: ${input.productUrl}` : "",
+              "Return ONE 15-second UGC ad script. Use these sections: HOOK, PROBLEM, PRODUCT DEMO, PROOF, CTA.",
+              "Under each section write its timing (e.g. 0-3 sec), then markdown table rows:",
+              "| Visual | shot direction |",
+              "| Spoken | dialogue in quotes |",
+              "| Caption | on-screen text |",
+              "End with FILMING NOTES as bullet points. No preamble, analysis, or extra variants.",
+            ]
+              .filter(Boolean)
+              .join("\n"),
       },
     ],
-    max_tokens: 1024,
-    temperature: 0.7,
+    max_tokens: studio ? 400 : 1024,
+    temperature: studio ? 0.5 : 0.7,
   });
-
-  const content = extractText(data);
-  if (!content) {
-    throw new Error("Cloudflare returned an empty script.");
-  }
-
-  return content;
 }
 
 export async function generateCharacterProfile(input: {
@@ -344,7 +360,6 @@ export async function generateCharacterProfile(input: {
   context?: string;
   model?: string;
 }) {
-  const model = resolveCloudflareModel("text", input.model);
   const name = input.characterName?.trim();
   const brief = input.prompt?.trim();
 
@@ -352,7 +367,8 @@ export async function generateCharacterProfile(input: {
     throw new Error("Add a character name, brief, or connect an upstream Text node.");
   }
 
-  const data = await runCloudflareModel(model, {
+  return fireworksChat({
+    model: input.model,
     messages: [
       {
         role: "system",
@@ -374,14 +390,10 @@ export async function generateCharacterProfile(input: {
     max_tokens: 512,
     temperature: 0.7,
   });
-
-  const content = extractText(data);
-  if (!content) {
-    throw new Error("Cloudflare returned an empty character profile.");
-  }
-
-  return content;
 }
+
+const CLOUDFLARE_FREE_IMAGE_MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
+const PROVIDER_IMAGE_PROMPT_MAX_CHARS = 4_800;
 
 export async function generateImage(input: {
   prompt: string;
@@ -390,10 +402,30 @@ export async function generateImage(input: {
 }) {
   const model = resolveCloudflareModel("image", input.model);
   const aspectRatio = normalizeAspectRatio(input.aspectRatio);
+  const prompt = compressStudioContextText(input.prompt, PROVIDER_IMAGE_PROMPT_MAX_CHARS, {
+    label: "Image prompt",
+  });
 
+  if (isOpenAIImageModel(model)) {
+    try {
+      const openai = await generateOpenAIImage({
+        prompt,
+        model,
+        aspectRatio: input.aspectRatio,
+      });
+      return { imageUrl: openai.imageUrl, provider: model };
+    } catch (openaiError) {
+      console.warn(
+        "[image] OpenAI failed, falling back to Cloudflare SD:",
+        openaiError instanceof Error ? openaiError.message : openaiError,
+      );
+    }
+  }
+
+  const cfModel = isOpenAIImageModel(model) ? CLOUDFLARE_FREE_IMAGE_MODEL : model;
   const data = await runCloudflareModel(
-    model,
-    buildImageModelInput(model, input.prompt, aspectRatio),
+    cfModel,
+    buildImageModelInput(cfModel, prompt, aspectRatio),
   );
 
   const imageUrl = extractImageUrl(data);
@@ -401,7 +433,13 @@ export async function generateImage(input: {
     throw new Error("Cloudflare did not return an image.");
   }
 
-  return { imageUrl };
+  return {
+    imageUrl,
+    provider: cfModel,
+    notice: isOpenAIImageModel(model)
+      ? "OpenAI image is unavailable for this API key. Used free Cloudflare Stable Diffusion instead."
+      : undefined,
+  };
 }
 
 export async function generateAudio(input: {
@@ -430,7 +468,7 @@ export async function generateAudio(input: {
   return { audioUrl };
 }
 
-export async function startVideoGeneration(input: {
+export async function startCloudflareVideoGeneration(input: {
   prompt: string;
   scriptText: string;
   format: GenerationFormat;
@@ -507,7 +545,7 @@ export async function startVideoGeneration(input: {
   throw new Error("Cloudflare did not return a video URL or job id.");
 }
 
-export async function pollVideoGeneration(requestId: string) {
+export async function pollCloudflareVideoGeneration(requestId: string) {
   const ref = decodeProviderJob(requestId);
 
   if (ref.kind === "sync") {
@@ -551,7 +589,7 @@ export async function pollVideoGeneration(requestId: string) {
 
 export function getConfiguredCloudflareModels() {
   return {
-    text: resolveCloudflareModel("text"),
+    text: resolveFireworksTextModel(),
     image: resolveCloudflareModel("image"),
     audio: resolveCloudflareModel("audio"),
     video: resolveCloudflareModel("video"),

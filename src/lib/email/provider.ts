@@ -51,11 +51,13 @@ export function getEmailConfigStatus() {
   const missingKeys = missing
     .filter(([, value]) => !value?.trim())
     .map(([key]) => key);
+  const warnings = getEmailConfigWarnings(provider);
 
   return {
     provider: getEmailProviderName(provider),
     ready: missingKeys.length === 0,
     missing: missingKeys,
+    warnings,
     from: getFromAddress(),
     replyTo: getReplyToAddress(),
   };
@@ -305,6 +307,18 @@ function getEmailProvider(): EmailProvider {
   }
 
   return process.env.SMTP_HOST?.trim() ? "smtp" : "cloudflare";
+}
+
+function getEmailConfigWarnings(provider: EmailProvider) {
+  const warnings: string[] = [];
+  const host = process.env.SMTP_HOST?.trim().toLowerCase() ?? "";
+  const from = process.env.EMAIL_FROM?.trim().toLowerCase() ?? "";
+
+  if (provider === "smtp" && host.includes("brevo") && from.endsWith("@smtp-brevo.com")) {
+    warnings.push("EMAIL_FROM should be a verified Brevo sender email, not the SMTP login.");
+  }
+
+  return warnings;
 }
 
 function getReplyToAddress(): EmailAddress | undefined {

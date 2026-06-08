@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
+import { parseRequestJson } from "@/lib/http/json";
 import { prisma } from "@/lib/db";
 import {
   allWorkspacePermissions,
   normalizePermissions,
   workspacePermissionKeys,
 } from "@/lib/permissions";
+import { countActiveWorkspaceAdmins, toMemberListItem } from "@/lib/workspace-members";
 
 const permissionsSchema = z.object(
   workspacePermissionKeys.reduce(
@@ -43,18 +45,28 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "You cannot change your own access." }, { status: 400 });
   }
 
-  const body = await request.json().catch(() => null);
+  const body = await parseRequestJson(request);
   const result = updateMemberSchema.safeParse(body);
 
   if (!result.success) {
     return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
   }
 
-  const member = await prisma.user.findFirst({
+  const member = await prisma.workspaceMember.findFirst({
     where: {
-      id: context.params.userId,
+      userId: context.params.userId,
       workspaceId: currentUser.workspace.id,
       isActive: true,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+        },
+      },
     },
   });
 
@@ -63,13 +75,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   if (member.role === "ADMIN" && result.data.role !== "ADMIN") {
-    const adminCount = await prisma.user.count({
-      where: {
-        workspaceId: currentUser.workspace.id,
-        role: "ADMIN",
-        isActive: true,
-      },
-    });
+    const adminCount = await countActiveWorkspaceAdmins(currentUser.workspace.id);
 
     if (adminCount <= 1) {
       return NextResponse.json({ error: "Keep at least one active admin in the workspace." }, { status: 400 });
@@ -81,27 +87,35 @@ export async function PATCH(request: Request, context: RouteContext) {
       ? allWorkspacePermissions
       : normalizePermissions(result.data.permissions, result.data.role);
 
-  const updatedMember = await prisma.user.update({
+  const updatedMember = await prisma.workspaceMember.update({
     where: { id: member.id },
     data: {
       role: result.data.role,
       permissions,
     },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      permissions: true,
-      createdAt: true,
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+        },
+      },
     },
   });
 
   return NextResponse.json({
-    member: {
-      ...updatedMember,
+    member: toMemberListItem({
+      id: updatedMember.id,
+      userId: updatedMember.userId,
+      workspaceId: updatedMember.workspaceId,
+      role: updatedMember.role,
       permissions: normalizePermissions(updatedMember.permissions, updatedMember.role),
-    },
+      isActive: updatedMember.isActive,
+      createdAt: updatedMember.createdAt,
+      user: updatedMember.user,
+    }),
   });
 }
 
@@ -120,9 +134,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "You cannot remove yourself." }, { status: 400 });
   }
 
-  const member = await prisma.user.findFirst({
+  const member = await prisma.workspaceMember.findFirst({
     where: {
-      id: context.params.userId,
+      userId: context.params.userId,
       workspaceId: currentUser.workspace.id,
       isActive: true,
     },
@@ -133,13 +147,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   }
 
   if (member.role === "ADMIN") {
-    const adminCount = await prisma.user.count({
-      where: {
-        workspaceId: currentUser.workspace.id,
-        role: "ADMIN",
-        isActive: true,
-      },
-    });
+    const adminCount = await countActiveWorkspaceAdmins(currentUser.workspace.id);
 
     if (adminCount <= 1) {
       return NextResponse.json({ error: "Keep at least one active admin in the workspace." }, { status: 400 });
@@ -147,8 +155,13 @@ export async function DELETE(_request: Request, context: RouteContext) {
   }
 
   await prisma.$transaction([
-    prisma.session.deleteMany({ where: { userId: member.id } }),
-    prisma.user.update({
+    prisma.session.deleteMany({
+      where: {
+        userId: member.userId,
+        workspaceId: currentUser.workspace.id,
+      },
+    }),
+    prisma.workspaceMember.update({
       where: { id: member.id },
       data: { isActive: false },
     }),

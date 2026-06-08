@@ -1,11 +1,14 @@
 import type { GenerationFormat, GenerationStatus } from "@prisma/client";
 
+import { getGenerationOutputType, type DashboardOutputType } from "@/lib/dashboard-generation";
+
 export type { GenerationFormat, GenerationStatus };
 
 export type GenerationListItem = {
   id: string;
   title: string;
   type: GenerationFormat;
+  outputType: DashboardOutputType;
   status: GenerationStatus;
   timestamp: string;
   videoUrl: string | null;
@@ -19,6 +22,7 @@ export function toGenerationListItem(generation: {
   format: GenerationFormat;
   status: GenerationStatus;
   createdAt: Date;
+  style?: unknown;
   videoUrl: string | null;
   thumbnailUrl: string | null;
   durationSec: number | null;
@@ -27,6 +31,7 @@ export function toGenerationListItem(generation: {
     id: generation.id,
     title: generation.prompt || "Untitled generation",
     type: generation.format,
+    outputType: getGenerationOutputType(generation.style),
     status: generation.status,
     timestamp: formatRelativeTime(generation.createdAt),
     videoUrl: generation.videoUrl,

@@ -30,11 +30,23 @@ export function StudioConnectionLayer({
   const source = connectingFrom ? nodes.find((node) => node.id === connectingFrom) : null;
 
   return (
-    <svg className="pointer-events-none absolute inset-0 h-[2400px] w-[2400px] overflow-visible">
+    <svg className="pointer-events-none absolute left-0 top-0 h-[16000px] w-[16000px] overflow-visible">
       <defs>
-        <linearGradient id="studio-edge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="rgba(124,58,237,0.25)" />
-          <stop offset="100%" stopColor="rgba(124,58,237,0.85)" />
+        <linearGradient id="studio-edge-image" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(59,130,246,0.35)" />
+          <stop offset="100%" stopColor="rgba(59,130,246,0.9)" />
+        </linearGradient>
+        <linearGradient id="studio-edge-video" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(124,58,237,0.35)" />
+          <stop offset="100%" stopColor="rgba(124,58,237,0.9)" />
+        </linearGradient>
+        <linearGradient id="studio-edge-audio" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(236,72,153,0.35)" />
+          <stop offset="100%" stopColor="rgba(236,72,153,0.9)" />
+        </linearGradient>
+        <linearGradient id="studio-edge-default" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(113,113,122,0.35)" />
+          <stop offset="100%" stopColor="rgba(113,113,122,0.85)" />
         </linearGradient>
       </defs>
 
@@ -47,8 +59,9 @@ export function StudioConnectionLayer({
         const isActive = activeEdgeIds.includes(edge.id);
         const isFlashing = flashEdgeIds.includes(edge.id);
         const isSelected = selectedEdgeId === edge.id;
+        const edgeGradient = edgeGradientForSource(from.type);
         const stroke =
-          isSelected || isActive || isFlashing ? "url(#studio-edge-gradient)" : "rgba(161,161,170,0.55)";
+          isSelected || isActive || isFlashing ? edgeGradient : "rgba(161,161,170,0.5)";
         const strokeWidth = isSelected ? 3.5 : isActive || isFlashing ? 3 : 2;
 
         return (
@@ -117,4 +130,11 @@ export function StudioConnectionLayer({
       ) : null}
     </svg>
   );
+}
+
+function edgeGradientForSource(type: StudioNode["type"]) {
+  if (type === "image") return "url(#studio-edge-image)";
+  if (type === "video") return "url(#studio-edge-video)";
+  if (type === "audio") return "url(#studio-edge-audio)";
+  return "url(#studio-edge-default)";
 }

@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ugc-studio-realtime",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "account_id": "f943d5f656be301e2c766ac590d8910b",
+  "vars": {
+    "ALLOWED_ORIGINS": "https://ugc-ad-platform.vercel.app,http://localhost:3000"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "STUDIO_ROOM",
+        "class_name": "StudioRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["StudioRoom"]
+    }
+  ]
+}

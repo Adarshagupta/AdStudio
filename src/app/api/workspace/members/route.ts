@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser, currentUserCan } from "@/lib/auth";
+import { parseRequestJson } from "@/lib/http/json";
 import { prisma } from "@/lib/db";
 import { sendWorkspaceInviteEmail } from "@/lib/email/service";
+import { getRequestOrigin } from "@/lib/integrations/app-url";
 import {
   allWorkspacePermissions,
   normalizePermissions,
@@ -15,6 +17,7 @@ import {
   getInviteExpiresAt,
   hashInviteToken,
 } from "@/lib/team";
+import { listWorkspaceMembers, toMemberListItem } from "@/lib/workspace-members";
 
 const permissionsSchema = z
   .object(
@@ -29,8 +32,11 @@ const permissionsSchema = z
   .optional();
 
 const inviteSchema = z.object({
-  email: z.string().email(),
-  name: z.string().trim().min(2).max(80).optional().or(z.literal("")),
+  email: z.string().trim().toLowerCase().email(),
+  name: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().trim().min(1).max(80).optional(),
+  ),
   role: z.enum(["ADMIN", "MEMBER"]).default("MEMBER"),
   permissions: permissionsSchema,
 });
@@ -49,21 +55,7 @@ export async function GET() {
   await expireOldInvites(currentUser.workspace.id);
 
   const [members, invites] = await Promise.all([
-    prisma.user.findMany({
-      where: {
-        workspaceId: currentUser.workspace.id,
-        isActive: true,
-      },
-      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        permissions: true,
-        createdAt: true,
-      },
-    }),
+    listWorkspaceMembers(currentUser.workspace.id),
     prisma.workspaceInvite.findMany({
       where: {
         workspaceId: currentUser.workspace.id,
@@ -84,10 +76,7 @@ export async function GET() {
   ]);
 
   return NextResponse.json({
-    members: members.map((member) => ({
-      ...member,
-      permissions: normalizePermissions(member.permissions, member.role),
-    })),
+    members: members.map(toMemberListItem),
     invites: invites.map((invite) => ({
       ...invite,
       permissions: normalizePermissions(invite.permissions, invite.role),
@@ -106,25 +95,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "You do not have access to invite workspace members." }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => null);
+  const body = await parseRequestJson(request);
   const result = inviteSchema.safeParse(body);
 
   if (!result.success) {
-    return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
-  }
-
-  const email = result.data.email.toLowerCase();
-  const existingUser = await prisma.user.findUnique({ where: { email } });
-
-  if (existingUser?.isActive && existingUser.workspaceId === currentUser.workspace.id) {
-    return NextResponse.json({ error: "This person is already in the workspace." }, { status: 409 });
-  }
-
-  if (existingUser && existingUser.workspaceId !== currentUser.workspace.id) {
     return NextResponse.json(
-      { error: "That email already belongs to another workspace account." },
-      { status: 409 },
+      {
+        error: formatZodError(result.error),
+        errors: result.error.flatten(),
+      },
+      { status: 400 },
     );
+  }
+
+  const email = result.data.email;
+
+  const existingMembership = await prisma.workspaceMember.findFirst({
+    where: {
+      workspaceId: currentUser.workspace.id,
+      isActive: true,
+      user: { email },
+    },
+  });
+
+  if (existingMembership) {
+    return NextResponse.json({ error: "This person is already in the workspace." }, { status: 409 });
   }
 
   const token = createInviteToken();
@@ -147,7 +142,7 @@ export async function POST(request: Request) {
         workspaceId: currentUser.workspace.id,
         invitedById: currentUser.user.id,
         email,
-        name: result.data.name || null,
+        name: result.data.name ?? null,
         role,
         permissions,
         tokenHash: hashInviteToken(token),
@@ -165,13 +160,14 @@ export async function POST(request: Request) {
       },
     });
   });
-  const inviteUrl = buildInviteUrl(new URL(request.url).origin, token);
+  const origin = getRequestOrigin(request);
+  const inviteUrl = buildInviteUrl(origin, token);
   let emailError: string | null = null;
 
   try {
     await sendWorkspaceInviteEmail({
       inviteId: invite.id,
-      origin: new URL(request.url).origin,
+      origin,
       token,
     });
   } catch (error) {
@@ -189,6 +185,15 @@ export async function POST(request: Request) {
     },
     { status: 201 },
   );
+}
+
+function formatZodError(error: z.ZodError) {
+  const flattened = error.flatten();
+  const fieldMessage = Object.entries(flattened.fieldErrors)
+    .flatMap(([field, messages]) => messages?.map((message) => `${field}: ${message}`) ?? [])
+    .at(0);
+
+  return fieldMessage ?? flattened.formErrors.at(0) ?? "Invite request is invalid.";
 }
 
 async function expireOldInvites(workspaceId: string) {

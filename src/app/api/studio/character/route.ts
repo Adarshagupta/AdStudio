@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
 import { generateCharacterProfile } from "@/lib/cloudflare-ai";
+import { parseRequestJson } from "@/lib/http/json";
+import { truncateTextPrompt } from "@/lib/text-prompt";
 
 const characterSchema = z.object({
   characterName: z.string().optional(),
@@ -22,7 +24,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "You do not have access to Studio Pro generation." }, { status: 403 });
   }
 
-  const body = await request.json();
+  const body = await parseRequestJson(request);
+
+  if (!body) {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
   const result = characterSchema.safeParse(body);
 
   if (!result.success) {
@@ -30,7 +37,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const profile = await generateCharacterProfile(result.data);
+    const profile = await generateCharacterProfile({
+      ...result.data,
+      prompt: result.data.prompt ? truncateTextPrompt(result.data.prompt) : undefined,
+      context: result.data.context ? truncateTextPrompt(result.data.context) : undefined,
+    });
     return NextResponse.json({ output: profile, scriptText: profile });
   } catch (error) {
     return NextResponse.json(

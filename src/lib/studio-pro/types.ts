@@ -1,3 +1,6 @@
+import { cloudflareModels } from "@/lib/cloudflare/models";
+import { studioNodeDisplayText } from "@/lib/studio-pro/display-text";
+
 export type StudioNodeType = "prompt" | "character" | "image" | "audio" | "video";
 
 export type StudioNode = {
@@ -23,6 +26,9 @@ export type StudioNodeData = {
   jobId?: string;
   aspectRatio?: string;
   resolution?: string;
+  duration?: number;
+  /** When a video is connected: auto, edit (retake), extend, or control (retake). */
+  videoOperation?: "auto" | "edit" | "extend" | "control";
   outputFormat?: string;
   characterName?: string;
   voiceStyle?: string;
@@ -33,6 +39,7 @@ export type StudioNodeData = {
   videoWidth?: number;
   videoHeight?: number;
   status?: "idle" | "running" | "done" | "failed";
+  mediaSource?: "upload" | "generated";
   error?: string;
 };
 
@@ -48,57 +55,58 @@ export const nodeMeta: Record<
 > = {
   prompt: {
     title: "Text",
-    subtitle: "Llama 3.1",
-    width: 280,
-    height: 132,
+    subtitle: "Kimi 2.6",
+    width: 300,
+    height: 200,
     color: "from-violet-500/20 to-violet-500/5",
   },
   character: {
     title: "Character",
-    subtitle: "Llama 3.1",
-    width: 280,
-    height: 168,
+    subtitle: "Kimi 2.6",
+    width: 300,
+    height: 200,
     color: "from-pink-500/20 to-pink-500/5",
   },
   image: {
-    title: "Image Gen",
+    title: "Image",
     subtitle: "Stable Diffusion XL",
-    width: 300,
-    height: 120,
+    width: 340,
+    height: 260,
     color: "from-sky-500/20 to-sky-500/5",
   },
   audio: {
-    title: "Audio Gen",
+    title: "Text to Speech",
     subtitle: "MeloTTS",
-    width: 280,
-    height: 196,
+    width: 320,
+    height: 220,
     color: "from-amber-500/20 to-amber-500/5",
   },
   video: {
-    title: "Video Gen",
-    subtitle: "Requires credits",
-    width: 300,
-    height: 120,
+    title: "Video",
+    subtitle: "LTX-2.3",
+    width: 340,
+    height: 280,
     color: "from-emerald-500/20 to-emerald-500/5",
   },
 };
 
 export function createNode(type: StudioNodeType, x: number, y: number, partial?: Partial<StudioNode>): StudioNode {
   const meta = nodeMeta[type];
+  const { data: partialData, ...partialRest } = partial ?? {};
   const node: StudioNode = {
-    id: partial?.id ?? `${type}-${crypto.randomUUID().slice(0, 8)}`,
+    id: partialRest.id ?? `${type}-${crypto.randomUUID().slice(0, 8)}`,
     type,
     x,
     y,
     width: meta.width,
     height: meta.height,
-    title: meta.title,
-    subtitle: meta.subtitle,
-    zIndex: 0,
+    title: partialRest.title ?? meta.title,
+    subtitle: partialRest.subtitle ?? meta.subtitle,
+    zIndex: partialRest.zIndex ?? 0,
     data: {
       model:
         type === "prompt" || type === "character"
-          ? "@cf/meta/llama-3.1-8b-instruct"
+          ? cloudflareModels.text.default
           : type === "image"
             ? "@cf/stabilityai/stable-diffusion-xl-base-1.0"
             : type === "video"
@@ -107,16 +115,17 @@ export function createNode(type: StudioNodeType, x: number, y: number, partial?:
                 ? "@cf/myshell-ai/melotts"
                 : "custom",
       aspectRatio: "9:16",
-      resolution: "1K",
+      resolution: type === "video" ? "480p" : "1K",
+      duration: type === "video" ? 5 : undefined,
       outputFormat: "png",
       prompt: "",
       characterName: "",
       voiceStyle: "",
       audioTitle: "",
       status: "idle",
-      ...partial?.data,
+      ...partialData,
     },
-    ...partial,
+    ...partialRest,
   };
 
   return {
@@ -135,8 +144,8 @@ export function aspectRatioToHeight(aspectRatio: string | undefined, width: numb
   return width * (h / w);
 }
 
-const NODE_HEADER_HEIGHT = 52;
-const NODE_BODY_PADDING = 24;
+const NODE_BODY_PADDING = 20;
+const NODE_PROMPT_BAR_HEIGHT = 52;
 const EMPTY_MEDIA_PREVIEW_MAX = 160;
 const MAX_MEDIA_DISPLAY_HEIGHT = 320;
 
@@ -184,20 +193,56 @@ export function getMediaPreviewHeight(node: StudioNode, contentWidth: number) {
   return 80;
 }
 
+const MAX_TEXT_PREVIEW_HEIGHT = 480;
+const MAX_TEXT_PREVIEW_LINES = 36;
+
+function textBlockHeight(text: string | undefined, emptyHeight: number, lineHeight = 17) {
+  if (!text?.trim()) return emptyHeight;
+  const lines = text.split("\n").length;
+  const chars = text.length;
+  const clampedLines = Math.min(MAX_TEXT_PREVIEW_LINES, Math.max(2, lines));
+  const charBoost = chars > 4_000 ? 80 : chars > 1_500 ? 40 : 0;
+  return Math.min(
+    MAX_TEXT_PREVIEW_HEIGHT,
+    Math.max(emptyHeight, clampedLines * lineHeight + 20 + charBoost),
+  );
+}
+
 function getNodeBodyHeight(node: StudioNode) {
   const contentWidth = node.width - NODE_BODY_PADDING;
 
   if (node.type === "image" || node.type === "video") {
     return getMediaPreviewHeight(node, contentWidth);
   }
-  if (node.type === "prompt") return 72;
-  if (node.type === "character") return node.data.output ? 140 : 88;
-  if (node.type === "audio") return node.data.audioUrl ? 120 : 88;
-  return 80;
+
+  if (node.type === "prompt") {
+    const prompt = node.data.prompt?.trim() ?? "";
+    const generated = (node.data.output || node.data.scriptText || "").trim();
+    const generatedText = generated
+      ? studioNodeDisplayText({ type: "prompt", data: { output: generated } })
+      : "";
+    const hasGenerated = Boolean(generatedText && generatedText !== prompt);
+    const previewText = hasGenerated ? generatedText : studioNodeDisplayText(node);
+    let previewHeight = Math.max(80, textBlockHeight(previewText, 48));
+    if (hasGenerated && prompt) {
+      previewHeight += 36;
+    }
+    return previewHeight;
+  }
+
+  if (node.type === "character") {
+    const output = studioNodeDisplayText(node);
+    let height = 72;
+    if (output) height += textBlockHeight(output, 40, 16);
+    return Math.max(80, height);
+  }
+
+  if (node.type === "audio") return node.data.audioUrl ? 96 : 72;
+  return 72;
 }
 
 export function getRenderedNodeHeight(node: StudioNode) {
-  return NODE_HEADER_HEIGHT + NODE_BODY_PADDING + getNodeBodyHeight(node);
+  return NODE_BODY_PADDING + getNodeBodyHeight(node) + NODE_PROMPT_BAR_HEIGHT;
 }
 
 export function getNodeHeight(node: StudioNode) {
@@ -273,36 +318,83 @@ export function getNextNodeZIndex(nodes: StudioNode[]) {
   return Math.max(...nodes.map((node) => node.zIndex ?? 0)) + 1;
 }
 
-export function findNodePlacement(nodes: StudioNode[], newNode: StudioNode) {
-  const stepX = snapToGrid(newNode.width + 48);
-  const stepY = snapToGrid(getRenderedNodeHeight(newNode) + 40);
+export type StudioViewportBounds = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
 
-  let x = snapToGrid(240);
-  let y = snapToGrid(120);
+function fitsInViewportBounds(
+  x: number,
+  y: number,
+  node: StudioNode,
+  nodeHeight: number,
+  bounds?: StudioViewportBounds,
+) {
+  if (!bounds) return true;
+  return (
+    x >= bounds.minX &&
+    y >= bounds.minY &&
+    x + node.width <= bounds.maxX &&
+    y + nodeHeight <= bounds.maxY
+  );
+}
 
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    const candidate = { ...newNode, x, y, height: getRenderedNodeHeight(newNode) };
-    const collides = nodes.some((node) => nodesOverlap(candidate, node, 20));
+export function findNodePlacement(
+  nodes: StudioNode[],
+  newNode: StudioNode,
+  anchor?: { x: number; y: number },
+  bounds?: StudioViewportBounds,
+) {
+  const nodeHeight = getRenderedNodeHeight(newNode);
+  const stepX = snapToGrid(newNode.width + 32);
+  const stepY = snapToGrid(nodeHeight + 32);
+  const anchorX = snapToGrid(anchor?.x ?? 240);
+  const anchorY = snapToGrid(anchor?.y ?? 120);
 
-    if (!collides) {
-      return { x, y };
-    }
+  const candidates: { x: number; y: number }[] = [{ x: anchorX, y: anchorY }];
 
-    x += stepX;
-    if (x + newNode.width > 1320) {
-      x = snapToGrid(240);
-      y += stepY;
+  for (let ring = 1; ring <= 10; ring += 1) {
+    for (let dx = -ring; dx <= ring; dx += 1) {
+      for (let dy = -ring; dy <= ring; dy += 1) {
+        if (Math.abs(dx) !== ring && Math.abs(dy) !== ring) continue;
+        candidates.push({
+          x: anchorX + dx * stepX,
+          y: anchorY + dy * stepY,
+        });
+      }
     }
   }
 
-  const bottomMost = nodes.reduce((best, node) =>
-    node.y + getNodeHeight(node) > best.y + getNodeHeight(best) ? node : best,
-  );
+  for (const { x, y } of candidates) {
+    if (!fitsInViewportBounds(x, y, newNode, nodeHeight, bounds)) continue;
 
-  return {
-    x: snapToGrid(240),
-    y: snapToGrid(bottomMost.y + getNodeHeight(bottomMost) + 48),
-  };
+    const candidate = { ...newNode, x, y, height: nodeHeight };
+    const collides = nodes.some((node) => nodesOverlap(candidate, node, 16));
+    if (!collides) {
+      return { x, y };
+    }
+  }
+
+  if (nodes.length > 0) {
+    const bottomMost = nodes.reduce((best, node) =>
+      node.y + getNodeHeight(node) > best.y + getNodeHeight(best) ? node : best,
+    );
+    const fallbackY = snapToGrid(bottomMost.y + getNodeHeight(bottomMost) + 32);
+    const fallbackX = snapToGrid(
+      Math.min(
+        Math.max(anchorX, bounds?.minX ?? anchorX),
+        (bounds?.maxX ?? anchorX + newNode.width) - newNode.width,
+      ),
+    );
+
+    if (fitsInViewportBounds(fallbackX, fallbackY, newNode, nodeHeight, bounds)) {
+      return { x: fallbackX, y: fallbackY };
+    }
+  }
+
+  return { x: anchorX, y: anchorY };
 }
 
 function snapToGrid(value: number) {

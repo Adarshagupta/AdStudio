@@ -9,8 +9,11 @@ import { TypeBadge } from "@/components/shared/TypeBadge";
 import type { GenerationPhase } from "@/hooks/useGenerationJob";
 import {
   fetchGenerationStatus,
+  isTransientGenerationStatusError,
   type GenerationJobStatus,
 } from "@/lib/generation-client";
+import type { DashboardOutputType } from "@/lib/dashboard-generation";
+import { notify } from "@/lib/notify";
 import type { GenerationFormat, GenerationStatus } from "@prisma/client";
 
 function mapStatusToPhase(status: GenerationStatus): GenerationPhase {
@@ -24,17 +27,21 @@ export function GenerationView({
   generationId,
   prompt,
   format,
+  outputType = "video",
   initialStatus,
   initialScriptText,
   initialVideoUrl,
+  initialThumbnailUrl,
   initialError,
 }: {
   generationId: string;
   prompt: string;
   format: GenerationFormat;
+  outputType?: DashboardOutputType;
   initialStatus: GenerationStatus;
   initialScriptText?: string | null;
   initialVideoUrl?: string | null;
+  initialThumbnailUrl?: string | null;
   initialError?: string | null;
 }) {
   const router = useRouter();
@@ -42,7 +49,14 @@ export function GenerationView({
   const [jobStatus, setJobStatus] = useState<GenerationJobStatus>(initialStatus);
   const [scriptText, setScriptText] = useState(initialScriptText ?? undefined);
   const [videoUrl, setVideoUrl] = useState(initialVideoUrl ?? undefined);
+  const [thumbnailUrl, setThumbnailUrl] = useState(initialThumbnailUrl ?? undefined);
   const [error, setError] = useState(initialError ?? undefined);
+
+  useEffect(() => {
+    if (initialError) {
+      notify.error(initialError);
+    }
+  }, [initialError]);
 
   useEffect(() => {
     if (initialStatus === "COMPLETED" || initialStatus === "FAILED") {
@@ -70,14 +84,23 @@ export function GenerationView({
             setScriptText(nextScript);
           }
 
-          if (data.status === "COMPLETED" && data.videoUrl) {
-            setVideoUrl(data.videoUrl);
-            setPhase("done");
-            return;
+          if (data.status === "COMPLETED") {
+            if (data.videoUrl) {
+              setVideoUrl(data.videoUrl);
+            }
+            if (data.thumbnailUrl) {
+              setThumbnailUrl(data.thumbnailUrl);
+            }
+            if (data.videoUrl || data.thumbnailUrl) {
+              setPhase("done");
+              return;
+            }
           }
 
           if (data.status === "FAILED") {
-            setError(data.errorMessage ?? "Generation failed.");
+            const message = data.errorMessage ?? "Generation failed.";
+            setError(message);
+            notify.error(message);
             setPhase("failed");
             return;
           }
@@ -85,13 +108,23 @@ export function GenerationView({
           setPhase(data.status === "QUEUED" ? "starting" : "processing");
         } catch (err) {
           if (cancelled) return;
-          setError(err instanceof Error ? err.message : "Status polling failed.");
+          if (isTransientGenerationStatusError(err) && attempt < 179) {
+            setJobStatus("PROCESSING");
+            setPhase("processing");
+            continue;
+          }
+
+          const message = err instanceof Error ? err.message : "Status polling failed.";
+          setError(message);
+          notify.error(message);
           setPhase("failed");
           return;
         }
       }
 
-      setError("Timed out waiting for video generation.");
+      const message = "Timed out waiting for video generation.";
+      setError(message);
+      notify.error(message);
       setPhase("failed");
     }
 
@@ -116,10 +149,12 @@ export function GenerationView({
 
       <GenerationProgress
         generationId={generationId}
+        outputType={outputType}
         phase={phase}
         jobStatus={jobStatus}
         scriptText={scriptText}
         videoUrl={videoUrl}
+        thumbnailUrl={thumbnailUrl}
         error={error}
         onReset={() => router.push("/dashboard")}
       />

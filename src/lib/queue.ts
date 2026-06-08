@@ -1,6 +1,8 @@
 import { Queue } from "bullmq";
 import type { GenerationFormat } from "@prisma/client";
 
+import { getBullmqConnection } from "@/lib/redis";
+
 type QueuePayload = {
   generationId: string;
   format: GenerationFormat;
@@ -20,15 +22,10 @@ type QueuePayload = {
 let generationQueue: Queue<QueuePayload> | null = null;
 
 function getGenerationQueue() {
-  if (!process.env.REDIS_URL) {
-    return null;
-  }
+  const connection = getBullmqConnection();
+  if (!connection) return null;
 
-  generationQueue ??= new Queue<QueuePayload>("generation", {
-    connection: {
-      url: process.env.REDIS_URL,
-    },
-  });
+  generationQueue ??= new Queue<QueuePayload>("generation", { connection });
 
   return generationQueue;
 }

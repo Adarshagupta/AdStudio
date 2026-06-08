@@ -10,8 +10,8 @@ type RouteContext = {
   params: { provider: string };
 };
 
-function redirectToIntegrations(params: Record<string, string>) {
-  const url = new URL("/settings/integrations", getAppUrl());
+function redirectToIntegrations(request: Request, params: Record<string, string>) {
+  const url = new URL("/settings/integrations", getAppUrl(request));
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
@@ -20,27 +20,27 @@ function redirectToIntegrations(params: Record<string, string>) {
   return NextResponse.redirect(url);
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
-    return NextResponse.redirect(new URL("/login", getAppUrl()));
+    return NextResponse.redirect(new URL("/login", getAppUrl(request)));
   }
 
   if (!currentUserCan(currentUser, "manageIntegrations")) {
-    return redirectToIntegrations({ error: "permission_denied" });
+    return redirectToIntegrations(request, { error: "permission_denied" });
   }
 
   const provider = context.params.provider;
 
   if (!isSocialProviderId(provider)) {
-    return redirectToIntegrations({ error: "unknown_provider" });
+    return redirectToIntegrations(request, { error: "unknown_provider" });
   }
 
   const config = getProviderConfig(provider);
 
   if (!config.configured) {
-    return redirectToIntegrations({ error: "not_configured", provider });
+    return redirectToIntegrations(request, { error: "not_configured", provider });
   }
 
   const state = createOAuthState({

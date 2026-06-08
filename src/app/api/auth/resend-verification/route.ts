@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db";
+import { getRequestOrigin } from "@/lib/integrations/app-url";
 import { sendVerificationEmail } from "@/lib/email/service";
+import { parseRequestJson } from "@/lib/http/json";
 
 const resendSchema = z.object({
   email: z.string().email(),
 });
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
+  const body = await parseRequestJson(request);
   const result = resendSchema.safeParse(body);
 
   if (!result.success) {
@@ -21,7 +23,19 @@ export async function POST(request: Request) {
   });
 
   if (user && user.isActive && !user.emailVerifiedAt) {
-    await sendVerificationEmail(user.id);
+    try {
+      await sendVerificationEmail(user.id, undefined, getRequestOrigin(request));
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? `Verification email could not be sent: ${error.message}`
+              : "Verification email could not be sent.",
+        },
+        { status: 502 },
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });

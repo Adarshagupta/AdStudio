@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
 import { generateAudio } from "@/lib/cloudflare-ai";
+import { parseRequestJson } from "@/lib/http/json";
 
 const audioSchema = z.object({
   prompt: z.string().min(3),
@@ -21,7 +22,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "You do not have access to Studio Pro generation." }, { status: 403 });
   }
 
-  const body = await request.json();
+  const body = await parseRequestJson(request);
+
+  if (!body) {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
   const result = audioSchema.safeParse(body);
 
   if (!result.success) {

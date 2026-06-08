@@ -2,18 +2,43 @@
 
 import { CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
 
+import { ChatScriptView } from "@/components/dashboard/ChatScriptView";
 import { Button } from "@/components/ui/button";
 import type { GenerationPhase } from "@/hooks/useGenerationJob";
+import type { DashboardOutputType } from "@/lib/dashboard-generation";
 import type { GenerationJobStatus } from "@/lib/generation-client";
 import { cn } from "@/lib/utils";
 
-const steps = [
+const videoSteps = [
   { id: "script", label: "Writing script", description: "Turning your brief into a usable ad script." },
-  { id: "video", label: "Rendering video", description: "Generating the final UGC cut with xAI." },
+  { id: "video", label: "Rendering video", description: "Generating the final cut with LTX." },
   { id: "done", label: "Ready to review", description: "Your ad is ready to preview and export." },
 ] as const;
 
-function stepState(stepId: (typeof steps)[number]["id"], phase: GenerationPhase) {
+const imageSteps = [
+  { id: "image", label: "Generating image", description: "Creating your ad still from the prompt." },
+  { id: "done", label: "Ready to review", description: "Your image is ready to preview and download." },
+] as const;
+
+function stepState(
+  stepId: string,
+  phase: GenerationPhase,
+  outputType: DashboardOutputType,
+) {
+  if (outputType === "image") {
+    if (phase === "failed") {
+      if (stepId === "image") return "failed";
+      return "pending";
+    }
+    if (stepId === "image") {
+      return phase === "done" ? "done" : "active";
+    }
+    if (stepId === "done") {
+      return phase === "done" ? "done" : "pending";
+    }
+    return "pending";
+  }
+
   if (phase === "failed") {
     if (stepId === "script") return "done";
     if (stepId === "video") return "failed";
@@ -43,28 +68,43 @@ function stepState(stepId: (typeof steps)[number]["id"], phase: GenerationPhase)
 
 export function GenerationProgress({
   generationId,
+  outputType = "video",
   phase,
   jobStatus,
   scriptText,
   videoUrl,
+  thumbnailUrl,
   error,
   onReset,
 }: {
   generationId: string;
+  outputType?: DashboardOutputType;
   phase: GenerationPhase;
   jobStatus?: GenerationJobStatus;
   scriptText?: string;
   videoUrl?: string;
+  thumbnailUrl?: string;
   error?: string;
   onReset: () => void;
 }) {
+  const steps = outputType === "image" ? imageSteps : videoSteps;
+  const previewUrl = outputType === "image" ? thumbnailUrl : videoUrl;
+
   return (
     <section className="rounded-[1.75rem] bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] md:p-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
         <div className="space-y-5">
           <div>
             <h2 className="font-display text-2xl font-semibold text-zinc-900">
-              {phase === "done" ? "Your ad is ready" : phase === "failed" ? "Generation failed" : "Creating your ad"}
+              {phase === "done"
+                ? outputType === "image"
+                  ? "Your image is ready"
+                  : "Your ad is ready"
+                : phase === "failed"
+                  ? "Generation failed"
+                  : outputType === "image"
+                    ? "Creating your image"
+                    : "Creating your ad"}
             </h2>
             <p className="mt-1 text-sm text-zinc-500">
               {phase === "failed"
@@ -78,7 +118,7 @@ export function GenerationProgress({
 
           <ol className="space-y-3">
             {steps.map((step) => {
-              const state = stepState(step.id, phase);
+              const state = stepState(step.id, phase, outputType);
 
               return (
                 <li
@@ -111,11 +151,9 @@ export function GenerationProgress({
           </ol>
 
           {scriptText ? (
-            <div className="rounded-2xl bg-zinc-50 p-4 text-left">
-              <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-400">Generated script</p>
-              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-sm leading-6 text-zinc-700">
-                {scriptText}
-              </pre>
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 text-left">
+              <p className="mb-3 text-xs font-medium uppercase tracking-[0.08em] text-zinc-400">Generated script</p>
+              <ChatScriptView text={scriptText} />
             </div>
           ) : null}
 
@@ -127,13 +165,18 @@ export function GenerationProgress({
         </div>
 
         <div className="overflow-hidden rounded-[1.5rem] bg-zinc-950">
-          {phase === "done" && videoUrl ? (
-            <video
-              controls
-              playsInline
-              src={videoUrl}
-              className="aspect-[9/16] w-full bg-zinc-950 object-cover"
-            />
+          {phase === "done" && previewUrl ? (
+            outputType === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={previewUrl} alt="" className="aspect-[9/16] w-full bg-zinc-950 object-cover" />
+            ) : (
+              <video
+                controls
+                playsInline
+                src={previewUrl}
+                className="aspect-[9/16] w-full bg-zinc-950 object-cover"
+              />
+            )
           ) : (
             <div className="flex aspect-[9/16] flex-col items-center justify-center gap-3 p-6 text-center text-zinc-400">
               {phase === "failed" ? (
@@ -145,7 +188,11 @@ export function GenerationProgress({
                 <>
                   <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
                   <p className="text-sm text-zinc-300">
-                    {phase === "starting" ? "Preparing your script..." : "Rendering your video..."}
+                    {outputType === "image"
+                      ? "Generating your image..."
+                      : phase === "starting"
+                        ? "Preparing your script..."
+                        : "Rendering your video..."}
                   </p>
                   {jobStatus ? <p className="text-xs uppercase tracking-[0.08em] text-zinc-500">{jobStatus}</p> : null}
                 </>

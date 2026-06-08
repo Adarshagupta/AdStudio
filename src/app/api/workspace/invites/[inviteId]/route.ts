@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendWorkspaceInviteEmail } from "@/lib/email/service";
+import { getRequestOrigin } from "@/lib/integrations/app-url";
 import { normalizePermissions } from "@/lib/permissions";
 import {
   buildInviteUrl,
@@ -57,13 +58,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     },
   });
 
-  const inviteUrl = buildInviteUrl(new URL(request.url).origin, token);
+  const origin = getRequestOrigin(request);
+  const inviteUrl = buildInviteUrl(origin, token);
   let emailError: string | null = null;
 
   try {
     await sendWorkspaceInviteEmail({
       inviteId: invite.id,
-      origin: new URL(request.url).origin,
+      origin,
       token,
     });
   } catch (error) {

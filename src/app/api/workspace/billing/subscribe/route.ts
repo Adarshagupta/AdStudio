@@ -1,0 +1,79 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { getCurrentUser } from "@/lib/auth";
+import {
+  creditsForSubscription,
+  planCreditAllocation,
+  type SubscriptionPlanId,
+} from "@/lib/billing/plans";
+import { isStripeConfigured } from "@/lib/billing/stripe";
+import { downgradeWorkspaceToFree } from "@/lib/billing/workspace-subscription";
+import { prisma } from "@/lib/db";
+import { parseRequestJson } from "@/lib/http/json";
+
+const subscribeSchema = z.object({
+  plan: z.enum(["FREE", "STARTER", "PLUS", "PRO"]),
+  interval: z.enum(["monthly", "yearly"]).default("monthly"),
+});
+
+export async function POST(request: Request) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (currentUser.user.role !== "ADMIN") {
+    return NextResponse.json(
+      { error: "Only workspace admins can change the subscription." },
+      { status: 403 },
+    );
+  }
+
+  const body = await parseRequestJson(request);
+
+  if (!body) {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const result = subscribeSchema.safeParse(body);
+
+  if (!result.success) {
+    return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
+  }
+
+  const planId = result.data.plan as SubscriptionPlanId;
+
+  if (planId !== "FREE" && isStripeConfigured()) {
+    return NextResponse.json(
+      { error: "Paid plans require Stripe Checkout. Use /api/workspace/billing/checkout." },
+      { status: 400 },
+    );
+  }
+
+  const workspace =
+    planId === "FREE"
+      ? await downgradeWorkspaceToFree(currentUser.workspace.id)
+      : await prisma.workspace.update({
+          where: { id: currentUser.workspace.id },
+          data: {
+            plan: planId,
+            creditsRemaining: creditsForSubscription(planId, result.data.interval),
+            billingInterval: result.data.interval,
+          },
+          select: {
+            id: true,
+            plan: true,
+            creditsRemaining: true,
+          },
+        });
+
+  return NextResponse.json({
+    ok: true,
+    plan: workspace.plan,
+    creditsRemaining: workspace.creditsRemaining,
+    creditAllocation: planCreditAllocation[planId],
+    interval: result.data.interval,
+  });
+}

@@ -9,6 +9,8 @@ import {
   defaultGenerationStyle,
   startGeneration,
 } from "@/lib/generation-client";
+import { readJsonResponse, responseErrorMessage } from "@/lib/http/json";
+import { notify } from "@/lib/notify";
 import type { GenerationFormat } from "@prisma/client";
 
 export function CreateWorkspace({
@@ -51,15 +53,17 @@ export function CreateWorkspace({
         }),
       });
 
-      const data = (await response.json()) as { scriptText?: string; error?: string };
+      const data = await readJsonResponse<{ scriptText?: string; error?: string }>(response);
 
       if (!response.ok || !data.scriptText) {
-        throw new Error(data.error ?? "Script generation failed.");
+        throw new Error(responseErrorMessage(response, data, "Script generation failed."));
       }
 
       return data.scriptText;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Script generation failed.");
+      const message = err instanceof Error ? err.message : "Script generation failed.";
+      setError(message);
+      notify.error(message);
       throw err;
     } finally {
       setIsGeneratingScript(false);
@@ -89,8 +93,10 @@ export function CreateWorkspace({
 
       router.push(`/generations/${started.jobId}`);
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Generation failed.";
       setStatus("failed");
-      setError(err instanceof Error ? err.message : "Generation failed.");
+      setError(message);
+      notify.error(message);
       setIsSubmitting(false);
     }
   }

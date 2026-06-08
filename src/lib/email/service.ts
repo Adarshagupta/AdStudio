@@ -13,21 +13,38 @@ import { renderEmail } from "@/lib/email/templates";
 const VERIFICATION_TOKEN_HOURS = 48;
 const PASSWORD_RESET_TOKEN_HOURS = 2;
 
-export async function sendVerificationEmail(userId: string) {
+export async function sendVerificationEmail(
+  userId: string,
+  workspaceName?: string,
+  origin?: string,
+) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { workspace: true },
+    include: {
+      lastWorkspace: { select: { name: true } },
+      memberships: {
+        where: { isActive: true },
+        take: 1,
+        include: { workspace: { select: { name: true } } },
+      },
+    },
   });
 
   if (!user || !user.isActive || user.emailVerifiedAt) {
     return;
   }
 
+  const resolvedWorkspaceName =
+    workspaceName ??
+    user.lastWorkspace?.name ??
+    user.memberships[0]?.workspace.name ??
+    "Ad Studio";
+
   const token = await createAuthEmailToken(user.id, user.email, "EMAIL_VERIFICATION", VERIFICATION_TOKEN_HOURS);
-  const verifyUrl = `${getAppUrl()}/verify-email/${token}`;
+  const verifyUrl = `${getAppUrl(origin)}/verify-email/${token}`;
   const content = renderEmail({
     headline: "Verify your email",
-    body: `Welcome to ${user.workspace.name}. Verify this email address so your workspace account is ready for secure sign-in.`,
+    body: `Welcome to ${resolvedWorkspaceName}. Verify this email address so your account is ready for secure sign-in.`,
     actionLabel: "Verify email",
     actionUrl: verifyUrl,
     footer: "This verification link expires in 48 hours.",
@@ -37,16 +54,19 @@ export async function sendVerificationEmail(userId: string) {
     to: { address: user.email, name: user.name ?? undefined },
     subject: "Verify your Ad Studio account",
     channel: "AUTH",
-    workspaceId: user.workspaceId,
+    workspaceId: user.lastWorkspaceId,
     userId: user.id,
     metadata: { type: "email_verification" },
     ...content,
   });
 }
 
-export async function sendPasswordResetEmail(user: Pick<User, "id" | "email" | "name" | "workspaceId">) {
+export async function sendPasswordResetEmail(
+  user: Pick<User, "id" | "email" | "name" | "lastWorkspaceId">,
+  origin?: string,
+) {
   const token = await createAuthEmailToken(user.id, user.email, "PASSWORD_RESET", PASSWORD_RESET_TOKEN_HOURS);
-  const resetUrl = `${getAppUrl()}/reset-password/${token}`;
+  const resetUrl = `${getAppUrl(origin)}/reset-password/${token}`;
   const content = renderEmail({
     headline: "Reset your password",
     body: "Use this secure link to set a new password for your Ad Studio account. If you did not request this, you can ignore this email.",
@@ -59,7 +79,7 @@ export async function sendPasswordResetEmail(user: Pick<User, "id" | "email" | "
     to: { address: user.email, name: user.name ?? undefined },
     subject: "Reset your Ad Studio password",
     channel: "AUTH",
-    workspaceId: user.workspaceId,
+    workspaceId: user.lastWorkspaceId,
     userId: user.id,
     metadata: { type: "password_reset" },
     ...content,
@@ -86,7 +106,7 @@ export async function sendWorkspaceInviteEmail({
       invitedBy: true,
     },
   });
-  const inviteUrl = buildInviteUrl(origin ?? getAppUrl(), token);
+  const inviteUrl = buildInviteUrl(getAppUrl(origin), token);
   const content = renderEmail({
     headline: `Join ${invite.workspace.name}`,
     body: `${invite.invitedBy.name ?? invite.invitedBy.email} invited you to collaborate in ${invite.workspace.name}. Your access is set to ${invite.role.toLowerCase()} with ${countEnabledPermissions(invite.permissions, invite.role)} workspace permissions.`,
@@ -124,9 +144,14 @@ export async function sendCampaignToWorkspace(campaignId: string) {
 
   const recipients = await prisma.user.findMany({
     where: {
-      workspaceId: campaign.workspaceId,
       isActive: true,
       emailVerifiedAt: { not: null },
+      memberships: {
+        some: {
+          workspaceId: campaign.workspaceId,
+          isActive: true,
+        },
+      },
     },
     include: { emailPreference: true },
   });
@@ -200,9 +225,14 @@ export async function sendReminder(reminderId: string) {
     ? [reminder.user]
     : await prisma.user.findMany({
         where: {
-          workspaceId: reminder.workspaceId,
           isActive: true,
           emailVerifiedAt: { not: null },
+          memberships: {
+            some: {
+              workspaceId: reminder.workspaceId,
+              isActive: true,
+            },
+          },
         },
         include: { emailPreference: true },
       });

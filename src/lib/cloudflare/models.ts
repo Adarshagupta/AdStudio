@@ -1,15 +1,20 @@
 export const cloudflareModels = {
   text: {
-    default: "@cf/meta/llama-3.1-8b-instruct",
+    default: "accounts/fireworks/models/kimi-k2p6",
     options: [
-      "@cf/meta/llama-3.1-8b-instruct",
-      "@cf/meta/llama-3.3-70b-instruct",
-      "@cf/google/gemma-3-12b-it",
+      "accounts/fireworks/models/kimi-k2p6",
+      "accounts/fireworks/models/kimi-k2-instruct",
+      "accounts/fireworks/models/kimi-k2-thinking",
+      "accounts/fireworks/models/kimi-k2p5",
     ],
   },
   image: {
     default: "@cf/stabilityai/stable-diffusion-xl-base-1.0",
-    options: ["@cf/stabilityai/stable-diffusion-xl-base-1.0"],
+    options: [
+      "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+      "openai/dall-e-3",
+      "openai/gpt-image-1",
+    ],
   },
   audio: {
     default: "@cf/myshell-ai/melotts",
@@ -44,7 +49,7 @@ export function resolveCloudflareModel(category: CloudflareModelCategory, overri
     return candidate;
   }
 
-  if (candidate.startsWith("@cf/")) {
+  if (candidate.startsWith("@cf/") || candidate.startsWith("openai/")) {
     return candidate;
   }
 

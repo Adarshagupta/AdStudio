@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { readJsonResponse, responseErrorMessage } from "@/lib/http/json";
+import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 type PreferenceState = {
@@ -42,13 +44,9 @@ const preferenceItems: Array<{
 
 export function EmailPreferencesForm({ initialPreference }: { initialPreference: PreferenceState }) {
   const [preference, setPreference] = useState(initialPreference);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   async function save() {
-    setNotice(null);
-    setError(null);
     setIsSaving(true);
 
     try {
@@ -57,15 +55,15 @@ export function EmailPreferencesForm({ initialPreference }: { initialPreference:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(preference),
       });
-      const data = (await response.json()) as { error?: string };
+      const data = await readJsonResponse<{ error?: string }>(response);
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not save preferences.");
+        throw new Error(responseErrorMessage(response, data, "Could not save preferences."));
       }
 
-      setNotice("Email preferences saved.");
+      notify.success("Email preferences saved.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save preferences.");
+      notify.error(err instanceof Error ? err.message : "Could not save preferences.");
     } finally {
       setIsSaving(false);
     }
@@ -117,9 +115,6 @@ export function EmailPreferencesForm({ initialPreference }: { initialPreference:
           );
         })}
       </div>
-
-      {notice ? <p className="text-sm text-green-700">{notice}</p> : null}
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       <Button disabled={isSaving} onClick={save}>
         {isSaving ? "Saving..." : "Save preferences"}

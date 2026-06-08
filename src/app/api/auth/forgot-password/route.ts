@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db";
+import { getRequestOrigin } from "@/lib/integrations/app-url";
+import { parseRequestJson } from "@/lib/http/json";
 import { sendPasswordResetEmail } from "@/lib/email/service";
 
 const forgotPasswordSchema = z.object({
@@ -9,7 +11,7 @@ const forgotPasswordSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
+  const body = await parseRequestJson(request);
   const result = forgotPasswordSchema.safeParse(body);
 
   if (!result.success) {
@@ -21,7 +23,19 @@ export async function POST(request: Request) {
   });
 
   if (user?.isActive) {
-    await sendPasswordResetEmail(user);
+    try {
+      await sendPasswordResetEmail(user, getRequestOrigin(request));
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? `Password reset email could not be sent: ${error.message}`
+              : "Password reset email could not be sent.",
+        },
+        { status: 502 },
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });

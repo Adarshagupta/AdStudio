@@ -2,53 +2,119 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createSession, verifyPassword } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import {
+  databaseSetupErrorMessage,
+  isDatabaseSetupError,
+} from "@/lib/prisma-errors";
 import { sendVerificationEmail } from "@/lib/email/service";
+import { getRequestOrigin } from "@/lib/integrations/app-url";
+import { formatValidationErrors, parseRequestJson } from "@/lib/http/json";
+import { isWorkspaceOnboardingCompleteCached } from "@/lib/onboarding-gate";
+import { findUserByEmail } from "@/lib/user-db";
+import { getDefaultWorkspaceIdForUser } from "@/lib/workspace-members";
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.preprocess(
+    (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+    z.string().email(),
+  ),
   password: z.string().min(1),
 });
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const result = loginSchema.safeParse(body);
+  try {
+    const body = await parseRequestJson(request);
 
-  if (!result.success) {
-    return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
-  }
+    if (!body) {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
 
-  const user = await prisma.user.findUnique({
-    where: { email: result.data.email.toLowerCase() },
-  });
+    const result = loginSchema.safeParse(body);
 
-  if (!user?.passwordHash || !user.isActive) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
-  }
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          error: formatValidationErrors(result.error.flatten(), "Invalid login details."),
+          errors: result.error.flatten(),
+        },
+        { status: 400 },
+      );
+    }
 
-  const isValid = await verifyPassword(result.data.password, user.passwordHash);
+    const user = await findUserByEmail(result.data.email);
 
-  if (!isValid) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
-  }
+    if (!user?.isActive) {
+      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    }
 
-  if (!user.emailVerifiedAt) {
-    try {
-      await sendVerificationEmail(user.id);
-    } catch {
-      // Keep the response generic; the user can request another verification email.
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        {
+          error:
+            "This account has no password yet. Use Forgot password to set one, or sign in the way you originally registered.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const isValid = await verifyPassword(result.data.password, user.passwordHash);
+
+    if (!isValid) {
+      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    }
+
+    if (!user.emailVerifiedAt) {
+      try {
+        await sendVerificationEmail(user.id, undefined, getRequestOrigin(request));
+      } catch {
+        // Keep the response generic; the user can request another verification email.
+      }
+
+      return NextResponse.json(
+        {
+          error: "Verify your email before signing in. We sent a new verification link.",
+          requiresVerification: true,
+        },
+        { status: 403 },
+      );
+    }
+
+    const workspaceId = await getDefaultWorkspaceIdForUser(user.id);
+
+    if (!workspaceId) {
+      return NextResponse.json(
+        { error: "No workspace access found for this account. Accept a workspace invite first." },
+        { status: 403 },
+      );
+    }
+
+    const token = await createSession(user.id, workspaceId);
+
+    const onboardingComplete = await isWorkspaceOnboardingCompleteCached(workspaceId);
+
+    return NextResponse.json({
+      ok: true,
+      token,
+      onboardingComplete,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    console.error("Login failed:", error);
+
+    if (isDatabaseSetupError(error)) {
+      return NextResponse.json(
+        { error: databaseSetupErrorMessage(error) },
+        { status: 503 },
+      );
     }
 
     return NextResponse.json(
-      {
-        error: "Verify your email before signing in. We sent a new verification link.",
-        requiresVerification: true,
-      },
-      { status: 403 },
+      { error: error instanceof Error ? error.message : "Sign in failed. Try again." },
+      { status: 500 },
     );
   }
-
-  await createSession(user.id, user.workspaceId);
-
-  return NextResponse.json({ ok: true });
 }
