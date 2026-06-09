@@ -38,6 +38,11 @@ export type StudioNodeData = {
   imageHeight?: number;
   videoWidth?: number;
   videoHeight?: number;
+  /** Flux model settings */
+  steps?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
   status?: "idle" | "running" | "done" | "failed";
   mediaSource?: "upload" | "generated";
   error?: string;

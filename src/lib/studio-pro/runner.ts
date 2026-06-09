@@ -200,6 +200,10 @@ export async function runImageNode(
       prompt: plan.scenePrompt,
       model: node.data.model,
       aspectRatio: node.data.aspectRatio,
+      steps: node.data.steps,
+      width: node.data.width,
+      height: node.data.height,
+      seed: node.data.seed,
     }),
   });
 

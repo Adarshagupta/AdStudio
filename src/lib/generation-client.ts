@@ -230,3 +230,170 @@ export async function pollGenerationUntilComplete(
 
   throw new Error("Timed out waiting for video generation.");
 }
+
+export type AgentGenerationResult = {
+  generationId: string;
+  status: GenerationJobStatus;
+  scriptText: string;
+  imageUrl?: string;
+  audioUrl?: string;
+  videoUrl?: string;
+  requestId?: string;
+  notice?: string;
+  thinking?: string[];
+  settings?: {
+    aspectRatio?: string;
+    duration?: number;
+    tone?: string;
+    imageModel?: string;
+    videoModel?: string;
+  };
+};
+
+export async function startAgentGeneration(input: {
+  prompt: string;
+  aspectRatio?: string;
+  productUrl?: string;
+  referenceImageUrl?: string;
+  referenceImageUrls?: string[];
+  imageModel?: string;
+  videoModel?: string;
+}): Promise<AgentGenerationResult> {
+  const response = await fetch("/api/generate/agent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  const data = await readJsonResponse<{
+    generationId?: string;
+    status?: GenerationJobStatus;
+    scriptText?: string;
+    imageUrl?: string;
+    audioUrl?: string;
+    videoUrl?: string;
+    requestId?: string;
+    error?: string;
+    notice?: string;
+    thinking?: string[];
+    settings?: {
+      aspectRatio?: string;
+      duration?: number;
+      tone?: string;
+      imageModel?: string;
+      videoModel?: string;
+    };
+  }>(response);
+
+  if (!response.ok) {
+    throw new Error(responseErrorMessage(response, data, "Agent generation request failed."));
+  }
+
+  return {
+    generationId: data.generationId ?? "",
+    status: data.status ?? "PROCESSING",
+    scriptText: data.scriptText ?? "",
+    imageUrl: data.imageUrl,
+    audioUrl: data.audioUrl,
+    videoUrl: data.videoUrl,
+    requestId: data.requestId,
+    notice: data.notice,
+    thinking: data.thinking,
+    settings: data.settings,
+  };
+}
+
+export type AgentStreamEvent = {
+  step: string;
+  status: string;
+  payload?: {
+    scriptText?: string;
+    imageUrl?: string;
+    audioUrl?: string;
+    videoUrl?: string;
+    requestId?: string;
+    generationId?: string;
+    error?: string;
+    notice?: string;
+    thinking?: string[];
+    settings?: {
+      aspectRatio?: string;
+      duration?: number;
+      tone?: string;
+      imageModel?: string;
+      videoModel?: string;
+    };
+  };
+};
+
+export function streamAgentGeneration(
+  input: {
+    prompt: string;
+    aspectRatio?: string;
+    productUrl?: string;
+    referenceImageUrl?: string;
+    referenceImageUrls?: string[];
+    imageModel?: string;
+    videoModel?: string;
+  },
+  onEvent: (event: AgentStreamEvent) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const abortController = new AbortController();
+
+  (async () => {
+    try {
+      const response = await fetch("/api/generate/agent/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+        signal: abortController.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`Stream failed (${response.status}): ${text || response.statusText}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body stream.");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const dataLine = line.trim().split("\n").find((l) => l.startsWith("data:"));
+          if (!dataLine) continue;
+          const data = dataLine.slice(5).trim();
+          if (!data) continue;
+
+          try {
+            const event = JSON.parse(data) as AgentStreamEvent;
+            onEvent(event);
+            if (event.step === "done" || event.step === "error") {
+              abortController.abort();
+              return;
+            }
+          } catch {
+            // ignore malformed events
+          }
+        }
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      onError?.(error instanceof Error ? error : new Error(String(error)));
+    }
+  })();
+
+  return () => abortController.abort();
+}

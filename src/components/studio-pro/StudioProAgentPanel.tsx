@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Bot, ChevronDown, Loader2, RotateCcw, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Bot, ChevronDown, ImageIcon, Loader2, RotateCcw, Send, Sparkles, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { MediaUploadTrigger } from "@/components/assets/MediaUploadTrigger";
 import {
   useStudioAgent,
   type StudioAgentCollaboration,
@@ -24,6 +25,7 @@ import {
   STUDIO_AGENT_WELCOME,
 } from "@/lib/studio-pro/agent-system";
 import type { StudioAgentActions } from "@/lib/studio-pro/agent-executor";
+import type { UserMediaAssetDto } from "@/lib/user-media-assets-types";
 
 function AgentToolOutput({ message }: { message: StudioAgentToolMessage }) {
   const legacy = parseLegacyToolMessage(message.toolName, message.content);
@@ -444,17 +446,46 @@ export function StudioProAgentPanel({
             placeholder="Say hi, @prompt-abc a node, or ask me to build something…"
             rows={3}
             disabled={isBusy}
-            className="min-h-[72px] resize-none pr-12 text-sm"
+            className="min-h-[72px] resize-none pr-24 text-sm"
           />
-          <Button
-            size="icon"
-            className="absolute bottom-2 right-2 h-8 w-8"
-            onClick={submit}
-            disabled={!draft.trim() || isBusy}
-            aria-label="Send"
-          >
-            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+          <div className="absolute bottom-2 right-2 flex items-center gap-1">
+            <MediaUploadTrigger
+              kinds={["image", "video", "audio"]}
+              onFile={async (file) => {
+                const text = `Upload file "${file.name}" and attach it to the appropriate node.`;
+                setDraft(text);
+                await sendMessage(text);
+                setDraft("");
+              }}
+              onAsset={(asset: UserMediaAssetDto) => {
+                const text = `Attach asset ID "${asset.id}" to the appropriate node. Asset name: ${asset.name ?? asset.id}, kind: ${asset.kind}.`;
+                setDraft(text);
+                void sendMessage(text);
+                setDraft("");
+              }}
+              trigger={({ open, disabled: triggerDisabled }) => (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={open}
+                  disabled={triggerDisabled || isBusy}
+                  aria-label="Attach asset"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+              )}
+            />
+            <Button
+              size="icon"
+              className="h-8 w-8"
+              onClick={submit}
+              disabled={!draft.trim() || isBusy}
+              aria-label="Send"
+            >
+              {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
       </div>
     </aside>

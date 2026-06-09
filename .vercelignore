@@ -6,3 +6,7 @@ flutter_app
 
 # Test coverage output
 coverage
+
+# Generated media assets — these are uploaded to R2 and served from CDN, not from Vercel
+public/assets/openai
+public/assets/cmq*

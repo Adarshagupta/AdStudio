@@ -240,6 +240,65 @@ export function StudioProInspector({
                 <option value="webp">webp</option>
               </select>
             </Field>
+            {node.data.model?.startsWith("sylicaai/") && (
+              <>
+                <Field label="Steps">
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={node.data.steps ?? 8}
+                    onChange={(event) =>
+                      onChange(node.id, { steps: Number.parseInt(event.target.value, 10) })
+                    }
+                    className="studio-input"
+                    placeholder="8"
+                  />
+                </Field>
+                <Field label="Width">
+                  <input
+                    type="number"
+                    min={256}
+                    max={2048}
+                    step={64}
+                    value={node.data.width ?? 1024}
+                    onChange={(event) =>
+                      onChange(node.id, { width: Number.parseInt(event.target.value, 10) })
+                    }
+                    className="studio-input"
+                    placeholder="1024"
+                  />
+                </Field>
+                <Field label="Height">
+                  <input
+                    type="number"
+                    min={256}
+                    max={2048}
+                    step={64}
+                    value={node.data.height ?? 1024}
+                    onChange={(event) =>
+                      onChange(node.id, { height: Number.parseInt(event.target.value, 10) })
+                    }
+                    className="studio-input"
+                    placeholder="1024"
+                  />
+                </Field>
+                <Field label="Seed">
+                  <input
+                    type="number"
+                    min={0}
+                    value={node.data.seed ?? ""}
+                    onChange={(event) =>
+                      onChange(node.id, {
+                        seed: event.target.value ? Number.parseInt(event.target.value, 10) : undefined,
+                      })
+                    }
+                    className="studio-input"
+                    placeholder="Random"
+                  />
+                </Field>
+              </>
+            )}
           </>
         )}
 
@@ -292,10 +351,15 @@ function getModelOptions(type: StudioNode["type"], videoChoices: ReturnType<type
     return cloudflareModels.text.options.map((value) => ({ value, label: value }));
   }
   if (type === "image") {
-    return cloudflareModels.image.options.map((value) => ({
-      value,
-      label: isOpenAIImageModel(value) ? `${imageModelLabel(value)} (Premium)` : value,
-    }));
+    return cloudflareModels.image.options.map((value) => {
+      if (isOpenAIImageModel(value)) {
+        return { value, label: `${imageModelLabel(value)} (Premium)` };
+      }
+      if (value === "sylicaai/flux-schnell") {
+        return { value, label: "Flux Schnell" };
+      }
+      return { value, label: value };
+    });
   }
   if (type === "video") {
     return [

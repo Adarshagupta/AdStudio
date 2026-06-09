@@ -216,6 +216,32 @@ export async function ensurePublicMediaUrl(input: {
   });
 }
 
+/** Upload media to R2 in the background without blocking the response. Returns the original URL immediately. */
+export function backgroundUploadMedia(input: {
+  url: string;
+  userId: string;
+  kind: StudioUploadKind;
+}) {
+  if (!isR2Configured()) return;
+  const url = input.url.trim();
+  if (!url || isProviderReadyHttpsUrl(url)) return;
+
+  (async () => {
+    try {
+      const { mime, buffer } = await loadMediaBufferFromUrl(url);
+      await uploadMediaBuffer({
+        buffer,
+        mime,
+        userId: input.userId,
+        kind: input.kind,
+        label: isDataMediaUrl(url) ? "generated" : "reference",
+      });
+    } catch (err) {
+      console.warn("[backgroundUpload] failed:", err instanceof Error ? err.message : err);
+    }
+  })();
+}
+
 export async function ensurePublicMediaUrls(
   urls: string[] | undefined,
   userId: string,

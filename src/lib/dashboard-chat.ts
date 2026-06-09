@@ -10,6 +10,19 @@ export type ChatAttachment = {
   name?: string;
 };
 
+export type AgentStepStatus = "pending" | "running" | "completed" | "failed";
+
+export type AgentStep = {
+  id: string;
+  label: string;
+  description?: string;
+  status: AgentStepStatus;
+  output?: string;
+  assetUrl?: string;
+  assetKind?: "image" | "audio" | "video" | "script";
+  error?: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -24,6 +37,17 @@ export type ChatMessage = {
   videoUrl?: string;
   scriptText?: string;
   error?: string;
+  agentMode?: boolean;
+  thinking?: string;
+  thinkingSteps?: string[];
+  agentSteps?: AgentStep[];
+  settings?: {
+    aspectRatio?: string;
+    duration?: number;
+    tone?: string;
+    imageModel?: string;
+    videoModel?: string;
+  };
 };
 
 export const CHAT_TOOL_OPTIONS: {
@@ -122,7 +146,7 @@ export function launchFromSearchParams(params: URLSearchParams): DashboardChatLa
 }
 
 export const CHAT_STARTER_PROMPTS = [
-  "UGC talking-head ad for a skincare serum",
+  "Agent: Create a full skincare ad with script, image, voiceover, and video",
   "Product hero image on a clean pastel background",
   "Turn my reference photo into a 10s vertical ad",
   "Make this clip feel more cinematic and premium",
