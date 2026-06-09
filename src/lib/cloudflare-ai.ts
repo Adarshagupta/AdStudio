@@ -8,6 +8,64 @@ import { generateOpenAIImage } from "@/lib/openai-ai";
 
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+const SYLICAAI_IMAGE_API_KEY = process.env.SYLICAAI_IMAGE_API_KEY;
+
+function isSylicaAIImageModel(model?: string | null) {
+  return model?.startsWith("sylicaai/") ?? false;
+}
+
+async function generateSylicaAIImage(input: {
+  prompt: string;
+  model: string;
+  aspectRatio?: string;
+  steps?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
+}) {
+  const apiKey = SYLICAAI_IMAGE_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("SYLICAAI_IMAGE_API_KEY is required for SylicaAI image generation. Add it to .env or choose a free model.");
+  }
+
+  // Parse aspect ratio to width/height (default 1024x1024)
+  const [w, h] = (input.aspectRatio ?? "1:1").split(":").map(Number);
+  const width = input.width ?? (w && h ? Math.round((1024 * w) / Math.max(w, h)) : 1024);
+  const height = input.height ?? (w && h ? Math.round((1024 * h) / Math.max(w, h)) : 1024);
+
+  const url = new URL("https://image.sylicaai.com/generate");
+  url.searchParams.set("prompt", input.prompt);
+  url.searchParams.set("steps", String(Math.max(1, Math.min(50, input.steps ?? 8))));
+  url.searchParams.set("width", String(width));
+  url.searchParams.set("height", String(height));
+  if (input.seed !== undefined && !Number.isNaN(input.seed)) {
+    url.searchParams.set("seed", String(input.seed));
+  }
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "x-api-key": apiKey,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`SylicaAI image generation failed (${response.status}): ${text || response.statusText}`);
+  }
+
+  const data = (await response.json()) as { imageUrl?: string; image?: string; url?: string; output?: string; image_b64?: string };
+  const imageUrl = data.imageUrl ?? data.image ?? data.url ?? data.output ?? data.image_b64;
+  const urlType = imageUrl?.startsWith("data:") ? "base64" : imageUrl?.startsWith("http") ? "http" : "unknown";
+  console.log(`[sylicaai] generated url type: ${urlType}, length: ${imageUrl?.length ?? 0}`);
+
+  if (!imageUrl) {
+    throw new Error("SylicaAI did not return an image URL.");
+  }
+
+  return { imageUrl, provider: input.model };
+}
 
 type ProviderJobRef =
   | { kind: "sync"; videoUrl: string }
@@ -399,6 +457,10 @@ export async function generateImage(input: {
   prompt: string;
   model?: string;
   aspectRatio?: string;
+  steps?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
 }) {
   const model = resolveCloudflareModel("image", input.model);
   const aspectRatio = normalizeAspectRatio(input.aspectRatio);
@@ -413,13 +475,26 @@ export async function generateImage(input: {
         model,
         aspectRatio: input.aspectRatio,
       });
-      return { imageUrl: openai.imageUrl, provider: model };
+      return { imageUrl: openai.imageUrl, provider: model, notice: undefined };
     } catch (openaiError) {
       console.warn(
         "[image] OpenAI failed, falling back to Cloudflare SD:",
         openaiError instanceof Error ? openaiError.message : openaiError,
       );
     }
+  }
+
+  if (isSylicaAIImageModel(model)) {
+    const result = await generateSylicaAIImage({
+      prompt,
+      model,
+      aspectRatio: input.aspectRatio,
+      steps: input.steps,
+      width: input.width,
+      height: input.height,
+      seed: input.seed,
+    });
+    return { imageUrl: result.imageUrl, provider: result.provider, notice: undefined };
   }
 
   const cfModel = isOpenAIImageModel(model) ? CLOUDFLARE_FREE_IMAGE_MODEL : model;

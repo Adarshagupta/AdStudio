@@ -14,6 +14,7 @@ export const cloudflareModels = {
       "@cf/stabilityai/stable-diffusion-xl-base-1.0",
       "openai/dall-e-3",
       "openai/gpt-image-1",
+      "sylicaai/flux-schnell",
     ],
   },
   audio: {
@@ -49,7 +50,7 @@ export function resolveCloudflareModel(category: CloudflareModelCategory, overri
     return candidate;
   }
 
-  if (candidate.startsWith("@cf/") || candidate.startsWith("openai/")) {
+  if (candidate.startsWith("@cf/") || candidate.startsWith("openai/") || candidate.startsWith("sylicaai/")) {
     return candidate;
   }
 

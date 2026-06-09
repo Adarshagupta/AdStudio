@@ -6,7 +6,7 @@ import { generateImage, generateScript } from "@/lib/cloudflare-ai";
 import { buildDashboardImagePrompt } from "@/lib/dashboard-generation";
 import { prisma } from "@/lib/db";
 import { formatValidationErrors, parseRequestJson } from "@/lib/http/json";
-import { ensurePublicMediaUrl, ensurePublicMediaUrls } from "@/lib/media-url";
+import { backgroundUploadMedia, ensurePublicMediaUrl, ensurePublicMediaUrls } from "@/lib/media-url";
 import { startVideoGeneration } from "@/lib/video-generation";
 
 export const runtime = "nodejs";
@@ -118,11 +118,22 @@ export async function POST(request: Request) {
         aspectRatio: result.data.style?.aspectRatio,
       });
 
-      const imageUrl = await ensurePublicMediaUrl({
-        url: image.imageUrl,
-        userId: currentUser.user.id,
-        kind: "image",
-      });
+      // For SylicaAI base64 images: return immediately, upload to R2 in background
+      let imageUrl: string;
+      if (image.provider?.startsWith("sylicaai/") && image.imageUrl?.startsWith("data:")) {
+        backgroundUploadMedia({
+          url: image.imageUrl,
+          userId: currentUser.user.id,
+          kind: "image",
+        });
+        imageUrl = image.imageUrl;
+      } else {
+        imageUrl = await ensurePublicMediaUrl({
+          url: image.imageUrl,
+          userId: currentUser.user.id,
+          kind: "image",
+        });
+      }
 
       const [, updatedGeneration] = await prisma.$transaction([
         prisma.workspace.update({

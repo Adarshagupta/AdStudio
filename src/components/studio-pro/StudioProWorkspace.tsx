@@ -1650,24 +1650,49 @@ export function StudioProWorkspace({
             </div>
           ) : null}
 
-          {agentOpen && !showPicker ? (
+          {!showPicker ? (
             <div
-              className="studio-agent pointer-events-auto absolute bottom-24 left-4 top-16 z-20 w-[min(360px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.14)] dark:border-zinc-700 dark:bg-zinc-900"
+              className={cn(
+                "studio-agent pointer-events-auto group absolute bottom-24 top-16 z-20 overflow-hidden border-r border-zinc-200/90 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.14)] transition-all duration-300 ease-out dark:border-zinc-700 dark:bg-zinc-900",
+                agentOpen
+                  ? "left-0 w-[min(360px,calc(100%-2rem))] rounded-r-2xl"
+                  : "-left-0 w-12 rounded-r-2xl hover:w-[min(360px,calc(100%-2rem))]",
+              )}
               data-studio-overlay
               onPointerDown={stopCanvasPointer}
               onWheel={stopCanvasWheel}
             >
-              <StudioProAgentPanel
-                flowId={sessionId}
-                workspaceId={workspaceId}
-                actions={agentActions}
-                collaboration={agentCollaboration}
-                agentRuntimeRef={agentRuntimeRef}
-                applyRemoteAgentChatRef={applyRemoteAgentChatRef}
-                autoStartPrompt={agentAutoPrompt}
-                onAutoStartPromptConsumed={() => setAgentAutoPrompt(null)}
-                onClose={() => setAgentOpen(false)}
-              />
+              <div
+                className={cn(
+                  "h-full w-full transition-opacity duration-300",
+                  agentOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                )}
+              >
+                <StudioProAgentPanel
+                  flowId={sessionId}
+                  workspaceId={workspaceId}
+                  actions={agentActions}
+                  collaboration={agentCollaboration}
+                  agentRuntimeRef={agentRuntimeRef}
+                  applyRemoteAgentChatRef={applyRemoteAgentChatRef}
+                  autoStartPrompt={agentAutoPrompt}
+                  onAutoStartPromptConsumed={() => setAgentAutoPrompt(null)}
+                  onClose={() => setAgentOpen(false)}
+                />
+              </div>
+              {!agentOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setAgentOpen(true)}
+                  className="absolute inset-0 flex items-center justify-center opacity-100 transition-opacity duration-300 group-hover:opacity-0"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                  </div>
+                </button>
+              ) : null}
             </div>
           ) : null}
 
