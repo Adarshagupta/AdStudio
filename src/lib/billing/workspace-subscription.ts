@@ -116,7 +116,7 @@ export async function createWorkspaceSubscriptionCheckout(input: {
 }
 
 function parseCheckoutSubscriptionPlan(value: string | undefined): SubscriptionPlanId | null {
-  if (value === "STARTER" || value === "PLUS" || value === "PRO") {
+  if (value === "STARTER" || value === "PRO" || value === "BUSINESS") {
     return value;
   }
   return null;

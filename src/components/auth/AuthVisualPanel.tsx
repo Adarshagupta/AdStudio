@@ -119,7 +119,7 @@ export function AuthVisualPanel() {
           </div>
 
           <p className="text-center text-xs font-medium text-violet-800/60">
-            Claim 25 free credits after signup
+            Start with 5 free credits
           </p>
         </div>
       </div>

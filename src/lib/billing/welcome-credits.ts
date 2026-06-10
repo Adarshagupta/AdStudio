@@ -1,7 +1,6 @@
-import { planCreditAllocation } from "@/lib/billing/plans";
 import { prisma } from "@/lib/db";
 
-export const WELCOME_CREDIT_BONUS = planCreditAllocation.FREE;
+export const WELCOME_CREDIT_BONUS = 5;
 
 export type WorkspaceWelcomeStatus = {
   creditsRemaining: number;

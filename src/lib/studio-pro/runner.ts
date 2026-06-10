@@ -289,6 +289,78 @@ export async function runVideoNode(
   };
 }
 
+export async function runScheduleNode(node: StudioNode) {
+  const interval = node.data.scheduleInterval ?? 60;
+  const enabled = node.data.scheduleEnabled ?? false;
+  const nextRun = new Date(Date.now() + interval * 60000).toISOString();
+
+  // eslint-disable-next-line no-console
+  console.log("[runScheduleNode] Input:", { id: node.id, enabled: node.data.scheduleEnabled, interval: node.data.scheduleInterval });
+  // eslint-disable-next-line no-console
+  console.log("[runScheduleNode] Output:", { enabled, interval, nextRun });
+
+  return {
+    output: `Schedule: ${interval} min · ${enabled ? "enabled" : "paused"} · next ${nextRun.slice(11, 16)}`,
+    scheduleInterval: interval,
+    scheduleEnabled: enabled,
+    scheduleNextRun: nextRun,
+    prompt: node.data.prompt ?? "",
+  };
+}
+
+export async function runSocialNode(node: StudioNode, upstream: StudioNode[]) {
+  const mediaNode = upstream.find(
+    (n) =>
+      (n.type === "image" && n.data.imageUrl) || (n.type === "video" && n.data.videoUrl),
+  );
+  const textNode = upstream.find(
+    (n) => n.type === "prompt" && (n.data.scriptText || n.data.output),
+  );
+
+  const mediaUrl = mediaNode?.data.imageUrl ?? mediaNode?.data.videoUrl ?? node.data.socialMediaUrl ?? "";
+  const mediaType = mediaNode?.data.videoUrl ? "video" : "image";
+  const caption = node.data.socialCaption ?? textNode?.data.scriptText ?? textNode?.data.output ?? "";
+  const provider = node.data.socialProvider ?? "instagram";
+
+  if (!mediaUrl) {
+    throw new Error("Connect an Image or Video node with generated media, or set a media URL.");
+  }
+
+  const response = await fetch("/api/studio/social", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      providers: [provider],
+      mediaUrl,
+      mediaType,
+      caption,
+    }),
+  });
+
+  const data = (await response.json()) as {
+    ok?: boolean;
+    message?: string;
+    outcomes?: Array<{ provider: string; ok: boolean; message: string; postUrl?: string }>;
+    error?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(data.error ?? data.message ?? "Social publish failed.");
+  }
+
+  const outcome = data.outcomes?.[0];
+  const postUrl = outcome?.postUrl ?? "";
+
+  return {
+    output: postUrl || data.message || `Posted to ${provider}`,
+    socialPostUrl: postUrl,
+    socialMediaUrl: mediaUrl,
+    socialCaption: caption,
+    socialProvider: provider,
+    prompt: caption,
+  };
+}
+
 export async function runStudioNode(
   node: StudioNode,
   nodes: StudioNode[],
@@ -307,6 +379,10 @@ export async function runStudioNode(
       return runImageNode(node, nodes, edges);
     case "video":
       return runVideoNode(node, nodes, edges);
+    case "schedule":
+      return runScheduleNode(node);
+    case "social":
+      return runSocialNode(node, upstream);
     default:
       throw new Error("Unknown node type.");
   }

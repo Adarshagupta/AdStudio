@@ -201,14 +201,14 @@ export function SubscriptionPlans({
                           ? "Upgrade with Stripe"
                           : "Subscribe"}
                 </Button>
-                {plan.showTrial && !isCurrent ? (
+                {plan.showTrial && !isCurrent && !isFree ? (
                   <Button
                     variant="outline"
                     className="w-full"
                     disabled={busyPlan !== null || !isAdmin}
-                    onClick={() => subscribe("STARTER")}
+                    onClick={() => subscribe(plan.id)}
                   >
-                    Use free trial
+                    Start free trial
                   </Button>
                 ) : null}
               </div>

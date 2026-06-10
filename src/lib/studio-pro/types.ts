@@ -1,7 +1,7 @@
 import { cloudflareModels } from "@/lib/cloudflare/models";
 import { studioNodeDisplayText } from "@/lib/studio-pro/display-text";
 
-export type StudioNodeType = "prompt" | "character" | "image" | "audio" | "video";
+export type StudioNodeType = "prompt" | "character" | "image" | "audio" | "video" | "schedule" | "social";
 
 export type StudioNode = {
   id: string;
@@ -46,6 +46,17 @@ export type StudioNodeData = {
   status?: "idle" | "running" | "done" | "failed";
   mediaSource?: "upload" | "generated";
   error?: string;
+
+  /** Schedule node settings */
+  scheduleInterval?: number;
+  scheduleEnabled?: boolean;
+  scheduleNextRun?: string;
+
+  /** Social node settings */
+  socialProvider?: string;
+  socialCaption?: string;
+  socialMediaUrl?: string;
+  socialPostUrl?: string;
 };
 
 export type StudioEdge = {
@@ -93,6 +104,20 @@ export const nodeMeta: Record<
     height: 280,
     color: "from-emerald-500/20 to-emerald-500/5",
   },
+  schedule: {
+    title: "Schedule",
+    subtitle: "Auto-trigger",
+    width: 280,
+    height: 160,
+    color: "from-rose-500/20 to-rose-500/5",
+  },
+  social: {
+    title: "Social",
+    subtitle: "Post",
+    width: 300,
+    height: 200,
+    color: "from-orange-500/20 to-orange-500/5",
+  },
 };
 
 export function createNode(type: StudioNodeType, x: number, y: number, partial?: Partial<StudioNode>): StudioNode {
@@ -128,6 +153,10 @@ export function createNode(type: StudioNodeType, x: number, y: number, partial?:
       voiceStyle: "",
       audioTitle: "",
       status: "idle",
+      scheduleInterval: type === "schedule" ? 60 : undefined,
+      scheduleEnabled: type === "schedule" ? false : undefined,
+      socialProvider: type === "social" ? "instagram" : undefined,
+      socialCaption: type === "social" ? "" : undefined,
       ...partialData,
     },
     ...partialRest,
@@ -243,6 +272,8 @@ function getNodeBodyHeight(node: StudioNode) {
   }
 
   if (node.type === "audio") return node.data.audioUrl ? 96 : 72;
+  if (node.type === "schedule") return 72;
+  if (node.type === "social") return node.data.socialPostUrl ? 96 : 80;
   return 72;
 }
 

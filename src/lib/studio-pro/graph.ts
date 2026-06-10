@@ -92,6 +92,37 @@ export function getUpstreamNodes(nodeId: string, nodes: StudioNode[], edges: Stu
   return nodes.filter((node) => sourceIds.includes(node.id));
 }
 
+/** All nodes downstream in the flow (direct children only). */
+export function getDownstreamNodes(nodeId: string, nodes: StudioNode[], edges: StudioEdge[]) {
+  const targetIds = edges.filter((edge) => edge.source === nodeId).map((edge) => edge.target);
+  return nodes.filter((node) => targetIds.includes(node.id));
+}
+
+/** All nodes reachable downstream (recursive). */
+export function getDescendantNodes(nodeId: string, nodes: StudioNode[], edges: StudioEdge[]) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const descendants: StudioNode[] = [];
+  const visited = new Set<string>();
+  const queue = edges.filter((edge) => edge.source === nodeId).map((edge) => edge.target);
+
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+
+    const node = byId.get(id);
+    if (node) descendants.push(node);
+
+    edges
+      .filter((edge) => edge.source === id)
+      .forEach((edge) => {
+        if (!visited.has(edge.target)) queue.push(edge.target);
+      });
+  }
+
+  return descendants;
+}
+
 /** All nodes upstream in the flow (not only direct parents). */
 export function getAncestorNodes(nodeId: string, nodes: StudioNode[], edges: StudioEdge[]) {
   const byId = new Map(nodes.map((node) => [node.id, node]));

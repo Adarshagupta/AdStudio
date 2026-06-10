@@ -3,6 +3,7 @@ import { Layers3 } from "lucide-react";
 
 import { LandingCreateSection } from "@/components/landing/LandingCreateSection";
 import { LandingHeroInput } from "@/components/landing/LandingHeroInput";
+import { LandingPricing } from "@/components/landing/LandingPricing";
 import { LandingVideoMarquee } from "@/components/landing/LandingVideoMarquee";
 import { Button } from "@/components/ui/button";
 
@@ -72,7 +73,7 @@ export function LandingPage() {
           <p className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-white/75">
             <span className="flex items-center gap-1.5">
               <Layers3 className="h-4 w-4" />
-              Claim 25 free credits after signup
+              Start free — paid plans include credits equal to your subscription
             </span>
             <span>Payment method optional</span>
           </p>
@@ -81,34 +82,7 @@ export function LandingPage() {
 
       <LandingCreateSection />
 
-      <section id="plans" className="bg-white py-16 text-zinc-900 md:py-20">
-        <div className="mx-auto max-w-6xl px-5 md:px-8">
-          <div className="grid gap-10 md:grid-cols-2 md:items-center">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-violet-700">Plans</p>
-              <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl">
-                Start free, scale with your team
-              </h2>
-              <p className="mt-4 text-sm leading-7 text-zinc-600 md:text-base">
-                Every workspace includes generation credits to get started. Upgrade when you need more volume, seats,
-                or billing controls.
-              </p>
-              <Button asChild className="mt-6 rounded-full">
-                <Link href="/signup">Create free workspace</Link>
-              </Button>
-            </div>
-            <div className="rounded-3xl border border-zinc-100 bg-zinc-50 p-6 md:p-8">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Included on signup</p>
-              <ul className="mt-4 space-y-3 text-sm text-zinc-700">
-                <li>25 generation credits</li>
-                <li>Dashboard chat for video & image</li>
-                <li>Studio Pro flows & autosave</li>
-                <li>Workspace members & roles</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
+      <LandingPricing />
 
       <section id="teams" className="border-t border-zinc-100 bg-zinc-50 py-16 text-zinc-900 md:py-20">
         <div className="mx-auto max-w-6xl px-5 md:px-8">

@@ -11,6 +11,8 @@ const promptPlaceholders: Record<StudioNodeType, string> = {
   image: "Describe the image…",
   video: "Shot notes for this clip…",
   audio: "Speech script…",
+  schedule: "Schedule note…",
+  social: "Post brief…",
 };
 
 export function StudioNodePromptBar({
