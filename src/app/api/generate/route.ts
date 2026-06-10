@@ -5,7 +5,6 @@ import { currentUserCan, getCurrentUser } from "@/lib/auth";
 import { checkCredits, deductCreditsWithGeneration, InsufficientCreditsError, trackUsage } from "@/lib/billing/credits";
 import { generateImage, generateScript } from "@/lib/cloudflare-ai";
 import { buildDashboardImagePrompt } from "@/lib/dashboard-generation";
-import { prisma } from "@/lib/db";
 import { formatValidationErrors, parseRequestJson } from "@/lib/http/json";
 import { backgroundUploadMedia, ensurePublicMediaUrl, ensurePublicMediaUrls } from "@/lib/media-url";
 import { resolveModelBilling } from "@/lib/models";
