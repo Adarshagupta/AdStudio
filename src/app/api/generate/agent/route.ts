@@ -4,7 +4,6 @@ import { currentUserCan, getCurrentUser } from "@/lib/auth";
 import { checkCredits, deductCreditsWithGeneration, InsufficientCreditsError } from "@/lib/billing/credits";
 import { generateImage, generateAudio, generateScript } from "@/lib/cloudflare-ai";
 import { buildDashboardImagePrompt } from "@/lib/dashboard-generation";
-import { prisma } from "@/lib/db";
 import { parseRequestJson } from "@/lib/http/json";
 import { backgroundUploadMedia, ensurePublicMediaUrl } from "@/lib/media-url";
 import { startVideoGeneration } from "@/lib/video-generation";
@@ -144,6 +143,8 @@ export async function POST(request: Request) {
           userId: currentUser.user.id,
           kind: "audio",
         });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        void audioUrl;
 
         const video = await startVideoGeneration({
           prompt,
