@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { Coins, Link2, PanelLeftClose, PanelLeftOpen, Settings, UserPlus, X } from "lucide-react";
 
 import { AppLogo } from "@/components/layout/AppLogo";
@@ -13,7 +13,7 @@ import {
   SIDEBAR_WIDTH_CLASS,
 } from "@/components/layout/sidebar-constants";
 import { WorkspaceSwitcher } from "@/components/layout/WorkspaceSwitcher";
-import { formatPlanLabel } from "@/lib/billing/plans";
+import { formatPlanLabel, planGenerationLimits } from "@/lib/billing/plans";
 import { hasWorkspacePermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -55,9 +55,147 @@ function isFooterLinkActive(pathname: string, href: string) {
   return pathname.startsWith(href);
 }
 
+type WorkspaceUsage = {
+  videoMinutesUsed: number;
+  imageCountUsed: number;
+  premiumCreditsUsed: number;
+};
+
 function creditsBarPercent(credits: number) {
   const baseline = 100;
   return Math.min(100, Math.max(credits > 0 ? 8 : 0, (credits / baseline) * 100));
+}
+
+function CreditsUsageDropup({
+  plan,
+  creditsRemaining,
+}: {
+  plan: string;
+  creditsRemaining: number;
+}) {
+  const [usage, setUsage] = useState<WorkspaceUsage | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/workspace/usage")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.usage) {
+          setUsage(data.usage);
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const planLimits = planGenerationLimits[plan as keyof typeof planGenerationLimits] ?? planGenerationLimits.FREE;
+  const videoPercent = planLimits.videoMinutes === Infinity
+    ? 0
+    : Math.min(100, ((usage?.videoMinutesUsed ?? 0) / planLimits.videoMinutes) * 100);
+  const imagePercent = planLimits.imageCount === Infinity
+    ? 0
+    : Math.min(100, ((usage?.imageCountUsed ?? 0) / planLimits.imageCount) * 100);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full text-left"
+      >
+        <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 px-3 py-2.5 transition-colors hover:bg-zinc-100/60">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-zinc-900">Credits</p>
+            <span className="text-[11px] text-zinc-500">{formatPlanLabel(plan)}</span>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200/80">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-300",
+                creditsRemaining <= 5 ? "bg-amber-500" : "bg-zinc-900",
+              )}
+              style={{ width: `${creditsBarPercent(creditsRemaining)}%` }}
+            />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+            <p className="text-xs text-zinc-500">
+              <span className="font-medium text-zinc-700">{creditsRemaining}</span> left
+            </p>
+            <span className="text-[10px] font-medium text-zinc-400">Click for details</span>
+          </div>
+        </div>
+      </button>
+
+      {open && (
+        <>
+          <div className="absolute inset-x-0 bottom-full mb-1 z-50 rounded-xl border border-zinc-200 bg-white p-3 shadow-lg">
+            <div className="space-y-3">
+              {/* Video Minutes */}
+              <div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-600">Video time</span>
+                  <span className="text-zinc-900 font-medium">
+                    {usage?.videoMinutesUsed ?? 0} / {planLimits.videoMinutes === Infinity ? "∞" : `${planLimits.videoMinutes} min`}
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 rounded-full bg-zinc-100">
+                  <div
+                    className="h-full rounded-full bg-violet-500"
+                    style={{ width: `${videoPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Images */}
+              <div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-600">Images</span>
+                  <span className="text-zinc-900 font-medium">
+                    {usage?.imageCountUsed ?? 0} / {planLimits.imageCount === Infinity ? "∞" : `${planLimits.imageCount}`}
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 rounded-full bg-zinc-100">
+                  <div
+                    className="h-full rounded-full bg-sky-500"
+                    style={{ width: `${imagePercent}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Premium Credits */}
+              <div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-600">Premium credits</span>
+                  <span className="text-zinc-900 font-medium">{usage?.premiumCreditsUsed ?? 0} used</span>
+                </div>
+                <div className="mt-1 h-1.5 rounded-full bg-zinc-100">
+                  <div
+                    className="h-full rounded-full bg-amber-500"
+                    style={{ width: `${Math.min(100, ((usage?.premiumCreditsUsed ?? 0) / Math.max(1, creditsRemaining + (usage?.premiumCreditsUsed ?? 0))) * 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-zinc-100 pt-2">
+                <Link
+                  href="/settings/billing"
+                  className="block text-center text-xs font-medium text-violet-600 hover:text-violet-700 hover:underline"
+                >
+                  Upgrade plan
+                </Link>
+              </div>
+            </div>
+          </div>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+        </>
+      )}
+    </div>
+  );
 }
 
 function SidebarFooterLink({
@@ -208,33 +346,10 @@ function SidebarContent({
             </span>
           </Link>
         ) : (
-          <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 px-3 py-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-zinc-900">Credits</p>
-              <span className="text-[11px] text-zinc-500">{formatPlanLabel(workspace.plan)}</span>
-            </div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200/80">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-300",
-                  creditsLow ? "bg-amber-500" : "bg-zinc-900",
-                )}
-                style={{ width: `${creditsBarPercent(workspace.creditsRemaining)}%` }}
-              />
-            </div>
-            <div className="mt-1.5 flex items-center justify-between gap-2">
-              <p className="text-xs text-zinc-500">
-                <span className="font-medium text-zinc-700">{workspace.creditsRemaining}</span> left
-              </p>
-              <Link
-                href="/settings/billing"
-                onClick={onNavigate}
-                className="text-[10px] font-medium text-zinc-600 transition-colors hover:text-zinc-900 hover:underline"
-              >
-                Upgrade
-              </Link>
-            </div>
-          </div>
+          <CreditsUsageDropup
+            plan={workspace.plan}
+            creditsRemaining={workspace.creditsRemaining}
+          />
         )}
 
         <div

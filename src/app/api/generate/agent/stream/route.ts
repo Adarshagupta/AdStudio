@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
+import { checkCredits, deductCredits, InsufficientCreditsError } from "@/lib/billing/credits";
 import { generateImage, generateAudio, generateScript } from "@/lib/cloudflare-ai";
 import { buildDashboardImagePrompt } from "@/lib/dashboard-generation";
 import { prisma } from "@/lib/db";
@@ -50,8 +51,14 @@ export async function POST(request: Request) {
     );
   }
 
-  if (currentUser.workspace.creditsRemaining <= 0) {
-    return NextResponse.json({ error: "No credits remaining." }, { status: 402 });
+  const cost = 1;
+  try {
+    await checkCredits(currentUser.workspace.id, cost);
+  } catch (error) {
+    if (error instanceof InsufficientCreditsError) {
+      return NextResponse.json({ error: error.message }, { status: 402 });
+    }
+    throw error;
   }
 
   const generation = await prisma.generation.create({
@@ -185,32 +192,27 @@ export async function POST(request: Request) {
         thinking.push(`Video generation started with ${videoModel}`);
         send({ step: "video", status: "completed", payload: { videoUrl: video.videoUrl, requestId: video.requestId, thinking } });
 
-        const [, updated] = await prisma.$transaction([
-          prisma.workspace.update({
-            where: { id: currentUser.workspace.id },
-            data: { creditsRemaining: { decrement: 1 } },
-          }),
-          prisma.generation.update({
-            where: { id: generation.id },
-            data: video.videoUrl
-              ? {
-                  status: "COMPLETED",
-                  videoUrl: video.videoUrl,
-                  thumbnailUrl: imageUrl ?? null,
-                  scriptText,
-                  xaiRequestId: video.requestId,
-                  durationSec: video.duration,
-                  completedAt: new Date(),
-                }
-              : {
-                  status: "PROCESSING",
-                  xaiRequestId: video.requestId,
-                  durationSec: video.duration,
-                  scriptText,
-                  thumbnailUrl: imageUrl ?? null,
-                },
-          }),
-        ]);
+        const creditsRemaining = await deductCredits(currentUser.workspace.id, cost);
+        const updated = await prisma.generation.update({
+          where: { id: generation.id },
+          data: video.videoUrl
+            ? {
+                status: "COMPLETED",
+                videoUrl: video.videoUrl,
+                thumbnailUrl: imageUrl ?? null,
+                scriptText,
+                xaiRequestId: video.requestId,
+                durationSec: video.duration,
+                completedAt: new Date(),
+              }
+            : {
+                status: "PROCESSING",
+                xaiRequestId: video.requestId,
+                durationSec: video.duration,
+                scriptText,
+                thumbnailUrl: imageUrl ?? null,
+              },
+        });
 
         send({
           step: "done",
@@ -224,6 +226,7 @@ export async function POST(request: Request) {
             requestId: video.requestId,
             notice: image.notice,
             thinking,
+            creditsRemaining,
             settings: {
               aspectRatio: inferredAspectRatio,
               duration: inferredDuration,

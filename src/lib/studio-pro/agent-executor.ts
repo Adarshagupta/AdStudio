@@ -95,6 +95,11 @@ function patchFromArgs(args: Record<string, unknown>): Partial<StudioNode["data"
   if (typeof args.imageUrl === "string") patch.imageUrl = args.imageUrl;
   if (typeof args.videoUrl === "string") patch.videoUrl = args.videoUrl;
   if (typeof args.audioUrl === "string") patch.audioUrl = args.audioUrl;
+  if (typeof args.scheduleInterval === "number") patch.scheduleInterval = args.scheduleInterval;
+  if (typeof args.scheduleEnabled === "boolean") patch.scheduleEnabled = args.scheduleEnabled;
+  if (typeof args.socialProvider === "string") patch.socialProvider = args.socialProvider;
+  if (typeof args.socialCaption === "string") patch.socialCaption = args.socialCaption;
+  if (typeof args.socialMediaUrl === "string") patch.socialMediaUrl = args.socialMediaUrl;
   return patch;
 }
 

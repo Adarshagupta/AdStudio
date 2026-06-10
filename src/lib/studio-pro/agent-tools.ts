@@ -3,7 +3,7 @@ import { z } from "zod";
 import { studioTemplates } from "@/lib/studio-pro/templates";
 import type { StudioNodeType } from "@/lib/studio-pro/types";
 
-export const STUDIO_NODE_TYPES = ["prompt", "character", "image", "audio", "video"] as const;
+export const STUDIO_NODE_TYPES = ["prompt", "character", "image", "audio", "video", "schedule", "social"] as const;
 
 export type AgentToolName =
   | "add_node"
@@ -44,6 +44,11 @@ export const agentToolSchemas = {
     height: z.number().min(256).max(2048).optional(),
     seed: z.number().optional(),
     outputFormat: z.enum(["png", "jpg", "webp"]).optional(),
+    scheduleInterval: z.number().min(1).optional(),
+    scheduleEnabled: z.boolean().optional(),
+    socialProvider: z.enum(["instagram", "tiktok", "facebook", "reddit"]).optional(),
+    socialCaption: z.string().optional(),
+    socialMediaUrl: z.string().url().optional(),
   }),
   update_node: z.object({
     nodeId: z.string().min(1),
@@ -62,6 +67,11 @@ export const agentToolSchemas = {
     imageUrl: z.string().url().optional(),
     videoUrl: z.string().url().optional(),
     audioUrl: z.string().url().optional(),
+    scheduleInterval: z.number().min(1).optional(),
+    scheduleEnabled: z.boolean().optional(),
+    socialProvider: z.enum(["instagram", "tiktok", "facebook", "reddit"]).optional(),
+    socialCaption: z.string().optional(),
+    socialMediaUrl: z.string().url().optional(),
   }),
   connect_nodes: z.object({
     sourceId: z.string().min(1),
@@ -113,6 +123,11 @@ export const agentToolSchemas = {
     height: z.number().min(256).max(2048).optional(),
     seed: z.number().optional(),
     outputFormat: z.enum(["png", "jpg", "webp"]).optional(),
+    scheduleInterval: z.number().min(1).optional(),
+    scheduleEnabled: z.boolean().optional(),
+    socialProvider: z.enum(["instagram", "tiktok", "facebook", "reddit"]).optional(),
+    socialCaption: z.string().optional(),
+    socialMediaUrl: z.string().url().optional(),
   }),
   list_assets: z.object({
     kind: z.enum(["image", "audio", "video"]).optional(),
@@ -177,7 +192,7 @@ export const studioAgentTools: AgentToolDefinition[] = [
     function: {
       name: "add_node",
       description:
-        "Add a new node to the canvas. Types: prompt (text/script), character, image, audio, video. Set prompts and settings in the same call when possible. For image nodes, you can choose the model: @cf/stabilityai/stable-diffusion-xl-base-1.0 (free), openai/dall-e-3 (premium), openai/gpt-image-1 (premium), or sylicaai/flux-schnell (configurable). For Flux, set steps (1-50), width/height (256-2048), and seed.",
+        "Add a new node to the canvas. Types: prompt (text/script), character, image, audio, video, schedule (auto-trigger), social (post to social). Set prompts and settings in the same call when possible. For image nodes, you can choose the model: @cf/stabilityai/stable-diffusion-xl-base-1.0 (free), openai/dall-e-3 (premium), openai/gpt-image-1 (premium), or sylicaai/flux-schnell (configurable). For Flux, set steps (1-50), width/height (256-2048), and seed. For schedule nodes, set scheduleInterval (minutes) and scheduleEnabled. For social nodes, set socialProvider (instagram, tiktok, facebook, reddit) and socialCaption.",
       parameters: {
         type: "object",
         properties: {
@@ -194,6 +209,11 @@ export const studioAgentTools: AgentToolDefinition[] = [
           height: { type: "number", description: "Flux height (256-2048)." },
           seed: { type: "number", description: "Flux seed (optional)." },
           outputFormat: { type: "string", enum: ["png", "jpg", "webp"], description: "Image output format." },
+          scheduleInterval: { type: "number", description: "Schedule interval in minutes (1+)." },
+          scheduleEnabled: { type: "boolean", description: "Whether schedule is enabled." },
+          socialProvider: { type: "string", enum: ["instagram", "tiktok", "facebook", "reddit"], description: "Social provider for social nodes." },
+          socialCaption: { type: "string", description: "Caption for social post." },
+          socialMediaUrl: { type: "string", description: "Media URL for social post (optional if connecting upstream)." },
         },
         required: ["type"],
       },
@@ -223,6 +243,11 @@ export const studioAgentTools: AgentToolDefinition[] = [
           imageUrl: { type: "string", description: "Set or replace the image on an image node." },
           videoUrl: { type: "string", description: "Set or replace the video on a video node." },
           audioUrl: { type: "string", description: "Set or replace the audio on an audio node." },
+          scheduleInterval: { type: "number", description: "Schedule interval in minutes (1+)." },
+          scheduleEnabled: { type: "boolean", description: "Whether schedule is enabled." },
+          socialProvider: { type: "string", enum: ["instagram", "tiktok", "facebook", "reddit"], description: "Social provider for social nodes." },
+          socialCaption: { type: "string", description: "Caption for social post." },
+          socialMediaUrl: { type: "string", description: "Media URL for social post." },
         },
         required: ["nodeId"],
       },
@@ -398,6 +423,11 @@ export const studioAgentTools: AgentToolDefinition[] = [
           height: { type: "number", description: "Flux height (256-2048)." },
           seed: { type: "number", description: "Flux seed (optional)." },
           outputFormat: { type: "string", enum: ["png", "jpg", "webp"], description: "Image output format." },
+          scheduleInterval: { type: "number", description: "Schedule interval in minutes (1+)." },
+          scheduleEnabled: { type: "boolean", description: "Whether schedule is enabled." },
+          socialProvider: { type: "string", enum: ["instagram", "tiktok", "facebook", "reddit"], description: "Social provider for social nodes." },
+          socialCaption: { type: "string", description: "Caption for social post." },
+          socialMediaUrl: { type: "string", description: "Media URL for social post." },
         },
         required: ["nodeId"],
       },
@@ -570,6 +600,8 @@ export function nodeTypeLabel(type: StudioNodeType) {
     image: "Image",
     audio: "Audio",
     video: "Video",
+    schedule: "Schedule",
+    social: "Social",
   };
   return labels[type];
 }

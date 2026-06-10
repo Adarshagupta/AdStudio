@@ -143,5 +143,54 @@ function renderFields(node: StudioNode, onChange: (data: Partial<StudioNode["dat
     );
   }
 
+  if (node.type === "schedule") {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            value={node.data.scheduleInterval ?? 60}
+            onChange={(event) => onChange({ scheduleInterval: Number.parseInt(event.target.value, 10) })}
+            className={`${compactField} w-20`}
+            placeholder="60"
+          />
+          <span className="text-xs text-zinc-500">minutes</span>
+          <select
+            value={node.data.scheduleEnabled ? "enabled" : "paused"}
+            onChange={(event) => onChange({ scheduleEnabled: event.target.value === "enabled" })}
+            className={`${compactField} w-24`}
+          >
+            <option value="enabled">Enabled</option>
+            <option value="paused">Paused</option>
+          </select>
+        </div>
+      </div>
+    );
+  }
+
+  if (node.type === "social") {
+    return (
+      <div className="space-y-2">
+        <select
+          value={node.data.socialProvider ?? "instagram"}
+          onChange={(event) => onChange({ socialProvider: event.target.value })}
+          className={compactField}
+        >
+          <option value="instagram">Instagram</option>
+          <option value="tiktok">TikTok</option>
+          <option value="facebook">Facebook</option>
+          <option value="reddit">Reddit</option>
+        </select>
+        <NodeTextarea
+          value={node.data.socialCaption ?? ""}
+          onChange={(value) => onChange({ socialCaption: value })}
+          placeholder="Caption..."
+          rows={2}
+        />
+      </div>
+    );
+  }
+
   return null;
 }

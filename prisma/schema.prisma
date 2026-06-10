@@ -63,8 +63,8 @@ enum EmailReminderStatus {
 enum Plan {
   FREE
   STARTER
-  PLUS
   PRO
+  BUSINESS
 }
 
 enum GenerationFormat {
@@ -141,6 +141,9 @@ model Workspace {
   stripeSubscriptionId      String?       @unique
   billingInterval           String?
   creditsRemaining          Int           @default(0)
+  videoMinutesUsed          Int           @default(0)
+  imageCountUsed            Int           @default(0)
+  premiumCreditsUsed        Int           @default(0)
   welcomeCreditsClaimedAt   DateTime?
   paymentSetupSkippedAt     DateTime?
   paymentSetupCompletedAt   DateTime?
@@ -603,4 +606,23 @@ model SocialConnection {
 
   @@unique([workspaceId, provider])
   @@index([workspaceId])
+}
+
+model Model {
+  id               String   @id @default(cuid())
+  name             String
+  provider         String   @unique
+  category         String
+  isPremium        Boolean  @default(false)
+  usesIncludedQuota Boolean @default(true)
+  cost             Int      @default(1)
+  description      String   @default("")
+  isActive         Boolean  @default(true)
+  isSystem         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@index([isSystem])
 }

@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
+import { checkCredits, deductCredits, InsufficientCreditsError, trackUsage } from "@/lib/billing/credits";
 import { generateImage } from "@/lib/cloudflare-ai";
+import { prisma } from "@/lib/db";
 import { parseRequestJson } from "@/lib/http/json";
+import { resolveModelBilling } from "@/lib/models";
 import { backgroundUploadMedia, ensurePublicMediaUrl } from "@/lib/media-url";
 
 export const runtime = "nodejs";
@@ -42,36 +45,60 @@ export async function POST(request: Request) {
     return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
   }
 
+  const modelBilling = await resolveModelBilling(result.data.model ?? "", "image");
+  const cost = modelBilling.cost;
+
+  if (modelBilling.type === "premium") {
+    try {
+      await checkCredits(currentUser.workspace.id, cost);
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) {
+        return NextResponse.json({ error: error.message }, { status: 402 });
+      }
+      throw error;
+    }
+  }
+
   try {
     const image = await generateImage(result.data);
     console.log(`[studio/image] provider: ${image.provider}, url starts with: ${image.imageUrl?.slice(0, 30)}...`);
 
-    // For SylicaAI base64 images: return immediately, upload to R2 in background
     if (image.provider?.startsWith("sylicaai/") && image.imageUrl?.startsWith("data:")) {
       backgroundUploadMedia({
         url: image.imageUrl,
         userId: currentUser.user.id,
         kind: "image",
       });
-      return NextResponse.json({
-        imageUrl: image.imageUrl,
-        provider: image.provider,
-        notice: image.notice,
-      });
     }
 
-    const start = Date.now();
-    const imageUrl = await ensurePublicMediaUrl({
-      url: image.imageUrl,
-      userId: currentUser.user.id,
-      kind: "image",
-    });
-    console.log(`[studio/image] ensurePublicMediaUrl took ${Date.now() - start}ms, result: ${imageUrl?.slice(0, 40)}...`);
+    const imageUrl = image.provider?.startsWith("sylicaai/") && image.imageUrl?.startsWith("data:")
+      ? image.imageUrl
+      : await ensurePublicMediaUrl({
+          url: image.imageUrl,
+          userId: currentUser.user.id,
+          kind: "image",
+        });
+
+    let creditsRemaining: number | undefined;
+
+    if (modelBilling.type === "premium") {
+      creditsRemaining = await deductCredits(currentUser.workspace.id, cost);
+      await trackUsage(currentUser.workspace.id, { premiumCreditsUsed: cost });
+    } else {
+      // Uses included quota — deduct from image count
+      await trackUsage(currentUser.workspace.id, { imageCountUsed: 1 });
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: currentUser.workspace.id },
+        select: { creditsRemaining: true },
+      });
+      creditsRemaining = workspace?.creditsRemaining ?? 0;
+    }
 
     return NextResponse.json({
       imageUrl,
       provider: image.provider,
       notice: image.notice,
+      creditsRemaining,
     });
   } catch (error) {
     return NextResponse.json(

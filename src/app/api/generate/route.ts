@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
+import { checkCredits, deductCreditsWithGeneration, InsufficientCreditsError, trackUsage } from "@/lib/billing/credits";
 import { generateImage, generateScript } from "@/lib/cloudflare-ai";
 import { buildDashboardImagePrompt } from "@/lib/dashboard-generation";
 import { prisma } from "@/lib/db";
 import { formatValidationErrors, parseRequestJson } from "@/lib/http/json";
 import { backgroundUploadMedia, ensurePublicMediaUrl, ensurePublicMediaUrls } from "@/lib/media-url";
+import { resolveModelBilling } from "@/lib/models";
 import { startVideoGeneration } from "@/lib/video-generation";
 
 export const runtime = "nodejs";
@@ -82,10 +84,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (currentUser.workspace.creditsRemaining <= 0) {
-    return NextResponse.json({ error: "No credits remaining." }, { status: 402 });
-  }
-
   const outputType = result.data.outputType;
   const prompt =
     result.data.prompt ||
@@ -96,89 +94,111 @@ export async function POST(request: Request) {
   };
 
   if (outputType === "image") {
-    const generation = await prisma.generation.create({
-      data: {
-        workspaceId: currentUser.workspace.id,
-        userId: currentUser.user.id,
-        format: "STATIC",
-        status: "PROCESSING",
-        prompt,
-        productUrl: result.data.productUrl || null,
-        avatarId: result.data.avatarId || null,
-        style,
-        startedAt: new Date(),
-      },
-    });
+    const modelBilling = await resolveModelBilling(result.data.model ?? "", "image");
+    const cost = modelBilling.cost;
 
-    try {
-      const imagePrompt = buildDashboardImagePrompt(prompt, result.data.referenceImageUrl);
-      const image = await generateImage({
-        prompt: imagePrompt,
-        model: result.data.model,
-        aspectRatio: result.data.style?.aspectRatio,
-      });
-
-      // For SylicaAI base64 images: return immediately, upload to R2 in background
-      let imageUrl: string;
-      if (image.provider?.startsWith("sylicaai/") && image.imageUrl?.startsWith("data:")) {
-        backgroundUploadMedia({
-          url: image.imageUrl,
-          userId: currentUser.user.id,
-          kind: "image",
-        });
-        imageUrl = image.imageUrl;
-      } else {
-        imageUrl = await ensurePublicMediaUrl({
-          url: image.imageUrl,
-          userId: currentUser.user.id,
-          kind: "image",
-        });
+    if (modelBilling.type === "premium") {
+      try {
+        await checkCredits(currentUser.workspace.id, cost);
+      } catch (error) {
+        if (error instanceof InsufficientCreditsError) {
+          return NextResponse.json({ error: error.message }, { status: 402 });
+        }
+        throw error;
       }
+    }
 
-      const [, updatedGeneration] = await prisma.$transaction([
-        prisma.workspace.update({
-          where: { id: currentUser.workspace.id },
-          data: { creditsRemaining: { decrement: 1 } },
-        }),
-        prisma.generation.update({
-          where: { id: generation.id },
+    const { creditsRemaining, result: updatedGeneration } = await deductCreditsWithGeneration(
+      currentUser.workspace.id,
+      modelBilling.type === "premium" ? cost : 0,
+      async (tx) => {
+        const generation = await tx.generation.create({
           data: {
-            status: "COMPLETED",
-            thumbnailUrl: imageUrl,
-            completedAt: new Date(),
+            workspaceId: currentUser.workspace.id,
+            userId: currentUser.user.id,
+            format: "STATIC",
+            status: "PROCESSING",
+            prompt,
+            productUrl: result.data.productUrl || null,
+            avatarId: result.data.avatarId || null,
+            style,
+            startedAt: new Date(),
           },
-        }),
-      ]);
+        });
 
-      return NextResponse.json({
-        jobId: updatedGeneration.id,
-        generationId: updatedGeneration.id,
-        status: updatedGeneration.status,
-        outputType: "image",
-        imageUrl,
-        thumbnailUrl: imageUrl,
-        notice: image.notice,
-      });
-    } catch (error) {
-      const failedGeneration = await prisma.generation.update({
-        where: { id: generation.id },
-        data: {
-          status: "FAILED",
-          errorMessage: error instanceof Error ? error.message : "Image generation failed.",
-        },
-      });
+        try {
+          const imagePrompt = buildDashboardImagePrompt(prompt, result.data.referenceImageUrl);
+          const image = await generateImage({
+            prompt: imagePrompt,
+            model: result.data.model,
+            aspectRatio: result.data.style?.aspectRatio,
+          });
 
+          let imageUrl: string;
+          if (image.provider?.startsWith("sylicaai/") && image.imageUrl?.startsWith("data:")) {
+            backgroundUploadMedia({
+              url: image.imageUrl,
+              userId: currentUser.user.id,
+              kind: "image",
+            });
+            imageUrl = image.imageUrl;
+          } else {
+            imageUrl = await ensurePublicMediaUrl({
+              url: image.imageUrl,
+              userId: currentUser.user.id,
+              kind: "image",
+            });
+          }
+
+          return await tx.generation.update({
+            where: { id: generation.id },
+            data: {
+              status: "COMPLETED",
+              thumbnailUrl: imageUrl,
+              completedAt: new Date(),
+            },
+          });
+        } catch (error) {
+          return await tx.generation.update({
+            where: { id: generation.id },
+            data: {
+              status: "FAILED",
+              errorMessage: error instanceof Error ? error.message : "Image generation failed.",
+            },
+          });
+        }
+      },
+    );
+
+    if (updatedGeneration.status === "FAILED") {
       return NextResponse.json(
         {
-          jobId: failedGeneration.id,
-          generationId: failedGeneration.id,
-          status: failedGeneration.status,
+          jobId: updatedGeneration.id,
+          generationId: updatedGeneration.id,
+          status: updatedGeneration.status,
           outputType: "image",
-          error: failedGeneration.errorMessage,
+          error: updatedGeneration.errorMessage,
         },
         { status: 502 },
       );
     }
+
+    // Track usage based on billing type
+    if (modelBilling.type === "premium") {
+      await trackUsage(currentUser.workspace.id, { premiumCreditsUsed: cost });
+    } else {
+      await trackUsage(currentUser.workspace.id, { imageCountUsed: 1 });
+    }
+
+    return NextResponse.json({
+      jobId: updatedGeneration.id,
+      generationId: updatedGeneration.id,
+      status: updatedGeneration.status,
+      outputType: "image",
+      imageUrl: updatedGeneration.thumbnailUrl,
+      thumbnailUrl: updatedGeneration.thumbnailUrl,
+      creditsRemaining,
+    });
   }
 
   let scriptText = result.data.scriptText?.trim();
@@ -200,108 +220,132 @@ export async function POST(request: Request) {
   }
 
   const finalScriptText = scriptText ?? "";
+  const modelBilling = await resolveModelBilling(result.data.model ?? "", "video");
+  const cost = modelBilling.cost;
 
-  const generation = await prisma.generation.create({
-    data: {
-      workspaceId: currentUser.workspace.id,
-      userId: currentUser.user.id,
-      format: result.data.format,
-      status: "QUEUED",
-      prompt,
-      productUrl: result.data.productUrl || null,
-      scriptText: finalScriptText,
-      avatarId: result.data.avatarId || null,
-      style,
-    },
-  });
+  if (modelBilling.type === "premium") {
+    try {
+      await checkCredits(currentUser.workspace.id, cost);
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) {
+        return NextResponse.json({ error: error.message }, { status: 402 });
+      }
+      throw error;
+    }
+  }
 
-  try {
-    const referenceImageUrls = await ensurePublicMediaUrls(
-      result.data.referenceImageUrls ??
-        (result.data.referenceImageUrl ? [result.data.referenceImageUrl] : undefined),
-      currentUser.user.id,
-      "image",
-    );
-    const referenceImageUrl = referenceImageUrls[0];
-    const referenceVideoUrl = result.data.referenceVideoUrl
-      ? await ensurePublicMediaUrl({
-          url: result.data.referenceVideoUrl,
+  const { creditsRemaining, result: updatedGeneration } = await deductCreditsWithGeneration(
+    currentUser.workspace.id,
+    modelBilling.type === "premium" ? cost : 0,
+    async (tx) => {
+      const generation = await tx.generation.create({
+        data: {
+          workspaceId: currentUser.workspace.id,
           userId: currentUser.user.id,
-          kind: "video",
-        })
-      : undefined;
+          format: result.data.format,
+          status: "QUEUED",
+          prompt,
+          productUrl: result.data.productUrl || null,
+          scriptText: finalScriptText,
+          avatarId: result.data.avatarId || null,
+          style,
+        },
+      });
 
-    const video = await startVideoGeneration({
-      prompt,
-      scriptText: finalScriptText,
-      format: result.data.format,
-      model: result.data.model,
-      adhereToScript:
-        result.data.adhereToScript ?? Boolean(referenceImageUrl || referenceImageUrls.length > 0),
-      shotNotes: result.data.shotNotes,
-      referenceImageUrl,
-      referenceImageUrls,
-      referenceVideoUrl,
-      videoOperation: result.data.videoOperation,
-      style: result.data.style,
-    });
+      try {
+        const referenceImageUrls = await ensurePublicMediaUrls(
+          result.data.referenceImageUrls ??
+            (result.data.referenceImageUrl ? [result.data.referenceImageUrl] : undefined),
+          currentUser.user.id,
+          "image",
+        );
+        const referenceImageUrl = referenceImageUrls[0];
+        const referenceVideoUrl = result.data.referenceVideoUrl
+          ? await ensurePublicMediaUrl({
+              url: result.data.referenceVideoUrl,
+              userId: currentUser.user.id,
+              kind: "video",
+            })
+          : undefined;
 
-    const [, updatedGeneration] = await prisma.$transaction([
-      prisma.workspace.update({
-        where: { id: currentUser.workspace.id },
-        data: { creditsRemaining: { decrement: 1 } },
-      }),
-      prisma.generation.update({
-        where: { id: generation.id },
-        data: video.videoUrl
-          ? {
-              status: "COMPLETED",
-              videoUrl: video.videoUrl,
-              thumbnailUrl: referenceImageUrl ?? null,
-              xaiRequestId: video.requestId,
-              durationSec: video.duration,
-              startedAt: new Date(),
-              completedAt: new Date(),
-            }
-          : {
-              status: "PROCESSING",
-              xaiRequestId: video.requestId,
-              durationSec: video.duration,
-              thumbnailUrl: referenceImageUrl ?? null,
-              startedAt: new Date(),
-            },
-      }),
-    ]);
+        const video = await startVideoGeneration({
+          prompt,
+          scriptText: finalScriptText,
+          format: result.data.format,
+          model: result.data.model,
+          adhereToScript:
+            result.data.adhereToScript ?? Boolean(referenceImageUrl || referenceImageUrls.length > 0),
+          shotNotes: result.data.shotNotes,
+          referenceImageUrl,
+          referenceImageUrls,
+          referenceVideoUrl,
+          videoOperation: result.data.videoOperation,
+          style: result.data.style,
+        });
 
-    return NextResponse.json({
-      jobId: updatedGeneration.id,
-      generationId: updatedGeneration.id,
-      status: updatedGeneration.status,
-      outputType: "video",
-      scriptText: finalScriptText,
-      videoUrl: updatedGeneration.videoUrl,
-      thumbnailUrl: updatedGeneration.thumbnailUrl,
-      xaiRequestId: video.requestId,
-    });
-  } catch (error) {
-    const failedGeneration = await prisma.generation.update({
-      where: { id: generation.id },
-      data: {
-        status: "FAILED",
-        errorMessage: error instanceof Error ? error.message : "Video generation failed.",
-      },
-    });
+        return await tx.generation.update({
+          where: { id: generation.id },
+          data: video.videoUrl
+            ? {
+                status: "COMPLETED",
+                videoUrl: video.videoUrl,
+                thumbnailUrl: referenceImageUrl ?? null,
+                xaiRequestId: video.requestId,
+                durationSec: video.duration,
+                startedAt: new Date(),
+                completedAt: new Date(),
+              }
+            : {
+                status: "PROCESSING",
+                xaiRequestId: video.requestId,
+                durationSec: video.duration,
+                thumbnailUrl: referenceImageUrl ?? null,
+                startedAt: new Date(),
+              },
+        });
+      } catch (error) {
+        return await tx.generation.update({
+          where: { id: generation.id },
+          data: {
+            status: "FAILED",
+            errorMessage: error instanceof Error ? error.message : "Video generation failed.",
+          },
+        });
+      }
+    },
+  );
 
+  if (updatedGeneration.status === "FAILED") {
     return NextResponse.json(
       {
-        jobId: failedGeneration.id,
-        generationId: failedGeneration.id,
-        status: failedGeneration.status,
+        jobId: updatedGeneration.id,
+        generationId: updatedGeneration.id,
+        status: updatedGeneration.status,
         outputType: "video",
         scriptText: finalScriptText,
-        error: failedGeneration.errorMessage,
+        error: updatedGeneration.errorMessage,
       },
       { status: 502 },
     );
   }
+
+  // Track usage based on billing type
+  const durationSec = updatedGeneration.durationSec ?? 10;
+  if (modelBilling.type === "premium") {
+    await trackUsage(currentUser.workspace.id, { premiumCreditsUsed: cost });
+  } else {
+    await trackUsage(currentUser.workspace.id, { videoMinutesUsed: Math.ceil(durationSec / 60) });
+  }
+
+  return NextResponse.json({
+    jobId: updatedGeneration.id,
+    generationId: updatedGeneration.id,
+    status: updatedGeneration.status,
+    outputType: "video",
+    scriptText: finalScriptText,
+    videoUrl: updatedGeneration.videoUrl,
+    thumbnailUrl: updatedGeneration.thumbnailUrl,
+    xaiRequestId: updatedGeneration.xaiRequestId,
+    creditsRemaining,
+  });
 }

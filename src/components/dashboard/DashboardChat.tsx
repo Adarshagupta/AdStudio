@@ -47,6 +47,7 @@ import {
 } from "@/lib/dashboard-chat";
 import {
   fetchGenerationStatus,
+  isInsufficientCreditsError,
   isTransientGenerationStatusError,
   pollGenerationUntilComplete,
   startGeneration,
@@ -556,10 +557,17 @@ export function DashboardChat({
           }
         },
         (error) => {
+          const isCreditError = isInsufficientCreditsError(error);
           const message = error instanceof Error ? error.message : "Agent generation failed.";
           updateAssistant(
             assistantId,
-            { status: "failed", error: message, thinking: undefined },
+            {
+              status: "failed",
+              error: isCreditError
+                ? `${message} Upgrade your plan to get more credits.`
+                : message,
+              thinking: undefined,
+            },
             ownerSessionId,
           );
           cleanup();
@@ -633,11 +641,15 @@ export function DashboardChat({
         });
       }
     } catch (error) {
+      const isCreditError = isInsufficientCreditsError(error);
+      const message = error instanceof Error ? error.message : "Generation failed.";
       updateAssistant(
         assistantId,
         {
           status: "failed",
-          error: error instanceof Error ? error.message : "Generation failed.",
+          error: isCreditError
+            ? `${message} Upgrade your plan to get more credits.`
+            : message,
           text: undefined,
         },
         ownerSessionId,

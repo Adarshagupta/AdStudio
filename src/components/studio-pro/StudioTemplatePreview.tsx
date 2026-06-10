@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { FileText, Image as ImageIcon, Music2, UserRound, Video } from "lucide-react";
+import { CalendarClock, FileText, Image as ImageIcon, Music2, Share2, UserRound, Video } from "lucide-react";
 
 import { buildEdgePath } from "@/lib/studio-pro/graph";
 import type { StudioEdge, StudioNode, StudioNodeType } from "@/lib/studio-pro/types";
@@ -14,6 +14,8 @@ const icons: Record<StudioNodeType, typeof FileText> = {
   image: ImageIcon,
   audio: Music2,
   video: Video,
+  schedule: CalendarClock,
+  social: Share2,
 };
 
 const typeAccent: Record<StudioNodeType, string> = {
@@ -22,6 +24,8 @@ const typeAccent: Record<StudioNodeType, string> = {
   image: "from-sky-500/20 to-sky-500/5",
   audio: "from-amber-500/20 to-amber-500/5",
   video: "from-emerald-500/20 to-emerald-500/5",
+  schedule: "from-rose-500/20 to-rose-500/5",
+  social: "from-orange-500/20 to-orange-500/5",
 };
 
 function PreviewNode({ node }: { node: StudioNode }) {

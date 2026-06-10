@@ -13,7 +13,7 @@ import { prisma } from "@/lib/db";
 import { parseRequestJson } from "@/lib/http/json";
 
 const subscribeSchema = z.object({
-  plan: z.enum(["FREE", "STARTER", "PLUS", "PRO"]),
+  plan: z.enum(["FREE", "STARTER", "PRO", "BUSINESS"]),
   interval: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 

@@ -53,6 +53,15 @@ export function isTransientGenerationStatusError(error: unknown) {
   return error instanceof GenerationStatusPollingError && error.transient;
 }
 
+export function isInsufficientCreditsError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.message.includes("Insufficient credits") ||
+    error.message.includes("No credits remaining") ||
+    error.message.includes("402")
+  );
+}
+
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }

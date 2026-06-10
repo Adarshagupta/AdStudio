@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import {
+  CalendarClock,
   FileText,
   Image as ImageIcon,
   Loader2,
   Music2,
   Play,
+  Share2,
   UserRound,
   Video,
 } from "lucide-react";
@@ -17,7 +19,7 @@ import { studioNodeDisplayText } from "@/lib/studio-pro/display-text";
 import { getNodeHeight, type StudioNode, type StudioNodeData, type StudioNodeType } from "@/lib/studio-pro/types";
 import { cn } from "@/lib/utils";
 
-const editableNodeTypes = new Set<StudioNodeType>(["prompt", "character", "image", "audio", "video"]);
+const editableNodeTypes = new Set<StudioNodeType>(["prompt", "character", "image", "audio", "video", "schedule", "social"]);
 
 const icons: Record<StudioNodeType, typeof FileText> = {
   prompt: FileText,
@@ -25,6 +27,8 @@ const icons: Record<StudioNodeType, typeof FileText> = {
   image: ImageIcon,
   audio: Music2,
   video: Video,
+  schedule: CalendarClock,
+  social: Share2,
 };
 
 const typeAccent: Record<StudioNodeType, string> = {
@@ -33,6 +37,8 @@ const typeAccent: Record<StudioNodeType, string> = {
   image: "text-sky-600 bg-sky-50 dark:bg-sky-950/40 dark:text-sky-300",
   audio: "text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300",
   video: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300",
+  schedule: "text-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300",
+  social: "text-orange-600 bg-orange-50 dark:bg-orange-950/40 dark:text-orange-300",
 };
 
 function nodeModelLabel(node: StudioNode) {
@@ -348,6 +354,55 @@ function renderNodePreview(
             />
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (node.type === "schedule") {
+    const interval = node.data.scheduleInterval ?? 60;
+    const enabled = node.data.scheduleEnabled ?? false;
+    const nextRun = node.data.scheduleNextRun ? new Date(node.data.scheduleNextRun).toLocaleString() : "Not set";
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50/80 p-2.5">
+          <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", enabled ? "bg-rose-100 text-rose-600" : "bg-zinc-100 text-zinc-500")}>
+            <CalendarClock className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-zinc-900">{enabled ? "Active" : "Paused"}</p>
+            <p className="text-[11px] text-zinc-500">Every {interval} min</p>
+          </div>
+        </div>
+        <p className="text-[10px] text-zinc-400">Next run: {nextRun}</p>
+      </div>
+    );
+  }
+
+  if (node.type === "social") {
+    const provider = node.data.socialProvider ?? "instagram";
+    const caption = node.data.socialCaption?.trim();
+    const postUrl = node.data.socialPostUrl;
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50/80 p-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+            <Share2 className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-zinc-900 capitalize">{provider}</p>
+            <p className="text-[11px] text-zinc-500">{postUrl ? "Posted" : "Ready to post"}</p>
+          </div>
+        </div>
+        {caption ? (
+          <p className="max-h-24 overflow-y-auto whitespace-pre-wrap text-[11px] leading-4 text-zinc-600 dark:text-zinc-300">{caption}</p>
+        ) : null}
+        {postUrl ? (
+          <a href={postUrl} target="_blank" rel="noreferrer" className="text-[11px] text-violet-600 underline" onPointerDown={(event) => event.stopPropagation()}>
+            View post
+          </a>
+        ) : null}
       </div>
     );
   }

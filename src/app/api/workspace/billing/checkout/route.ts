@@ -7,7 +7,7 @@ import { createWorkspaceSubscriptionCheckout } from "@/lib/billing/workspace-sub
 import { parseRequestJson } from "@/lib/http/json";
 
 const checkoutSchema = z.object({
-  plan: z.enum(["STARTER", "PLUS", "PRO"]),
+  plan: z.enum(["STARTER", "PRO", "BUSINESS"]),
   interval: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 

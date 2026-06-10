@@ -200,6 +200,8 @@ const nodeIcons: Record<StudioNodeType, typeof FileText> = {
   image: ImageIcon,
   audio: FileText,
   video: Video,
+  schedule: FileText,
+  social: FileText,
 };
 
 function DemoNodeCard({

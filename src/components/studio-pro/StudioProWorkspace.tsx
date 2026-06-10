@@ -22,6 +22,7 @@ import type { StudioCollaborator } from "@/hooks/useStudioCollaboration";
 import {
   buildVideoGenerationContext,
   findSnapTarget,
+  getDescendantNodes,
   getIncomingEdges,
   topologicalSort,
   wouldCreateCycle,
@@ -1201,11 +1202,21 @@ export function StudioProWorkspace({
 
     try {
       const result = await runStudioNode(node, runningNodes, workingEdges);
+      // eslint-disable-next-line no-console
+      if (node.type === "schedule") {
+        console.log("[executeNode] Schedule result:", result);
+        console.log("[executeNode] Before merge - scheduleEnabled:", node.data.scheduleEnabled);
+      }
       const doneNodes = runningNodes.map((item) => {
         if (item.id !== nodeId) return item;
+        const merged = { ...item.data, ...result, status: "done" as const, error: undefined };
+        // eslint-disable-next-line no-console
+        if (node.type === "schedule") {
+          console.log("[executeNode] After merge - scheduleEnabled:", merged.scheduleEnabled);
+        }
         return syncMediaNodeHeight({
           ...item,
-          data: { ...item.data, ...result, status: "done" as const, error: undefined },
+          data: merged,
         });
       });
       nodesRef.current = doneNodes;
@@ -1308,7 +1319,32 @@ export function StudioProWorkspace({
 
   const runSingleNode = async (nodeId: string) => {
     try {
-      await executeNode(nodeId, nodes, edges);
+      const node = nodesRef.current.find((n) => n.id === nodeId);
+      if (node?.type === "schedule") {
+        // Run the schedule node and all downstream nodes in dependency order
+        let workingNodes: StudioNode[] = nodesRef.current.map((n) => ({
+          ...n,
+          data: { ...n.data, status: "idle" as const, error: undefined },
+        }));
+
+        const descendants = getDescendantNodes(nodeId, workingNodes, edgesRef.current);
+        const targetIds = new Set([nodeId, ...descendants.map((n) => n.id)]);
+
+        const relevantNodes = workingNodes.filter((n) => targetIds.has(n.id));
+        const relevantEdges = edgesRef.current.filter(
+          (e) => targetIds.has(e.source) && targetIds.has(e.target),
+        );
+
+        const batches = dependencyBatches(relevantNodes, relevantEdges);
+        for (const batch of batches) {
+          workingNodes =
+            batch.length === 1
+              ? await executeNode(batch[0]!.id, workingNodes, edgesRef.current)
+              : await executeNodeBatch(batch, workingNodes, edgesRef.current);
+        }
+      } else {
+        await executeNode(nodeId, nodes, edges);
+      }
       await flushSave();
     } catch {
       // Error stored on node.
@@ -1333,6 +1369,31 @@ export function StudioProWorkspace({
           batch.length === 1
             ? await executeNode(batch[0]!.id, workingNodes, edgesRef.current)
             : await executeNodeBatch(batch, workingNodes, edgesRef.current);
+
+        // After running schedule nodes, also run their downstream descendants immediately
+        for (const node of batch) {
+          if (node?.type === "schedule" && node.data.scheduleEnabled) {
+            const { getDescendantNodes } = await import("@/lib/studio-pro/graph");
+            const descendants = getDescendantNodes(node.id, workingNodes, edgesRef.current);
+            if (descendants.length > 0) {
+              // Run downstream nodes in dependency order
+              const downstreamBatches = dependencyBatches(
+                descendants,
+                edgesRef.current.filter(
+                  (e) =>
+                    descendants.some((n) => n.id === e.source) &&
+                    descendants.some((n) => n.id === e.target),
+                ),
+              );
+              for (const downstreamBatch of downstreamBatches) {
+                workingNodes =
+                  downstreamBatch.length === 1
+                    ? await executeNode(downstreamBatch[0]!.id, workingNodes, edgesRef.current)
+                    : await executeNodeBatch(downstreamBatch, workingNodes, edgesRef.current);
+              }
+            }
+          }
+        }
       }
 
       await flushSave();
@@ -1343,6 +1404,14 @@ export function StudioProWorkspace({
       setActiveEdgeIds([]);
     }
   };
+
+  // Keep latest function refs for the schedule timer effect
+  const executeNodeRef = useRef(executeNode);
+  executeNodeRef.current = executeNode;
+  const executeNodeBatchRef = useRef(executeNodeBatch);
+  executeNodeBatchRef.current = executeNodeBatch;
+  const flushSaveRef = useRef(flushSave);
+  flushSaveRef.current = flushSave;
 
   const agentActions = useMemo<StudioAgentActions>(
     () => ({
@@ -1482,6 +1551,119 @@ export function StudioProWorkspace({
     setAgentOpen(true);
     setToolbarPrompt("");
   }, [selectedId, toolbarPrompt, updateNodeData]);
+
+  // Schedule auto-fire timer
+  const scheduleTimerRef = useRef<number | null>(null);
+  const scheduleRunningRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const checkSchedules = () => {
+      const now = Date.now();
+      const enabledSchedules = nodesRef.current.filter(
+        (n) => n.type === "schedule" && n.data.scheduleEnabled,
+      );
+
+      // Debug: log schedule checks
+      if (enabledSchedules.length > 0) {
+        // eslint-disable-next-line no-console
+        console.log("[Schedule] Checking", enabledSchedules.length, "enabled schedules at", new Date().toISOString());
+      }
+
+      for (const scheduleNode of enabledSchedules) {
+        const nodeId = scheduleNode.id;
+        if (scheduleRunningRef.current.has(nodeId)) {
+          // eslint-disable-next-line no-console
+          console.log("[Schedule] Node", nodeId, "already running, skipping");
+          continue;
+        }
+
+        const nextRun = scheduleNode.data.scheduleNextRun
+          ? new Date(scheduleNode.data.scheduleNextRun).getTime()
+          : 0;
+
+        // eslint-disable-next-line no-console
+        console.log("[Schedule] Node", nodeId, "nextRun:", scheduleNode.data.scheduleNextRun, "diff:", nextRun - now);
+
+        if (!nextRun || nextRun <= now) {
+          // eslint-disable-next-line no-console
+          console.log("[Schedule] Triggering node", nodeId);
+          scheduleRunningRef.current.add(nodeId);
+
+          // Capture schedule data by value to avoid closure issues
+          const scheduleData = {
+            nodeId: scheduleNode.id,
+            interval: scheduleNode.data.scheduleInterval ?? 60,
+          };
+
+          void (async () => {
+            try {
+              let workingNodes: StudioNode[] = nodesRef.current.map((n) => ({
+                ...n,
+                data: { ...n.data, status: "idle" as const, error: undefined },
+              }));
+
+              const descendants = getDescendantNodes(scheduleData.nodeId, workingNodes, edgesRef.current);
+              const targetIds = new Set([scheduleData.nodeId, ...descendants.map((n) => n.id)]);
+
+              const relevantNodes = workingNodes.filter((n) => targetIds.has(n.id));
+              const relevantEdges = edgesRef.current.filter(
+                (e) => targetIds.has(e.source) && targetIds.has(e.target),
+              );
+
+              const batches = dependencyBatches(relevantNodes, relevantEdges);
+              for (const batch of batches) {
+                workingNodes =
+                  batch.length === 1
+                    ? await executeNodeRef.current(batch[0]!.id, workingNodes, edgesRef.current)
+                    : await executeNodeBatchRef.current(batch, workingNodes, edgesRef.current);
+              }
+
+              // Update nextRun
+              const intervalMs = scheduleData.interval * 60_000;
+              const nextNextRun = new Date(Date.now() + intervalMs).toISOString();
+              // eslint-disable-next-line no-console
+              console.log("[Schedule] Node", scheduleData.nodeId, "completed, next run:", nextNextRun);
+              const scheduleIndex = nodesRef.current.findIndex((n) => n.id === scheduleData.nodeId);
+              if (scheduleIndex >= 0) {
+                const nextNodes = [...nodesRef.current];
+                nextNodes[scheduleIndex] = {
+                  ...nextNodes[scheduleIndex]!,
+                  data: {
+                    ...nextNodes[scheduleIndex]!.data,
+                    scheduleNextRun: nextNextRun,
+                  },
+                };
+                nodesRef.current = nextNodes;
+                setNodes(nextNodes);
+                await flushSaveRef.current();
+              }
+            } catch (error) {
+              // eslint-disable-next-line no-console
+              console.error("[Schedule] Error executing node", scheduleData.nodeId, error);
+            } finally {
+              scheduleRunningRef.current.delete(scheduleData.nodeId);
+              // eslint-disable-next-line no-console
+              console.log("[Schedule] Node", scheduleData.nodeId, "removed from running set");
+            }
+          })();
+        }
+      }
+    };
+
+    // Check immediately on mount and then every 5 seconds
+    // eslint-disable-next-line no-console
+    console.log("[Schedule] Timer starting - checking every 5 seconds");
+    checkSchedules();
+    const timer = window.setInterval(checkSchedules, 5000);
+    scheduleTimerRef.current = timer;
+
+    return () => {
+      // eslint-disable-next-line no-console
+      console.log("[Schedule] Timer cleanup - stopping checks");
+      window.clearInterval(timer);
+      scheduleTimerRef.current = null;
+    };
+  }, []);
 
   return (
     <div

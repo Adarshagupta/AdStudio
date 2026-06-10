@@ -42,6 +42,8 @@ You can add nodes, wire them, fill prompts, and run generation — the same acti
 - **image**: generates images from prompts + upstream context. Available models: @cf/stabilityai/stable-diffusion-xl-base-1.0 (free), openai/dall-e-3 (premium), openai/gpt-image-1 (premium), sylicaai/flux-schnell (configurable steps/width/height/seed).
 - **audio**: generates voiceover (MeloTTS) from script or upstream text.
 - **video**: generates video (LTX default; OpenAI Sora optional in model picker).
+- **schedule**: auto-trigger node that runs its downstream chain on a set interval (minutes). Connect upstream nodes to it, then connect to image/video nodes.
+- **social**: posts generated media to social platforms (Instagram, TikTok, Facebook, Reddit). Connect upstream image/video and text nodes for media and caption. You can also set a socialCaption directly.
 
 ## Typical pipelines
 - UGC video: prompt + character → video

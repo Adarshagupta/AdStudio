@@ -2,6 +2,7 @@
 
 import {
   ArrowUp,
+  CalendarClock,
   FileText,
   Hand,
   Image as ImageIcon,
@@ -11,6 +12,7 @@ import {
   MousePointer2,
   Music2,
   Settings2,
+  Share2,
   SlidersHorizontal,
   Upload,
   UserRound,
@@ -70,6 +72,8 @@ export function StudioFloatingToolbar({
     { type: "audio", label: "Text to speech", icon: Music2 },
     { type: "prompt", label: "Text", icon: FileText },
     { type: "character", label: "Character", icon: UserRound },
+    { type: "schedule", label: "Schedule", icon: CalendarClock },
+    { type: "social", label: "Social", icon: Share2 },
   ];
 
   const utilityTools: ToolButton[] = [
