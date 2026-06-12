@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FolderOpen, Loader2, Music2, Video, X } from "lucide-react";
 
+import { ImageWithEdit } from "@/components/shared/ImageWithEdit";
 import { fetchUserAssets, type UserMediaAssetDto } from "@/lib/user-assets-client";
 import type { StudioUploadKind } from "@/lib/studio-upload-server";
 import { cn } from "@/lib/utils";
@@ -165,8 +166,7 @@ export function AssetPicker({
 function AssetThumb({ asset }: { asset: UserMediaAssetDto }) {
   if (asset.kind === "image") {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={asset.url} alt="" className="aspect-square w-full object-cover bg-zinc-50" />
+      <ImageWithEdit src={asset.url} alt="" className="aspect-square w-full" imgClassName="aspect-square w-full object-cover bg-zinc-50" size="sm" />
     );
   }
 

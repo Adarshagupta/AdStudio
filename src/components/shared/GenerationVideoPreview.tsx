@@ -5,6 +5,7 @@ import { Play } from "lucide-react";
 import type { GenerationFormat } from "@prisma/client";
 
 import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
+import { ImageWithEdit } from "@/components/shared/ImageWithEdit";
 import type { DashboardOutputType } from "@/lib/dashboard-generation";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +39,7 @@ export function GenerationVideoPreview({
   if (canShowImage && imageUrl) {
     return (
       <div className={cn("relative aspect-[9/16] overflow-hidden rounded-2xl bg-zinc-100", className)}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+        <ImageWithEdit src={imageUrl} alt="" className="h-full w-full" imgClassName="h-full w-full object-cover" />
       </div>
     );
   }
