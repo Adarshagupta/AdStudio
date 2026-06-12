@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 
 import { useLargeScreen } from "@/hooks/useLargeScreen";
 import {
@@ -40,22 +41,24 @@ function NavSideActionButton({
   const isSideActive = isNavSideActionActive(pathname, action);
 
   return (
-    <Link
-      href={action.href}
-      prefetch
-      title={action.label}
-      aria-label={action.label}
-      onClick={onNavigate}
-      className={cn(
-        "flex shrink-0 items-center justify-center rounded-md transition-colors duration-150",
-        compact ? "h-9 w-9" : "mr-1 h-7 w-7",
-        isSideActive
-          ? "bg-purple-100 text-purple-700"
-          : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700",
-      )}
-    >
-      <SideIcon className={compact ? "h-4 w-4" : "h-3.5 w-3.5"} />
-    </Link>
+    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+      <Link
+        href={action.href}
+        prefetch
+        title={action.label}
+        aria-label={action.label}
+        onClick={onNavigate}
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-md transition-colors duration-150",
+          compact ? "h-9 w-9" : "mr-1 h-7 w-7",
+          isSideActive
+            ? "bg-purple-100 text-purple-700"
+            : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700",
+        )}
+      >
+        <SideIcon className={compact ? "h-4 w-4" : "h-3.5 w-3.5"} />
+      </Link>
+    </motion.div>
   );
 }
 
@@ -89,21 +92,23 @@ export function UniversalNav({
 
           return (
             <div key={item.label} className="flex flex-col items-center gap-0.5">
-              <Link
-                href={item.href}
-                prefetch
-                title={item.label}
-                aria-label={item.label}
-                onClick={onNavigate}
-                className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-150",
-                  isActive
-                    ? "bg-zinc-100 text-zinc-900"
-                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-              </Link>
+              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                <Link
+                  href={item.href}
+                  prefetch
+                  title={item.label}
+                  aria-label={item.label}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-150",
+                    isActive
+                      ? "bg-zinc-100 text-zinc-900"
+                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                </Link>
+              </motion.div>
               {item.sideAction ? (
                 <NavSideActionButton
                   action={item.sideAction}
@@ -140,8 +145,10 @@ export function UniversalNav({
 
                 if (item.sideAction) {
                   return (
-                    <div
+                    <motion.div
                       key={item.label}
+                      whileHover={{ scale: 1.02, x: 2 }}
+                      whileTap={{ scale: 0.98 }}
                       className={cn(
                         "group flex items-center rounded-lg transition-colors duration-150",
                         isActive ? "bg-zinc-100" : "hover:bg-zinc-50",
@@ -173,33 +180,38 @@ export function UniversalNav({
                         pathname={pathname}
                         onNavigate={onNavigate}
                       />
-                    </div>
+                    </motion.div>
                   );
                 }
 
                 return (
-                  <Link
+                  <motion.div
                     key={item.label}
-                    href={item.href}
-                    prefetch
-                    onClick={onNavigate}
-                    className={cn(
-                      "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150",
-                      isActive
-                        ? "bg-zinc-100 font-medium text-zinc-900"
-                        : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-                    )}
+                    whileHover={{ scale: 1.02, x: 2 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <Icon
+                    <Link
+                      href={item.href}
+                      prefetch
+                      onClick={onNavigate}
                       className={cn(
-                        "h-4 w-4 shrink-0",
+                        "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150",
                         isActive
-                          ? "text-zinc-900"
-                          : "text-zinc-600 group-hover:text-zinc-800",
+                          ? "bg-zinc-100 font-medium text-zinc-900"
+                          : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
                       )}
-                    />
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  </Link>
+                    >
+                      <Icon
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          isActive
+                            ? "text-zinc-900"
+                            : "text-zinc-600 group-hover:text-zinc-800",
+                        )}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    </Link>
+                  </motion.div>
                 );
               })}
             </div>

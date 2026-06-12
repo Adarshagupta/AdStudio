@@ -2,9 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 
 import { PreviewPanel, type PreviewStatus } from "@/components/create/PreviewPanel";
-import { StepForm, type GeneratePayload } from "@/components/create/StepForm";
+import { UGCWorkspace } from "@/components/create/UGCWorkspace";
+import { BrainRotWorkspace } from "@/components/create/BrainRotWorkspace";
+import { ReviewWorkspace } from "@/components/create/ReviewWorkspace";
+import { SplitScreenWorkspace } from "@/components/create/SplitScreenWorkspace";
 import {
   defaultGenerationStyle,
   startGeneration,
@@ -15,7 +19,6 @@ import type { GenerationFormat } from "@prisma/client";
 
 export function CreateWorkspace({
   format,
-  title,
   avatars,
   initialPrompt = "",
   autostart = false,
@@ -38,7 +41,7 @@ export function CreateWorkspace({
   const [error, setError] = useState<string | undefined>();
   const hasAutostarted = useRef(false);
 
-  async function handleGenerateScript(payload: Pick<GeneratePayload, "productDescription" | "productUrl">) {
+  async function handleGenerateScript(payload: { productDescription: string; productUrl: string }) {
     setIsGeneratingScript(true);
     setError(undefined);
 
@@ -70,7 +73,7 @@ export function CreateWorkspace({
     }
   }
 
-  async function handleGenerate(payload: GeneratePayload) {
+  async function handleGenerate(payload: Record<string, unknown>) {
     setIsSubmitting(true);
     setError(undefined);
     setStatus("queued");
@@ -78,16 +81,16 @@ export function CreateWorkspace({
     try {
       const started = await startGeneration({
         format,
-        prompt: payload.productDescription,
-        productUrl: payload.productUrl,
-        avatarId: payload.avatarId,
-        scriptText: payload.scriptText,
+        prompt: (payload.productDescription as string) ?? "",
+        productUrl: (payload.productUrl as string) ?? "",
+        avatarId: (payload.avatarId as string) ?? "",
+        scriptText: (payload.scriptText as string) ?? "",
         style: {
-          aspectRatio: payload.aspectRatio,
-          captionStyle: payload.captionStyle,
-          musicEnabled: payload.musicEnabled,
-          duration: payload.duration,
-          resolution: payload.resolution,
+          aspectRatio: (payload.aspectRatio as string) ?? "9:16",
+          captionStyle: (payload.captionStyle as string) ?? "Clean",
+          musicEnabled: (payload.musicEnabled as boolean) ?? true,
+          duration: (payload.duration as number) ?? 10,
+          resolution: (payload.resolution as string) ?? "480p",
         },
       });
 
@@ -118,30 +121,41 @@ export function CreateWorkspace({
     });
   }, [autostart, avatars, initialPrompt]);
 
+  const workspaceProps = {
+    isSubmitting,
+    isGeneratingScript,
+    initialPrompt,
+    onGenerate: handleGenerate,
+    onGenerateScript: handleGenerateScript,
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-medium">{title}</h1>
-        <p className="text-sm text-muted-foreground">
-          Advanced editor for avatar, script, and style controls.
-        </p>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
-        <StepForm
-          format={format}
-          isSubmitting={isSubmitting}
-          isGeneratingScript={isGeneratingScript}
-          avatars={avatars}
-          initialPrompt={initialPrompt}
-          onGenerate={handleGenerate}
-          onGenerateScript={handleGenerateScript}
-        />
-        <PreviewPanel
-          status={status}
-          isLoading={isSubmitting}
-          error={error}
-        />
-      </div>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+      >
+        {format === "UGC" && (
+          <UGCWorkspace avatars={avatars} {...workspaceProps} />
+        )}
+        {format === "BRAIN_ROT" && (
+          <BrainRotWorkspace {...workspaceProps} />
+        )}
+        {format === "REVIEW" && (
+          <ReviewWorkspace {...workspaceProps} />
+        )}
+        {format === "STATIC" && (
+          <SplitScreenWorkspace {...workspaceProps} />
+        )}
+      </motion.div>
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2, type: "spring", stiffness: 260, damping: 20 }}
+      >
+        <PreviewPanel status={status} isLoading={isSubmitting} error={error} />
+      </motion.div>
     </div>
   );
 }

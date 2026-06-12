@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Music2, Trash2, Video } from "lucide-react";
 
+import { ImageWithEdit } from "@/components/shared/ImageWithEdit";
 import { formatDateTime } from "@/lib/format-date";
 import { deleteUserAsset, type UserMediaAssetDto } from "@/lib/user-assets-client";
 import { notify } from "@/lib/notify";
@@ -91,8 +92,7 @@ export function UserAssetsGrid({
 function AssetPreview({ asset }: { asset: UserMediaAssetDto }) {
   if (asset.kind === "image") {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={asset.url} alt="" className="aspect-video w-full object-cover bg-zinc-100" />
+      <ImageWithEdit src={asset.url} alt="" className="aspect-video w-full" imgClassName="aspect-video w-full object-cover bg-zinc-100" />
     );
   }
 

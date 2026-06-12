@@ -3,6 +3,7 @@
 import { CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
 
 import { ChatScriptView } from "@/components/dashboard/ChatScriptView";
+import { ImageWithEdit } from "@/components/shared/ImageWithEdit";
 import { Button } from "@/components/ui/button";
 import type { GenerationPhase } from "@/hooks/useGenerationJob";
 import type { DashboardOutputType } from "@/lib/dashboard-generation";
@@ -167,8 +168,7 @@ export function GenerationProgress({
         <div className="overflow-hidden rounded-[1.5rem] bg-zinc-950">
           {phase === "done" && previewUrl ? (
             outputType === "image" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewUrl} alt="" className="aspect-[9/16] w-full bg-zinc-950 object-cover" />
+              <ImageWithEdit src={previewUrl} alt="" className="aspect-[9/16] w-full" imgClassName="aspect-[9/16] w-full bg-zinc-950 object-cover" />
             ) : (
               <video
                 controls

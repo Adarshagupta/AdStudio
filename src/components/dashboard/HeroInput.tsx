@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { ImagePlus, Link2, Loader2, Send, Video, X } from "lucide-react";
 
 import { DashboardChatHistoryDropdown } from "@/components/dashboard/DashboardChatSessionList";
 
 import { MediaUploadTrigger } from "@/components/assets/MediaUploadTrigger";
+import { ImageWithEdit } from "@/components/shared/ImageWithEdit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +32,32 @@ const imageAspectRatios = [
   { label: "1:1", value: "1:1" },
   { label: "16:9", value: "16:9" },
 ] as const;
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring" as const,
+      stiffness: 300,
+      damping: 15,
+      mass: 0.8,
+    },
+  },
+};
 
 export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
   const router = useRouter();
@@ -131,12 +159,14 @@ export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
   }
 
   return (
-    <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 py-6 text-center md:py-10">
-      <div className="inline-flex items-center rounded-full bg-purple-50 px-4 py-1.5 text-xs font-medium text-purple-700">
-        Quick create — video or image from one prompt
-      </div>
-      <div className="space-y-3">
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-zinc-900 md:text-[2.75rem] md:leading-tight">
+    <motion.section
+      className="mx-auto flex max-w-3xl flex-col items-center gap-4 py-4 text-center md:py-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div className="space-y-4" variants={itemVariants}>
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-zinc-900 md:text-4xl md:leading-tight">
           Hi, what will we create today?
         </h1>
         <p className="text-sm text-zinc-500">
@@ -145,9 +175,12 @@ export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
         {!canCreate ? (
           <p className="text-sm text-amber-700">Content creation is disabled for your account.</p>
         ) : null}
-      </div>
+      </motion.div>
 
-      <div className="w-full rounded-[1.75rem] bg-white p-4 text-left shadow-[0_8px_30px_rgba(15,23,42,0.06)] transition-shadow focus-within:shadow-[0_12px_40px_rgba(124,58,237,0.08)]">
+      <motion.div
+        className="w-full rounded-[1.75rem] bg-white p-4 text-left shadow-[0_8px_30px_rgba(15,23,42,0.06)] transition-shadow focus-within:shadow-[0_12px_40px_rgba(124,58,237,0.08)]"
+        variants={itemVariants}
+      >
         <Textarea
           value={prompt}
           onChange={(event) => {
@@ -175,11 +208,12 @@ export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
 
         {referencePreview ? (
           <div className="mt-3 flex items-center gap-3 rounded-2xl bg-zinc-50 p-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <ImageWithEdit
               src={referencePreview}
               alt="Reference"
-              className="h-14 w-14 rounded-xl object-cover"
+              className="h-14 w-14 rounded-xl"
+              imgClassName="h-14 w-14 rounded-xl object-cover"
+              size="sm"
             />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-zinc-700">Reference image</p>
@@ -223,34 +257,38 @@ export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
               onAsset={handleReferenceAsset}
               dialogTitle="Add reference image"
               trigger={({ open, disabled, uploading }) => (
-                <Button
-                  type="button"
-                  variant="icon"
-                  size="icon"
-                  className="h-10 w-10 bg-zinc-50"
-                  aria-label="Add reference image"
-                  disabled={disabled}
-                  onClick={open}
-                >
-                  {uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ImagePlus className="h-4 w-4" />
-                  )}
-                </Button>
+                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                  <Button
+                    type="button"
+                    variant="icon"
+                    size="icon"
+                    className="h-10 w-10 bg-zinc-50"
+                    aria-label="Add reference image"
+                    disabled={disabled}
+                    onClick={open}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </motion.div>
               )}
             />
-            <Button
-              type="button"
-              variant="icon"
-              size="icon"
-              className={cn("h-10 w-10 bg-zinc-50", showProductUrl && "bg-purple-50 text-purple-700")}
-              aria-label="Add product link"
-              disabled={isStarting}
-              onClick={() => setShowProductUrl((value) => !value)}
-            >
-              <Link2 className="h-4 w-4" />
-            </Button>
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+              <Button
+                type="button"
+                variant="icon"
+                size="icon"
+                className={cn("h-10 w-10 bg-zinc-50", showProductUrl && "bg-purple-50 text-purple-700")}
+                aria-label="Add product link"
+                disabled={isStarting}
+                onClick={() => setShowProductUrl((value) => !value)}
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
+            </motion.div>
             <DashboardChatHistoryDropdown
               sessions={chatSessions}
               onSessionsChange={refreshChatSessions}
@@ -261,60 +299,83 @@ export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
               }}
             />
           </div>
-          <Button
-            type="button"
-            size="icon"
-            className="h-11 w-11 shrink-0 rounded-full"
-            aria-label={outputType === "video" ? "Generate video" : "Generate image"}
-            disabled={isStarting || !canCreate}
-            onClick={handleGenerate}
+          <motion.div
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            whileTap={{ scale: 0.9 }}
           >
-            {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+            <Button
+              type="button"
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-full"
+              aria-label={outputType === "video" ? "Generate video" : "Generate image"}
+              disabled={isStarting || !canCreate}
+              onClick={handleGenerate}
+            >
+              {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex w-full justify-center gap-2">
+      <motion.div
+        className="flex w-full justify-center gap-2"
+        variants={itemVariants}
+      >
         {outputModes.map((mode) => {
           const Icon = mode.icon;
           const active = outputType === mode.id;
           return (
-            <Button
+            <motion.div
               key={mode.id}
-              type="button"
-              variant={active ? "default" : "outline"}
-              size="sm"
-              className={cn("gap-2 rounded-full px-5", !active && "bg-white")}
-              disabled={isStarting}
-              onClick={() => setOutputType(mode.id)}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
             >
-              <Icon className="h-4 w-4" />
-              {mode.label}
-            </Button>
+              <Button
+                type="button"
+                variant={active ? "default" : "outline"}
+                size="sm"
+                className={cn("gap-2 rounded-full px-5", !active && "bg-white")}
+                disabled={isStarting}
+                onClick={() => setOutputType(mode.id)}
+              >
+                <Icon className="h-4 w-4" />
+                {mode.label}
+              </Button>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {outputType === "image" ? (
-        <div className="flex w-full flex-wrap justify-center gap-2">
+        <motion.div
+          className="flex w-full flex-wrap justify-center gap-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        >
           {imageAspectRatios.map((ratio) => (
-            <Button
+            <motion.div
               key={ratio.value}
-              type="button"
-              variant="outline"
-              size="sm"
-              className={cn(
-                "bg-white px-4",
-                aspectRatio === ratio.value && "border-purple-200 bg-purple-50 text-purple-700",
-              )}
-              disabled={isStarting}
-              onClick={() => setAspectRatio(ratio.value)}
+              whileHover={{ scale: 1.1, y: -2 }}
+              whileTap={{ scale: 0.95 }}
             >
-              {ratio.label}
-            </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "bg-white px-4",
+                  aspectRatio === ratio.value && "border-purple-200 bg-purple-50 text-purple-700",
+                )}
+                disabled={isStarting}
+                onClick={() => setAspectRatio(ratio.value)}
+              >
+                {ratio.label}
+              </Button>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       ) : null}
-    </section>
+    </motion.section>
   );
 }

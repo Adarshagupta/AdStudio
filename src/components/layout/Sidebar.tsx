@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { motion } from "framer-motion";
 import { Coins, Link2, PanelLeftClose, PanelLeftOpen, Settings, UserPlus, X } from "lucide-react";
 
 import { AppLogo } from "@/components/layout/AppLogo";
@@ -103,10 +104,12 @@ function CreditsUsageDropup({
 
   return (
     <div className="relative">
-      <button
+      <motion.button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full text-left"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
       >
         <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 px-3 py-2.5 transition-colors hover:bg-zinc-100/60">
           <div className="flex items-center justify-between gap-2">
@@ -129,11 +132,16 @@ function CreditsUsageDropup({
             <span className="text-[10px] font-medium text-zinc-400">Click for details</span>
           </div>
         </div>
-      </button>
+      </motion.button>
 
       {open && (
         <>
-          <div className="absolute inset-x-0 bottom-full mb-1 z-50 rounded-xl border border-zinc-200 bg-white p-3 shadow-lg">
+          <motion.div
+            className="absolute inset-x-0 bottom-full mb-1 z-50 rounded-xl border border-zinc-200 bg-white p-3 shadow-lg"
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          >
             <div className="space-y-3">
               {/* Video Minutes */}
               <div>
@@ -190,7 +198,7 @@ function CreditsUsageDropup({
                 </Link>
               </div>
             </div>
-          </div>
+          </motion.div>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
         </>
       )}
@@ -216,32 +224,37 @@ function SidebarFooterLink({
   const isMembersLink = item.href === "/settings/members";
 
   return (
-    <Link
-      ref={isMembersLink ? membersAnchorRef : undefined}
-      href={item.href}
-      title={item.label}
-      aria-label={item.label}
-      onClick={onNavigate}
-      className={cn(
-        "transition-colors",
-        collapsed
-          ? cn(
-              "flex h-9 w-9 items-center justify-center rounded-lg",
-              isActive
-                ? "bg-zinc-100 text-zinc-900"
-                : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-            )
-          : cn(
-              "flex flex-1 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[10px] font-medium",
-              isActive
-                ? "bg-zinc-100 text-zinc-900"
-                : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-            ),
-      )}
+    <motion.div
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
     >
-      <Icon className="h-4 w-4 shrink-0" />
-      {collapsed ? null : <span className="truncate">{item.label}</span>}
-    </Link>
+      <Link
+        ref={isMembersLink ? membersAnchorRef : undefined}
+        href={item.href}
+        title={item.label}
+        aria-label={item.label}
+        onClick={onNavigate}
+        className={cn(
+          "transition-colors",
+          collapsed
+            ? cn(
+                "flex h-9 w-9 items-center justify-center rounded-lg",
+                isActive
+                  ? "bg-zinc-100 text-zinc-900"
+                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+              )
+            : cn(
+                "flex flex-1 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[10px] font-medium",
+                isActive
+                  ? "bg-zinc-100 text-zinc-900"
+                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+              ),
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {collapsed ? null : <span className="truncate">{item.label}</span>}
+      </Link>
+    </motion.div>
   );
 }
 
@@ -295,23 +308,27 @@ function SidebarContent({
           className={cn(collapsed && "h-9 w-9 items-center justify-center")}
         />
         {showCloseButton ? (
-          <button
+          <motion.button
             type="button"
             onClick={onClose}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
             aria-label="Close navigation"
+            whileHover={{ scale: 1.1, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
           >
             <X className="h-4 w-4" />
-          </button>
+          </motion.button>
         ) : onCollapsedChange ? (
-          <button
+          <motion.button
             type="button"
             onClick={toggleCollapsed}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
             aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
           >
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </button>
+          </motion.button>
         ) : null}
       </div>
 
@@ -328,23 +345,28 @@ function SidebarContent({
 
       <div className={cn("shrink-0 space-y-1.5 border-t border-zinc-100", collapsed ? "p-2" : "p-3")}>
         {collapsed ? (
-          <Link
-            href="/settings/billing"
-            title={`${workspace.creditsRemaining} credits · ${formatPlanLabel(workspace.plan)}`}
-            aria-label={`${workspace.creditsRemaining} credits remaining`}
-            onClick={onNavigate}
-            className={cn(
-              "relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-              creditsLow
-                ? "text-amber-600 hover:bg-amber-50"
-                : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-            )}
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
-            <Coins className="h-4 w-4 shrink-0" />
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-900 px-0.5 text-[9px] font-semibold text-white">
-              {workspace.creditsRemaining > 99 ? "99+" : workspace.creditsRemaining}
-            </span>
-          </Link>
+            <Link
+              href="/settings/billing"
+              title={`${workspace.creditsRemaining} credits · ${formatPlanLabel(workspace.plan)}`}
+              aria-label={`${workspace.creditsRemaining} credits remaining`}
+              onClick={onNavigate}
+              className={cn(
+                "relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                creditsLow
+                  ? "text-amber-600 hover:bg-amber-50"
+                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+              )}
+            >
+              <Coins className="h-4 w-4 shrink-0" />
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-900 px-0.5 text-[9px] font-semibold text-white">
+                {workspace.creditsRemaining > 99 ? "99+" : workspace.creditsRemaining}
+              </span>
+            </Link>
+          </motion.div>
         ) : (
           <CreditsUsageDropup
             plan={workspace.plan}
@@ -403,11 +425,14 @@ export function Sidebar({
   return (
     <>
       {mobileOpen ? (
-        <button
+        <motion.button
           type="button"
           aria-label="Close navigation"
           className="fixed inset-0 z-40 bg-zinc-900/20 backdrop-blur-[2px] md:hidden"
           onClick={onMobileClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
         />
       ) : null}
 
@@ -427,11 +452,14 @@ export function Sidebar({
         />
       </aside>
 
-      <aside
+      <motion.aside
         className={cn(
           "fixed left-3 top-3 bottom-3 z-50 hidden flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/95 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md transition-[width] duration-200 md:flex",
           collapsed ? SIDEBAR_COLLAPSED_WIDTH_CLASS : SIDEBAR_WIDTH_CLASS,
         )}
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
       >
         <SidebarContent
           user={user}
@@ -439,7 +467,7 @@ export function Sidebar({
           collapsed={collapsed}
           onCollapsedChange={onCollapsedChange}
         />
-      </aside>
+      </motion.aside>
     </>
   );
 }

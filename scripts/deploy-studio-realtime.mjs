@@ -97,6 +97,7 @@ if (cfToken && process.env.WRANGLER_USE_API_TOKEN === "1") {
 
 const allowedOrigins = new Set([
   "https://ugc-ad-platform.vercel.app",
+  "https://studio.sylicaai.com",
   "http://localhost:3000",
 ]);
 const appUrl = env.APP_URL?.trim();

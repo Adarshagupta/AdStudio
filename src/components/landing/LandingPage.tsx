@@ -5,7 +5,15 @@ import { LandingCreateSection } from "@/components/landing/LandingCreateSection"
 import { LandingHeroInput } from "@/components/landing/LandingHeroInput";
 import { LandingPricing } from "@/components/landing/LandingPricing";
 import { LandingVideoMarquee } from "@/components/landing/LandingVideoMarquee";
+import { FeaturedVideo } from "@/components/shared/FeaturedVideo";
 import { Button } from "@/components/ui/button";
+
+const FEATURED_VIDEOS = [
+  "https://cdn.aorizon.cn/output/720p_h265/user-uploads/1000000000013/videos/video-1781002816972-4evq9xnzkpa-raw/video.mp4?v=2",
+  "https://cdn.aorizon.cn/output/720p_h265/user-uploads/1000000000006/videos/video-1780925988521-idb1rs3nci-raw/video.mp4?v=2",
+  "https://cdn.aorizon.cn/output/720p_h265/model-gen-video/901626772_0-b95110c8-794f-4913-a749-059971d7465d/video.mp4?v=2",
+  "https://cdn.aorizon.cn/output/720p_h265/user-uploads/1000000000012/videos/video-1779274348299-d9tq2wr9su8-raw/video.mp4?v=2",
+];
 
 const navLinks = [
   { label: "Product", href: "#product" },
@@ -81,6 +89,19 @@ export function LandingPage() {
       </section>
 
       <LandingCreateSection />
+
+      <section className="bg-zinc-50 py-12 md:py-16">
+        <div className="mx-auto max-w-5xl px-5 md:px-8">
+          <p className="mb-6 text-center text-sm font-semibold uppercase tracking-[0.12em] text-violet-700">
+            Featured
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {FEATURED_VIDEOS.map((url, i) => (
+              <FeaturedVideo key={i} src={url} />
+            ))}
+          </div>
+        </div>
+      </section>
 
       <LandingPricing />
 

@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 
+import { CursorGlow } from "@/components/dashboard/CursorGlow";
 import { DashboardStudioProPromo } from "@/components/dashboard/DashboardStudioProPromo";
 import { DashboardWelcomeCredits } from "@/components/dashboard/DashboardWelcomeCredits";
+import { FloatingInspirationWidget } from "@/components/dashboard/FloatingInspirationWidget";
 import { RecentGenerations } from "@/components/dashboard/RecentGenerations";
 import { RecentGridSkeleton } from "@/components/dashboard/RecentGridSkeleton";
-import { FormatCard } from "@/components/dashboard/FormatCard";
+import { AnimatedFormatCards } from "@/components/dashboard/AnimatedFormatCards";
 import { HeroInput } from "@/components/dashboard/HeroInput";
 import { currentUserCan, getShellUser } from "@/lib/auth";
 import { getWorkspaceWelcomeStatus } from "@/lib/billing/welcome-credits";
@@ -15,15 +17,11 @@ export default async function DashboardPage() {
   const welcomeStatus = await getWorkspaceWelcomeStatus(currentUser.workspace.id);
 
   return (
-    <div className="space-y-12">
+    <div className="relative space-y-12">
+      <CursorGlow />
+      <FloatingInspirationWidget />
       <HeroInput canCreate={currentUserCan(currentUser, "createContent")} />
-      <section className="space-y-4">
-        <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {formatCards.map((format) => (
-            <FormatCard key={format.slug} format={format} />
-          ))}
-        </div>
-      </section>
+      <AnimatedFormatCards formatCards={formatCards} />
       <Suspense fallback={<RecentGridSkeleton />}>
         <RecentGenerations workspaceId={currentUser.workspace.id} />
       </Suspense>
