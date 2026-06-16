@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Check, ChevronDown, ChevronRight, Layers, Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { WorkspaceSwitchOverlay } from "@/components/layout/WorkspaceSwitchOverlay";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,30 +41,110 @@ function newInviteRow(): InviteRow {
   return { id: crypto.randomUUID(), email: "" };
 }
 
+function normalizeWorkspaceList(
+  items: WorkspaceOption[] | undefined,
+  fallback: WorkspaceOption,
+): WorkspaceOption[] {
+  if (!items?.length) {
+    return [fallback];
+  }
+
+  const seen = new Set<string>();
+  const merged: WorkspaceOption[] = [];
+
+  for (const item of items) {
+    if (!item.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    merged.push({ id: item.id, name: item.name });
+  }
+
+  if (!seen.has(fallback.id)) {
+    merged.unshift(fallback);
+  }
+
+  return merged.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function WorkspaceSwitcher({
   activeWorkspaceId,
   activeWorkspaceName,
+  initialWorkspaces = [],
   variant = "topbar",
   collapsed = false,
 }: {
   activeWorkspaceId: string;
   activeWorkspaceName: string;
+  initialWorkspaces?: WorkspaceOption[];
   variant?: "sidebar" | "topbar";
   collapsed?: boolean;
 }) {
   const isSidebar = variant === "sidebar";
   const router = useRouter();
-  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([
-    { id: activeWorkspaceId, name: activeWorkspaceName },
-  ]);
+
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>(() =>
+    normalizeWorkspaceList(initialWorkspaces, {
+      id: activeWorkspaceId,
+      name: activeWorkspaceName,
+    }),
+  );
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [showInvites, setShowInvites] = useState(false);
   const [invites, setInvites] = useState<InviteRow[]>([newInviteRow()]);
+  const [switchingTo, setSwitchingTo] = useState<string | null>(null);
+  const [switchSlow, setSwitchSlow] = useState(false);
+
+  const initialWorkspaceKey = initialWorkspaces.map((item) => `${item.id}:${item.name}`).join("|");
+
+  useEffect(() => {
+    setWorkspaces(
+      normalizeWorkspaceList(initialWorkspaces, {
+        id: activeWorkspaceId,
+        name: activeWorkspaceName,
+      }),
+    );
+  }, [initialWorkspaceKey, activeWorkspaceId, activeWorkspaceName, initialWorkspaces]);
+
+  const loadWorkspaces = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!options?.silent) {
+        setListLoading(true);
+      }
+
+      const fallback = { id: activeWorkspaceId, name: activeWorkspaceName };
+
+      try {
+        const response = await fetch("/api/workspaces", { cache: "no-store" });
+        const data = await readJsonResponse<{
+          workspaces?: WorkspaceOption[];
+        }>(response);
+
+        if (!response.ok) return;
+
+        if (data.workspaces?.length) {
+          setWorkspaces(
+            normalizeWorkspaceList(
+              data.workspaces.map((item) => ({ id: item.id, name: item.name })),
+              fallback,
+            ),
+          );
+        }
+      } catch {
+        // Keep the current list.
+      } finally {
+        setListLoading(false);
+      }
+    },
+    [activeWorkspaceId, activeWorkspaceName],
+  );
+
+  useEffect(() => {
+    void loadWorkspaces({ silent: true });
+  }, [loadWorkspaces]);
 
   function resetCreateForm() {
     setNewWorkspaceName("");
@@ -70,37 +152,25 @@ export function WorkspaceSwitcher({
     setInvites([newInviteRow()]);
   }
 
-  async function loadWorkspaces() {
-    if (loaded) return;
-
-    try {
-      const response = await fetch("/api/workspaces");
-      const data = await readJsonResponse<{
-        workspaces?: WorkspaceOption[];
-      }>(response);
-
-      if (!response.ok) return;
-
-      if (data.workspaces?.length) {
-        setWorkspaces(data.workspaces.map((item) => ({ id: item.id, name: item.name })));
-      }
-    } catch {
-      // Keep the server-rendered workspace label.
-    } finally {
-      setLoaded(true);
-    }
-  }
-
   async function onSwitch(workspaceId: string) {
-    if (workspaceId === activeWorkspaceId || busyId) return;
+    if (workspaceId === activeWorkspaceId || busyId || switchingTo) return;
 
+    const target = workspaces.find((workspace) => workspace.id === workspaceId);
     setBusyId(workspaceId);
+    setSwitchingTo(target?.name ?? activeWorkspaceName);
+    setSwitchSlow(false);
+    setMenuOpen(false);
+
+    const slowTimer = window.setTimeout(() => setSwitchSlow(true), 3500);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
 
     try {
       const response = await fetch("/api/workspaces/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId }),
+        signal: controller.signal,
       });
       const data = await readJsonResponse<{ error?: string }>(response);
 
@@ -108,13 +178,33 @@ export function WorkspaceSwitcher({
         throw new Error(responseErrorMessage(response, data, "Could not switch workspace."));
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      // Full reload so the session cookie + server shell pick up the new workspace immediately.
+      window.location.assign("/dashboard");
     } catch (err) {
-      notify.error(err instanceof Error ? err.message : "Could not switch workspace.");
+      const message =
+        err instanceof Error && err.name === "AbortError"
+          ? "Workspace switch timed out. Try again."
+          : err instanceof Error
+            ? err.message
+            : "Could not switch workspace.";
+      notify.error(message);
       setBusyId(null);
+      setSwitchingTo(null);
+      setSwitchSlow(false);
+    } finally {
+      window.clearTimeout(timeout);
+      window.clearTimeout(slowTimer);
     }
   }
+
+  // Clear overlay if the active workspace updated without a full navigation (soft refresh).
+  useEffect(() => {
+    if (switchingTo && busyId && activeWorkspaceId === busyId) {
+      setSwitchingTo(null);
+      setBusyId(null);
+      setSwitchSlow(false);
+    }
+  }, [activeWorkspaceId, busyId, switchingTo]);
 
   async function sendInvites() {
     const pendingInvites = invites
@@ -183,7 +273,7 @@ export function WorkspaceSwitcher({
 
       setCreateOpen(false);
       resetCreateForm();
-      setLoaded(false);
+      void loadWorkspaces({ silent: true });
       router.push("/onboarding");
       router.refresh();
     } catch (err) {
@@ -193,8 +283,16 @@ export function WorkspaceSwitcher({
     }
   }
 
+  const showListLoading = listLoading && workspaces.length <= 1;
+
   return (
     <>
+      <AnimatePresence>
+        {switchingTo ? (
+          <WorkspaceSwitchOverlay workspaceName={switchingTo} slow={switchSlow} />
+        ) : null}
+      </AnimatePresence>
+
       <div
         className={cn(
           isSidebar && "shrink-0 border-b border-zinc-100",
@@ -205,7 +303,9 @@ export function WorkspaceSwitcher({
           open={menuOpen}
           onOpenChange={(open) => {
             setMenuOpen(open);
-            if (open) void loadWorkspaces();
+            if (open) {
+              void loadWorkspaces();
+            }
           }}
         >
           <DropdownMenuTrigger asChild>
@@ -242,19 +342,38 @@ export function WorkspaceSwitcher({
             align={isSidebar ? "start" : "end"}
             className={cn("w-56 rounded-2xl", isSidebar && !collapsed && "w-[calc(228px-1.5rem)]")}
           >
-            {workspaces.map((workspace) => (
-              <DropdownMenuItem
-                key={workspace.id}
-                disabled={busyId === workspace.id}
-                onClick={() => onSwitch(workspace.id)}
-                className="flex items-center justify-between gap-2"
-              >
-                <span className="truncate">{workspace.name}</span>
-                {workspace.id === activeWorkspaceId ? <Check className="h-4 w-4 shrink-0" /> : null}
-              </DropdownMenuItem>
-            ))}
+            {showListLoading ? (
+              <div className="flex items-center gap-2 px-2 py-3 text-sm text-zinc-500">
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                Loading workspaces…
+              </div>
+            ) : (
+              workspaces.map((workspace) => (
+                <DropdownMenuItem
+                  key={workspace.id}
+                  disabled={busyId === workspace.id || Boolean(switchingTo)}
+                  onClick={() => onSwitch(workspace.id)}
+                  className="flex items-center justify-between gap-2"
+                >
+                  <span className="flex min-w-0 items-center gap-2 truncate">
+                    {busyId === workspace.id ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-500" />
+                    ) : null}
+                    <span className="truncate">{workspace.name}</span>
+                  </span>
+                  {workspace.id === activeWorkspaceId ? <Check className="h-4 w-4 shrink-0" /> : null}
+                </DropdownMenuItem>
+              ))
+            )}
+            {listLoading && !showListLoading ? (
+              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Refreshing…
+              </div>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
+              disabled={Boolean(switchingTo)}
               onSelect={(event) => {
                 event.preventDefault();
                 setMenuOpen(false);

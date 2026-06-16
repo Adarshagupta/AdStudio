@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Ad Studio',
+                    'LiteMoov',
                     style: TextStyle(
                       fontFamily: 'Quicksand',
                       fontSize: 36,

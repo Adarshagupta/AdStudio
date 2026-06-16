@@ -59,6 +59,38 @@ body {
     @apply rounded-2xl bg-white shadow-[0_8px_30px_rgba(15,23,42,0.06)];
   }
 
+  .litemoov-preloader {
+    animation: litemoov-preloader-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .litemoov-preloader-bar {
+    animation: litemoov-preloader-bar 1.1s ease-in-out infinite;
+    transform-origin: left center;
+  }
+
+  @keyframes litemoov-preloader-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes litemoov-preloader-bar {
+    0% {
+      transform: translateX(-105%) scaleX(0.35);
+    }
+    50% {
+      transform: translateX(-15%) scaleX(0.85);
+    }
+    100% {
+      transform: translateX(105%) scaleX(0.35);
+    }
+  }
+
   .studio-input {
     @apply w-full max-w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100;
   }
@@ -210,6 +242,36 @@ body {
   }
 }
 
+@keyframes pro-trial-glow-shift {
+  0% {
+    opacity: 0.65;
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.08) translate(2%, -2%);
+  }
+}
+
+@keyframes pro-trial-phone-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pro-trial-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 @keyframes studio-mini-cursor-move {
   0%,
   100% {
@@ -334,6 +396,27 @@ body {
     animation: studio-mini-cursor-move 4s ease-in-out infinite;
   }
 
+  .pro-trial-glow {
+    background: radial-gradient(circle at 30% 40%, rgba(91, 60, 245, 0.14), transparent 55%),
+      radial-gradient(circle at 70% 60%, rgba(139, 92, 246, 0.1), transparent 50%);
+    animation: pro-trial-glow-shift 8s ease-in-out infinite alternate;
+  }
+
+  .pro-trial-phone-float {
+    animation: pro-trial-phone-float 5s ease-in-out infinite;
+  }
+
+  .pro-trial-shimmer {
+    background: linear-gradient(
+      110deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.22) 50%,
+      transparent 70%
+    );
+    background-size: 220% 100%;
+    animation: pro-trial-shimmer 2.8s ease-in-out infinite;
+  }
+
 @media (prefers-reduced-motion: reduce) {
   .dashboard-studio-promo,
   .dashboard-studio-promo-enter,
@@ -344,7 +427,10 @@ body {
   .studio-mini-chat-user,
   .studio-mini-chat-assistant,
   .studio-mini-chat-assistant-delay,
-  .studio-mini-cursor {
+  .studio-mini-cursor,
+  .pro-trial-glow,
+  .pro-trial-phone-float,
+  .pro-trial-shimmer {
     animation: none !important;
     transition: none !important;
   }

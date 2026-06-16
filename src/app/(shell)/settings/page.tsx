@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   CreditCard,
+  Gift,
   Link2,
   Mail,
   User,
@@ -22,6 +23,12 @@ const settingsLinks = [
     label: "Email preferences",
     description: "Choose which emails you receive.",
     icon: Mail,
+  },
+  {
+    href: "/settings/referral",
+    label: "Referrals",
+    description: "Share your link and earn credits when friends subscribe.",
+    icon: Gift,
   },
   {
     href: "/settings/billing",

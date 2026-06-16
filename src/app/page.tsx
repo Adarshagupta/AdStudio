@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { JsonLd } from "@/components/seo/JsonLd";
 import { LandingPage } from "@/components/landing/LandingPage";
 import { getCurrentUser } from "@/lib/auth";
+import { buildHomeJsonLd, buildHomeMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildHomeMetadata();
 
 export default async function Home() {
   const currentUser = await getCurrentUser();
@@ -10,5 +15,10 @@ export default async function Home() {
     redirect("/dashboard");
   }
 
-  return <LandingPage />;
+  return (
+    <>
+      <JsonLd data={buildHomeJsonLd()} />
+      <LandingPage />
+    </>
+  );
 }

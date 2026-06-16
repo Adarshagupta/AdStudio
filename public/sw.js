@@ -1,4 +1,4 @@
-const CACHE_VERSION = "ad-studio-v2";
+const CACHE_VERSION = "litemoov-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());

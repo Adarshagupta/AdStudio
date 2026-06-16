@@ -1,6 +1,6 @@
-# Ad Studio Flutter App
+# LiteMoov Flutter App
 
-A Flutter mobile application for the UGC Ad Platform - AI-powered ad and short-video generation for marketing teams.
+A Flutter mobile application for LiteMoov — AI-powered ad and short-video generation for marketing teams.
 
 ## Features
 
@@ -57,7 +57,7 @@ flutter run
 
 The app connects to the production API at:
 ```
-https://ugc-ad-platform.vercel.app/api
+https://litemoov.com/api
 ```
 
 Authentication is handled via session cookies stored in SharedPreferences.
@@ -98,7 +98,7 @@ Authentication is handled via session cookies stored in SharedPreferences.
 
 Create a `.env` file:
 ```
-API_BASE_URL=https://ugc-ad-platform.vercel.app/api
+API_BASE_URL=https://litemoov.com/api
 ```
 
 ## Platform Support
@@ -109,4 +109,4 @@ API_BASE_URL=https://ugc-ad-platform.vercel.app/api
 
 ## License
 
-Proprietary - Ad Studio Platform
+Proprietary - LiteMoov Platform

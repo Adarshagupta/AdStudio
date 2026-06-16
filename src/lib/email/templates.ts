@@ -21,7 +21,7 @@ export function renderEmail({
     body,
     actionUrl && actionLabel ? `${actionLabel}: ${actionUrl}` : actionUrl,
     "",
-    footer ?? "Ad Studio",
+    footer ?? "LiteMoov",
   ]
     .filter(Boolean)
     .join("\n");
@@ -59,7 +59,7 @@ export function renderEmail({
             }
             <tr>
               <td style="border-top:1px solid #f4f4f5;padding:18px 28px;color:#71717a;font-size:12px;line-height:20px;">
-                ${escapeHtml(footer ?? "Ad Studio")}
+                ${escapeHtml(footer ?? "LiteMoov")}
               </td>
             </tr>
           </table>

@@ -15,6 +15,7 @@ export const cloudflareModels = {
       "openai/dall-e-3",
       "openai/gpt-image-1",
       "sylicaai/flux-schnell",
+      "self-hosted/flux-2-dev",
     ],
   },
   audio: {
@@ -47,6 +48,14 @@ export function resolveCloudflareModel(category: CloudflareModelCategory, overri
 
   const options = cloudflareModels[category].options as readonly string[];
   if (options.includes(candidate)) {
+    return candidate;
+  }
+
+  if (options.includes(candidate)) {
+    return candidate;
+  }
+
+  if (candidate.startsWith("self-hosted/")) {
     return candidate;
   }
 

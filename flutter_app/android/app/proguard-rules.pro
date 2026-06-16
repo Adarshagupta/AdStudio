@@ -1,4 +1,4 @@
-# ProGuard rules for Ad Studio Flutter App
+# ProGuard rules for LiteMoov Flutter App
 # Flutter wrapper
 -keep class io.flutter.app.** { *; }
 -keep class io.flutter.plugin.** { *; }

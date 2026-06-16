@@ -27,6 +27,7 @@ export function ShellLayout({
   children,
   user,
   workspace,
+  userWorkspaces = [],
   fullWidth = false,
   hideTopbar = false,
 }: {
@@ -43,6 +44,7 @@ export function ShellLayout({
     plan: string;
     creditsRemaining: number;
   };
+  userWorkspaces?: Array<{ id: string; name: string }>;
   fullWidth?: boolean;
   hideTopbar?: boolean;
 }) {
@@ -80,6 +82,7 @@ export function ShellLayout({
         <Sidebar
           user={user}
           workspace={workspace}
+          userWorkspaces={userWorkspaces}
           collapsed={collapsed}
           onCollapsedChange={handleCollapsedChange}
           mobileOpen={mobileOpen}

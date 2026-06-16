@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
-import { checkCredits, deductCredits, InsufficientCreditsError } from "@/lib/billing/credits";
+import { deductCredits, isBillingCreditsError } from "@/lib/billing/credits";
 import { generateImage, generateAudio, generateScript } from "@/lib/cloudflare-ai";
-import { buildDashboardImagePrompt } from "@/lib/dashboard-generation";
+import { buildDashboardImagePrompt, enrichPromptWithProductContext } from "@/lib/dashboard-generation";
 import { prisma } from "@/lib/db";
 import { parseRequestJson } from "@/lib/http/json";
 import { backgroundUploadMedia, ensurePublicMediaUrl } from "@/lib/media-url";
+import { resolveProductContextForAgent } from "@/lib/product-research";
 import { startVideoGeneration } from "@/lib/video-generation";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+export const dynamic = "force-dynamic";
 
 function sseLine(data: unknown) {
   return `data: ${JSON.stringify(data)}\n\n`;
@@ -35,6 +37,8 @@ export async function POST(request: Request) {
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   const aspectRatio = typeof body.aspectRatio === "string" ? body.aspectRatio : "9:16";
   const productUrl = typeof body.productUrl === "string" ? body.productUrl : undefined;
+  const productContextInput =
+    typeof body.productContext === "string" ? body.productContext.trim() : undefined;
   const referenceImageUrl = typeof body.referenceImageUrl === "string" ? body.referenceImageUrl : undefined;
   const referenceImageUrls = Array.isArray(body.referenceImageUrls)
     ? body.referenceImageUrls.filter((u): u is string => typeof u === "string")
@@ -52,10 +56,12 @@ export async function POST(request: Request) {
   }
 
   const cost = 1;
+
+  let creditsRemaining: number;
   try {
-    await checkCredits(currentUser.workspace.id, cost);
+    creditsRemaining = await deductCredits(currentUser.workspace.id, cost);
   } catch (error) {
-    if (error instanceof InsufficientCreditsError) {
+    if (isBillingCreditsError(error)) {
       return NextResponse.json({ error: error.message }, { status: 402 });
     }
     throw error;
@@ -82,14 +88,15 @@ export async function POST(request: Request) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      // Padding helps proxies and Next.js flush the first SSE chunk promptly.
+      controller.enqueue(encoder.encode(`: ${" ".repeat(2048)}\n\n`));
+
       function send(event: { step: string; status: string; payload?: Record<string, unknown> }) {
         controller.enqueue(encoder.encode(sseLine(event)));
+        controller.enqueue(encoder.encode(": keepalive\n\n"));
       }
 
       try {
-        // Step 0: Think
-        send({ step: "think", status: "running" });
-
         const lowerPrompt = prompt.toLowerCase();
         const inferredAspectRatio = lowerPrompt.includes("horizontal") || lowerPrompt.includes("landscape")
           ? "16:9"
@@ -109,11 +116,44 @@ export async function POST(request: Request) {
             ? "humorous"
             : "standard";
 
-        const thinking: string[] = [
+        const thinking: string[] = [];
+
+        let productContext: string | undefined;
+        if (productUrl?.trim()) {
+          send({ step: "research", status: "running" });
+          if (productContextInput) {
+            productContext = productContextInput;
+            thinking.push(`Using pre-researched product context for ${productUrl.trim()}`);
+            send({
+              step: "research",
+              status: "completed",
+              payload: { productContext, thinking, partial: false },
+            });
+          } else {
+            productContext = await resolveProductContextForAgent(productUrl);
+            const researched = productContext?.includes("Note:") ?? false;
+            thinking.push(
+              researched
+                ? `Product research used fallback for ${productUrl.trim()}`
+                : `Researched product page: ${productUrl.trim()}`,
+            );
+            send({
+              step: "research",
+              status: "completed",
+              payload: { productContext, thinking, partial: researched },
+            });
+          }
+        }
+
+        send({ step: "think", status: "running" });
+
+        thinking.push(
           `Analyzed: aspect ratio ${inferredAspectRatio}, duration ${inferredDuration}s, tone ${inferredTone}`,
           `Selected image model: ${imageModel}`,
           `Selected video model: ${videoModel}`,
-        ];
+        );
+
+        const enrichedPrompt = enrichPromptWithProductContext(prompt, productContext);
 
         send({ step: "think", status: "completed", payload: { thinking, settings: {
           aspectRatio: inferredAspectRatio,
@@ -126,16 +166,17 @@ export async function POST(request: Request) {
         // Step 1: Script
         send({ step: "script", status: "running" });
         const scriptText = await generateScript({
-          prompt,
+          prompt: enrichedPrompt,
           format: "UGC",
           productUrl,
+          productContext,
         });
         thinking.push("Script generated");
         send({ step: "script", status: "completed", payload: { scriptText, thinking } });
 
         // Step 2: Image
         send({ step: "image", status: "running" });
-        const imagePrompt = buildDashboardImagePrompt(prompt, referenceImageUrl);
+        const imagePrompt = buildDashboardImagePrompt(enrichedPrompt, referenceImageUrl, productContext);
         const image = await generateImage({
           prompt: imagePrompt,
           model: imageModel,
@@ -176,7 +217,7 @@ export async function POST(request: Request) {
         // Step 4: Video
         send({ step: "video", status: "running" });
         const video = await startVideoGeneration({
-          prompt,
+          prompt: enrichedPrompt,
           scriptText,
           format: "UGC",
           model: videoModel,
@@ -192,7 +233,6 @@ export async function POST(request: Request) {
         thinking.push(`Video generation started with ${videoModel}`);
         send({ step: "video", status: "completed", payload: { videoUrl: video.videoUrl, requestId: video.requestId, thinking } });
 
-        const creditsRemaining = await deductCredits(currentUser.workspace.id, cost);
         const updated = await prisma.generation.update({
           where: { id: generation.id },
           data: video.videoUrl
@@ -254,9 +294,10 @@ export async function POST(request: Request) {
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
     },
   });
 }

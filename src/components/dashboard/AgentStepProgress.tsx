@@ -14,6 +14,8 @@ function StepIcon({ status }: { status: AgentStep["status"] }) {
 
 function StepLabel({ label }: { label: string }) {
   const labels: Record<string, string> = {
+    research: "Research",
+    think: "Plan",
     script: "Script",
     image: "Image",
     audio: "Voice",

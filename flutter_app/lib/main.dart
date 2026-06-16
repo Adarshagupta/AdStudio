@@ -34,18 +34,18 @@ void main() async {
           create: (_) => WorkspaceProvider(apiService),
         ),
       ],
-      child: const AdStudioApp(),
+      child: const LiteMoovApp(),
     ),
   );
 }
 
-class AdStudioApp extends StatelessWidget {
-  const AdStudioApp({super.key});
+class LiteMoovApp extends StatelessWidget {
+  const LiteMoovApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Ad Studio',
+      title: 'LiteMoov',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

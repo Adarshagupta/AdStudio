@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  clampCreditsToPlanCap,
+  maxWalletCreditsForWorkspace,
+} from "@/lib/billing/credit-limits";
 import { prisma } from "@/lib/db";
 
 function verifyAdminSession(request: Request): boolean {
@@ -61,9 +65,37 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { plan, creditsRemaining, name } = body;
 
-    const data: { plan?: "FREE" | "STARTER" | "PRO" | "BUSINESS"; creditsRemaining?: number; name?: string } = {};
-    if (plan !== undefined) data.plan = plan as "FREE" | "STARTER" | "PRO" | "BUSINESS";
-    if (creditsRemaining !== undefined) data.creditsRemaining = creditsRemaining;
+    const existing = await prisma.workspace.findUnique({
+      where: { id },
+      select: {
+        plan: true,
+        billingInterval: true,
+        subscriptionStatus: true,
+        welcomeCreditsClaimedAt: true,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
+
+    const nextPlan = (plan ?? existing.plan) as "FREE" | "STARTER" | "PRO" | "BUSINESS";
+    const maxCredits = maxWalletCreditsForWorkspace({
+      plan: nextPlan,
+      billingInterval: existing.billingInterval,
+      subscriptionStatus: existing.subscriptionStatus,
+      welcomeCreditsClaimed: Boolean(existing.welcomeCreditsClaimedAt),
+    });
+
+    const data: {
+      plan?: "FREE" | "STARTER" | "PRO" | "BUSINESS";
+      creditsRemaining?: number;
+      name?: string;
+    } = {};
+    if (plan !== undefined) data.plan = nextPlan;
+    if (creditsRemaining !== undefined) {
+      data.creditsRemaining = clampCreditsToPlanCap(Number(creditsRemaining), maxCredits);
+    }
     if (name !== undefined) data.name = name;
 
     const workspace = await prisma.workspace.update({

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
-import { checkCredits, deductCredits, InsufficientCreditsError } from "@/lib/billing/credits";
+import { deductCredits, isBillingCreditsError } from "@/lib/billing/credits";
 import { listConnectedSocialAccounts } from "@/lib/integrations/connection-access";
 import { buildPublishPlan, publishToSocialProviders, resolvePublishProviders } from "@/lib/integrations/publish";
 import { isSocialProviderId, SOCIAL_PROVIDER_IDS } from "@/lib/integrations/types";
@@ -69,14 +69,6 @@ export async function POST(request: Request) {
   }
 
   const cost = 1;
-  try {
-    await checkCredits(currentUser.workspace.id, cost);
-  } catch (error) {
-    if (error instanceof InsufficientCreditsError) {
-      return NextResponse.json({ error: error.message }, { status: 402 });
-    }
-    throw error;
-  }
 
   const outcomes = await publishToSocialProviders({
     workspaceId: currentUser.workspace.id,
@@ -91,7 +83,14 @@ export async function POST(request: Request) {
   const failed = outcomes.filter((outcome) => !outcome.ok);
 
   if (succeeded.length > 0) {
-    await deductCredits(currentUser.workspace.id, cost);
+    try {
+      await deductCredits(currentUser.workspace.id, cost);
+    } catch (error) {
+      if (isBillingCreditsError(error)) {
+        return NextResponse.json({ error: error.message }, { status: 402 });
+      }
+      throw error;
+    }
   }
 
   return NextResponse.json({

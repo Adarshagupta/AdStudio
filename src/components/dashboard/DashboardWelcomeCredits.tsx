@@ -209,7 +209,7 @@ export function DashboardWelcomeCredits({
                   </p>
                   <p className="mt-1 text-xs leading-5 text-zinc-500">
                     {isAdmin
-                      ? `${WELCOME_CREDIT_BONUS} free credits to start creating. Paid plans include credits equal to your subscription.`
+                      ? `${WELCOME_CREDIT_BONUS} free credits to start creating.`
                       : "Ask a workspace admin to claim your team's welcome credits."}
                   </p>
                 </div>

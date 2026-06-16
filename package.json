@@ -7,8 +7,10 @@
     "icons:generate": "node scripts/generate-pwa-icons.mjs",
     "build": "prisma generate && node scripts/generate-pwa-icons.mjs && next build",
     "db:migrate": "node scripts/ensure-direct-database-url.mjs && prisma migrate deploy",
+    "seed:blogs": "npx tsx scripts/seed-blogs.ts",
     "deploy": "node scripts/sync-vercel-env.mjs && vercel deploy --prod --yes",
     "deploy:realtime": "node scripts/deploy-studio-realtime.mjs",
+    "deploy:cloudflare": "WRANGLER_USE_API_TOKEN=1 node scripts/deploy-studio-realtime.mjs && node scripts/apply-r2-cors.mjs",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate"

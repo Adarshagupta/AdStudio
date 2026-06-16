@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { requireCurrentUser } from "@/lib/auth";
 import { isWorkspaceOnboardingCompleteCached } from "@/lib/onboarding-gate";
+import { listWorkspacesForUser } from "@/lib/workspace-members";
 
 export async function AuthenticatedShell({
   children,
@@ -17,16 +18,23 @@ export async function AuthenticatedShell({
   const pathname = headers().get("x-pathname") ?? "";
 
   const onboardingComplete = await isWorkspaceOnboardingCompleteCached(currentUser.workspace.id);
-  if (!onboardingComplete && !pathname.startsWith("/onboarding")) {
+
+  if (
+    !onboardingComplete &&
+    !pathname.startsWith("/onboarding") &&
+    !pathname.startsWith("/settings/billing")
+  ) {
     redirect("/onboarding");
   }
 
   const isChat = !fullscreen && pathname.startsWith("/dashboard/chat");
+  const userWorkspaces = await listWorkspacesForUser(currentUser.user.id);
 
   return (
     <PageShell
       user={currentUser.user}
       workspace={currentUser.workspace}
+      userWorkspaces={userWorkspaces.map((item) => ({ id: item.id, name: item.name }))}
       fullWidth={isChat}
       hideTopbar={isChat}
       fullscreen={fullscreen}

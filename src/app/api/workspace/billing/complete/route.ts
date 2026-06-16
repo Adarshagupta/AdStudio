@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, revalidateCurrentSessionCache } from "@/lib/auth";
 import { completeWorkspaceSubscriptionCheckout } from "@/lib/billing/workspace-subscription";
 import { parseRequestJson } from "@/lib/http/json";
 
@@ -36,12 +36,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const workspace = await completeWorkspaceSubscriptionCheckout({
+    const { workspace, purchase } = await completeWorkspaceSubscriptionCheckout({
       sessionId: result.data.sessionId,
       workspaceId: currentUser.workspace.id,
     });
 
-    return NextResponse.json({ ok: true, workspace });
+    revalidateCurrentSessionCache();
+
+    return NextResponse.json({ ok: true, workspace, purchase });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete checkout.";
     return NextResponse.json({ error: message }, { status: 500 });

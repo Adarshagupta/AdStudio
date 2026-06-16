@@ -25,6 +25,7 @@ type WorkspaceRow = {
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   billingInterval: string | null;
+  subscriptionStatus: string | null;
   creditsRemaining: number;
   videoMinutesUsed: number | null;
   imageCountUsed: number | null;
@@ -53,6 +54,7 @@ export async function findWorkspaceById(id: string): Promise<Workspace | null> {
         "stripeCustomerId",
         "stripeSubscriptionId",
         "billingInterval",
+        "subscriptionStatus",
         "creditsRemaining",
         "videoMinutesUsed",
         "imageCountUsed",
@@ -79,6 +81,7 @@ export async function findWorkspaceById(id: string): Promise<Workspace | null> {
       stripeCustomerId: row.stripeCustomerId,
       stripeSubscriptionId: row.stripeSubscriptionId,
       billingInterval: row.billingInterval,
+      subscriptionStatus: row.subscriptionStatus,
       creditsRemaining: row.creditsRemaining,
       videoMinutesUsed: row.videoMinutesUsed ?? 0,
       imageCountUsed: row.imageCountUsed ?? 0,

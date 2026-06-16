@@ -1,4 +1,4 @@
-## Ad Studio Flutter App - Android Setup
+## LiteMoov Flutter App - Android Setup
 
 ### What Was Created
 
@@ -140,7 +140,7 @@ flutter build apk
 
 Once running, you'll see:
 
-1. **Splash Screen** - Ad Studio branding with gradient
+1. **Splash Screen** - LiteMoov branding with gradient
 2. **Landing Page** - App overview with features
 3. **Login/Signup** - Full authentication
 4. **Dashboard** - Chat sessions, credits, quick actions

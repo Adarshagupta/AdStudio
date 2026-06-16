@@ -1,12 +1,63 @@
 import { prisma } from "@/lib/db";
+import {
+  clampCreditsToPlanCap,
+  includedImageLimit,
+  includedVideoMinutesLimit,
+  maxWalletCreditsForWorkspace,
+} from "@/lib/billing/credit-limits";
+import { isSubscriptionTrialStatus } from "@/lib/billing/subscription-trial";
+import { getStripe, isStripeConfigured } from "@/lib/billing/stripe";
 
 export class InsufficientCreditsError extends Error {
-  constructor(public required: number, public remaining: number) {
-    super(
-      `Insufficient credits. Need ${required} credits, but only ${remaining} remaining.`,
-    );
+  constructor(
+    public required: number,
+    public remaining: number,
+  ) {
+    super(`Insufficient credits. Need ${required} credits, but only ${remaining} remaining.`);
     this.name = "InsufficientCreditsError";
   }
+}
+
+export class TrialPremiumCreditsBlockedError extends Error {
+  constructor() {
+    super(
+      "Premium credits are not available during your free trial. Use included video time and image generations, or wait until your trial converts to a paid subscription.",
+    );
+    this.name = "TrialPremiumCreditsBlockedError";
+  }
+}
+
+export class IncludedQuotaExceededError extends Error {
+  constructor(
+    public kind: "image" | "video",
+    public limit: number,
+    public used: number,
+  ) {
+    super(
+      kind === "image"
+        ? `Included image quota exceeded. Plan limit is ${limit} images (${used} used).`
+        : `Included video quota exceeded. Plan limit is ${limit} minutes (${used} used).`,
+    );
+    this.name = "IncludedQuotaExceededError";
+  }
+}
+
+export function isPremiumCreditsBlockedError(error: unknown): boolean {
+  return error instanceof TrialPremiumCreditsBlockedError;
+}
+
+export function isIncludedQuotaExceededError(error: unknown): error is IncludedQuotaExceededError {
+  return error instanceof IncludedQuotaExceededError;
+}
+
+export function isBillingCreditsError(
+  error: unknown,
+): error is InsufficientCreditsError | TrialPremiumCreditsBlockedError | IncludedQuotaExceededError {
+  return (
+    error instanceof InsufficientCreditsError ||
+    error instanceof TrialPremiumCreditsBlockedError ||
+    error instanceof IncludedQuotaExceededError
+  );
 }
 
 export type WorkspaceUsage = {
@@ -15,9 +66,103 @@ export type WorkspaceUsage = {
   premiumCreditsUsed: number;
 };
 
-/**
- * Get workspace usage stats.
- */
+type SqlClient = Pick<typeof prisma, "$queryRaw" | "workspace">;
+
+async function assertPremiumCreditsAllowed(workspaceId: string): Promise<void> {
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { subscriptionStatus: true, stripeSubscriptionId: true },
+  });
+
+  if (isSubscriptionTrialStatus(workspace?.subscriptionStatus)) {
+    throw new TrialPremiumCreditsBlockedError();
+  }
+
+  if (
+    !workspace?.subscriptionStatus &&
+    workspace?.stripeSubscriptionId &&
+    isStripeConfigured()
+  ) {
+    try {
+      const subscription = await getStripe().subscriptions.retrieve(workspace.stripeSubscriptionId);
+      if (subscription.status === "trialing") {
+        await prisma.workspace.update({
+          where: { id: workspaceId },
+          data: { subscriptionStatus: "trialing", creditsRemaining: 0 },
+        });
+        throw new TrialPremiumCreditsBlockedError();
+      }
+      await prisma.workspace.update({
+        where: { id: workspaceId },
+        data: { subscriptionStatus: subscription.status },
+      });
+    } catch (error) {
+      if (error instanceof TrialPremiumCreditsBlockedError) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function atomicDeductCreditsTx(
+  workspaceId: string,
+  cost: number,
+  client: SqlClient,
+): Promise<number> {
+  const updated = await client.$queryRaw<{ creditsRemaining: number }[]>`
+    UPDATE "Workspace"
+    SET "creditsRemaining" = "creditsRemaining" - ${cost}
+    WHERE id = ${workspaceId}
+      AND "creditsRemaining" >= ${cost}
+    RETURNING "creditsRemaining"
+  `;
+
+  if (updated[0]) {
+    return updated[0].creditsRemaining;
+  }
+
+  const workspace = await client.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { creditsRemaining: true },
+  });
+  throw new InsufficientCreditsError(cost, workspace?.creditsRemaining ?? 0);
+}
+
+export async function clampWorkspaceCreditsToPlan(workspaceId: string): Promise<number> {
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: {
+      plan: true,
+      billingInterval: true,
+      subscriptionStatus: true,
+      welcomeCreditsClaimedAt: true,
+      creditsRemaining: true,
+    },
+  });
+
+  if (!workspace) {
+    throw new Error("Workspace not found.");
+  }
+
+  const maxCredits = maxWalletCreditsForWorkspace({
+    plan: workspace.plan,
+    billingInterval: workspace.billingInterval,
+    subscriptionStatus: workspace.subscriptionStatus,
+    welcomeCreditsClaimed: Boolean(workspace.welcomeCreditsClaimedAt),
+  });
+
+  const clamped = clampCreditsToPlanCap(workspace.creditsRemaining, maxCredits);
+
+  if (clamped !== workspace.creditsRemaining) {
+    await prisma.workspace.update({
+      where: { id: workspaceId },
+      data: { creditsRemaining: clamped },
+    });
+  }
+
+  return clamped;
+}
+
 export async function getWorkspaceUsage(workspaceId: string): Promise<WorkspaceUsage> {
   const workspace = await prisma.workspace.findUnique({
     where: { id: workspaceId },
@@ -31,39 +176,84 @@ export async function getWorkspaceUsage(workspaceId: string): Promise<WorkspaceU
   };
 }
 
-/**
- * Track usage for a workspace.
- */
+export async function consumeIncludedQuota(
+  workspaceId: string,
+  usage: { images?: number; videoMinutes?: number },
+): Promise<void> {
+  const imageDelta = usage.images ?? 0;
+  const videoDelta = usage.videoMinutes ?? 0;
+
+  if (imageDelta <= 0 && videoDelta <= 0) {
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<
+      Array<{
+        plan: string;
+        imageCountUsed: number;
+        videoMinutesUsed: number;
+      }>
+    >`
+      SELECT plan, "imageCountUsed", "videoMinutesUsed"
+      FROM "Workspace"
+      WHERE id = ${workspaceId}
+      FOR UPDATE
+    `;
+
+    const workspace = rows[0];
+    if (!workspace) {
+      throw new Error("Workspace not found.");
+    }
+
+    if (imageDelta > 0) {
+      const limit = includedImageLimit(workspace.plan);
+      if (Number.isFinite(limit) && workspace.imageCountUsed + imageDelta > limit) {
+        throw new IncludedQuotaExceededError("image", limit, workspace.imageCountUsed);
+      }
+    }
+
+    if (videoDelta > 0) {
+      const limit = includedVideoMinutesLimit(workspace.plan);
+      if (workspace.videoMinutesUsed + videoDelta > limit) {
+        throw new IncludedQuotaExceededError("video", limit, workspace.videoMinutesUsed);
+      }
+    }
+
+    await tx.workspace.update({
+      where: { id: workspaceId },
+      data: {
+        ...(imageDelta > 0 ? { imageCountUsed: { increment: imageDelta } } : {}),
+        ...(videoDelta > 0 ? { videoMinutesUsed: { increment: videoDelta } } : {}),
+      },
+    });
+  });
+}
+
 export async function trackUsage(
   workspaceId: string,
   usage: Partial<WorkspaceUsage>,
 ): Promise<void> {
-  const data: {
-    videoMinutesUsed?: { increment: number };
-    imageCountUsed?: { increment: number };
-    premiumCreditsUsed?: { increment: number };
-  } = {};
-  if (usage.videoMinutesUsed !== undefined) data.videoMinutesUsed = { increment: usage.videoMinutesUsed };
-  if (usage.imageCountUsed !== undefined) data.imageCountUsed = { increment: usage.imageCountUsed };
-  if (usage.premiumCreditsUsed !== undefined) data.premiumCreditsUsed = { increment: usage.premiumCreditsUsed };
+  if (usage.imageCountUsed !== undefined && usage.imageCountUsed > 0) {
+    await consumeIncludedQuota(workspaceId, { images: usage.imageCountUsed });
+  }
 
-  if (Object.keys(data).length === 0) return;
+  if (usage.videoMinutesUsed !== undefined && usage.videoMinutesUsed > 0) {
+    await consumeIncludedQuota(workspaceId, { videoMinutes: usage.videoMinutesUsed });
+  }
 
-  await prisma.workspace.update({
-    where: { id: workspaceId },
-    data,
-  });
+  if (usage.premiumCreditsUsed !== undefined && usage.premiumCreditsUsed > 0) {
+    await prisma.workspace.update({
+      where: { id: workspaceId },
+      data: { premiumCreditsUsed: { increment: usage.premiumCreditsUsed } },
+    });
+  }
 }
 
-/**
- * Check if a workspace has enough credits.
- * Throws InsufficientCreditsError if not.
- */
-export async function checkCredits(
-  workspaceId: string,
-  cost: number,
-): Promise<void> {
+export async function checkCredits(workspaceId: string, cost: number): Promise<void> {
   if (cost <= 0) return;
+
+  await assertPremiumCreditsAllowed(workspaceId);
 
   const workspace = await prisma.workspace.findUnique({
     where: { id: workspaceId },
@@ -76,15 +266,7 @@ export async function checkCredits(
   }
 }
 
-/**
- * Atomically deduct credits from a workspace.
- * Returns the new creditsRemaining.
- * Throws InsufficientCreditsError if not enough.
- */
-export async function deductCredits(
-  workspaceId: string,
-  cost: number,
-): Promise<number> {
+export async function deductCredits(workspaceId: string, cost: number): Promise<number> {
   if (cost <= 0) {
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
@@ -93,23 +275,8 @@ export async function deductCredits(
     return workspace?.creditsRemaining ?? 0;
   }
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { creditsRemaining: true },
-  });
-
-  const remaining = workspace?.creditsRemaining ?? 0;
-  if (remaining < cost) {
-    throw new InsufficientCreditsError(cost, remaining);
-  }
-
-  const updated = await prisma.workspace.update({
-    where: { id: workspaceId },
-    data: { creditsRemaining: { decrement: cost } },
-    select: { creditsRemaining: true },
-  });
-
-  return updated.creditsRemaining;
+  await assertPremiumCreditsAllowed(workspaceId);
+  return atomicDeductCreditsTx(workspaceId, cost, prisma);
 }
 
 type PrismaTransaction = Omit<
@@ -117,10 +284,6 @@ type PrismaTransaction = Omit<
   "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends"
 >;
 
-/**
- * Deduct credits and create a generation record in a single transaction.
- * If credit deduction fails, nothing is created.
- */
 export async function deductCreditsWithGeneration<T>(
   workspaceId: string,
   cost: number,
@@ -135,34 +298,17 @@ export async function deductCreditsWithGeneration<T>(
     return { creditsRemaining: workspace?.creditsRemaining ?? 0, result };
   }
 
+  await assertPremiumCreditsAllowed(workspaceId);
+
   const result = await prisma.$transaction(async (tx) => {
-    const workspace = await tx.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { creditsRemaining: true },
-    });
-
-    const remaining = workspace?.creditsRemaining ?? 0;
-    if (remaining < cost) {
-      throw new InsufficientCreditsError(cost, remaining);
-    }
-
-    const updated = await tx.workspace.update({
-      where: { id: workspaceId },
-      data: { creditsRemaining: { decrement: cost } },
-      select: { creditsRemaining: true },
-    });
-
+    const creditsRemaining = await atomicDeductCreditsTx(workspaceId, cost, tx);
     const created = await createFn(tx as unknown as PrismaTransaction);
-
-    return { creditsRemaining: updated.creditsRemaining, result: created };
+    return { creditsRemaining, result: created };
   });
 
   return result;
 }
 
-/**
- * Get the credit cost for a generation type.
- */
 export function getGenerationCost(
   type: "image" | "video" | "audio" | "script" | "social",
   options?: { durationSec?: number; imageCount?: number; isPremium?: boolean },
@@ -182,3 +328,5 @@ export function getGenerationCost(
       return 1;
   }
 }
+
+export { maxWalletCreditsForWorkspace, clampCreditsToPlanCap } from "@/lib/billing/credit-limits";

@@ -491,7 +491,7 @@ function buildMimeMessage(input: {
   headers?: Record<string, string>;
   messageId: string;
 }) {
-  const boundary = `adstudio-${crypto.randomUUID()}`;
+  const boundary = `litemoov-${crypto.randomUUID()}`;
   const to = Array.isArray(input.to) ? input.to.map(formatMimeAddress).join(", ") : formatMimeAddress(input.to);
   const headers = [
     ["From", formatMimeAddress(input.from)],

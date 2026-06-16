@@ -56,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Ad Studio',
+                'LiteMoov',
                 style: TextStyle(
                   fontFamily: 'Quicksand',
                   fontSize: 42,

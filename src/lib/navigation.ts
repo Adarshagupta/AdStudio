@@ -1,11 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
-  Clapperboard,
   Home,
+  ImageIcon,
   Images,
   Library,
-  Sparkles,
   Store,
   Workflow,
 } from "lucide-react";
@@ -52,8 +51,13 @@ export const universalNavGroups: NavGroup[] = [
           icon: Store,
         },
       },
-      { label: "UGC Talking Head", href: "/create/ugc-talking-head", icon: Clapperboard, match: "prefix", permission: "createContent" },
-      { label: "Brain Rot Video", href: "/create/brain-rot", icon: Sparkles, match: "prefix", permission: "createContent" },
+      {
+        label: "Image Studio",
+        href: "/studio/image",
+        icon: ImageIcon,
+        match: "prefix",
+        permission: "createContent",
+      },
     ],
   },
   {

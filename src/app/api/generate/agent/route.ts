@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
-import { checkCredits, deductCreditsWithGeneration, InsufficientCreditsError } from "@/lib/billing/credits";
+import { deductCreditsWithGeneration, isBillingCreditsError } from "@/lib/billing/credits";
 import { generateImage, generateAudio, generateScript } from "@/lib/cloudflare-ai";
-import { buildDashboardImagePrompt } from "@/lib/dashboard-generation";
+import { buildDashboardImagePrompt, enrichPromptWithProductContext } from "@/lib/dashboard-generation";
 import { parseRequestJson } from "@/lib/http/json";
 import { backgroundUploadMedia, ensurePublicMediaUrl } from "@/lib/media-url";
+import { resolveProductContextSafe } from "@/lib/product-research";
 import { startVideoGeneration } from "@/lib/video-generation";
 
 export const runtime = "nodejs";
@@ -47,19 +48,12 @@ export async function POST(request: Request) {
   }
 
   const cost = 1;
-  try {
-    await checkCredits(currentUser.workspace.id, cost);
-  } catch (error) {
-    if (error instanceof InsufficientCreditsError) {
-      return NextResponse.json({ error: error.message }, { status: 402 });
-    }
-    throw error;
-  }
 
-  const { creditsRemaining, result: updated } = await deductCreditsWithGeneration(
-    currentUser.workspace.id,
-    cost,
-    async (tx) => {
+  try {
+    const { creditsRemaining, result: updated } = await deductCreditsWithGeneration(
+      currentUser.workspace.id,
+      cost,
+      async (tx) => {
       const generation = await tx.generation.create({
         data: {
           workspaceId: currentUser.workspace.id,
@@ -102,14 +96,24 @@ export async function POST(request: Request) {
         thinking.push(`Selected image model: ${imageModel}`);
         thinking.push(`Selected video model: ${videoModel}`);
 
+        const productContext = productUrl?.trim()
+          ? await resolveProductContextSafe(productUrl)
+          : undefined;
+        if (productContext) {
+          thinking.push(`Product context prepared for ${productUrl}`);
+        }
+
+        const enrichedPrompt = enrichPromptWithProductContext(prompt, productContext);
+
         const scriptText = await generateScript({
-          prompt,
+          prompt: enrichedPrompt,
           format: "UGC",
           productUrl,
+          productContext,
         });
         thinking.push("Script generated");
 
-        const imagePrompt = buildDashboardImagePrompt(prompt, referenceImageUrl);
+        const imagePrompt = buildDashboardImagePrompt(enrichedPrompt, referenceImageUrl, productContext);
         const image = await generateImage({
           prompt: imagePrompt,
           model: imageModel,
@@ -147,7 +151,7 @@ export async function POST(request: Request) {
         void audioUrl;
 
         const video = await startVideoGeneration({
-          prompt,
+          prompt: enrichedPrompt,
           scriptText,
           format: "UGC",
           model: videoModel,
@@ -192,22 +196,28 @@ export async function POST(request: Request) {
         });
       }
     },
-  );
-
-  if (updated.status === "FAILED") {
-    return NextResponse.json(
-      { error: updated.errorMessage || "Agent generation failed." },
-      { status: 502 },
     );
-  }
 
-  return NextResponse.json({
-    generationId: updated.id,
-    status: updated.status,
-    videoUrl: updated.videoUrl,
-    thumbnailUrl: updated.thumbnailUrl,
-    scriptText: updated.scriptText,
-    xaiRequestId: updated.xaiRequestId,
-    creditsRemaining,
-  });
+    if (updated.status === "FAILED") {
+      return NextResponse.json(
+        { error: updated.errorMessage || "Agent generation failed." },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({
+      generationId: updated.id,
+      status: updated.status,
+      videoUrl: updated.videoUrl,
+      thumbnailUrl: updated.thumbnailUrl,
+      scriptText: updated.scriptText,
+      xaiRequestId: updated.xaiRequestId,
+      creditsRemaining,
+    });
+  } catch (error) {
+    if (isBillingCreditsError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 402 });
+    }
+    throw error;
+  }
 }

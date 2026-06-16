@@ -1,10 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { ProFreeTrialPopup } from "@/components/billing/ProFreeTrialPopup";
 import { getCurrentUser } from "@/lib/auth";
+import { isStripeConfigured } from "@/lib/billing/stripe";
 import { isDatabaseConfigured } from "@/lib/database-url";
 import { getWorkspaceOnboarding, serializeOnboarding } from "@/lib/onboarding";
+import { noIndexMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = noIndexMetadata;
 
 function DatabaseSetupNotice() {
   return (
@@ -45,5 +51,17 @@ export default async function OnboardingPage() {
     redirect("/dashboard");
   }
 
-  return <OnboardingWizard initial={initial} />;
+  return (
+    <>
+      <OnboardingWizard initial={initial} />
+      <ProFreeTrialPopup
+        plan={currentUser.workspace.plan}
+        isAdmin={currentUser.user.role === "ADMIN"}
+        hasStripeSubscription={Boolean(currentUser.workspace.stripeSubscriptionId)}
+        stripeEnabled={isStripeConfigured()}
+        showDelayMs={900}
+        surface="onboarding"
+      />
+    </>
+  );
 }

@@ -15,7 +15,7 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Layer } from "./ImageStudioWorkspace";
+import type { Layer } from "./image-studio-types";
 
 export function ImageStudioLayersPanel({
   layers,
@@ -39,7 +39,7 @@ export function ImageStudioLayersPanel({
   onMergeVisible: () => void;
 }) {
   return (
-    <div className="flex w-[240px] flex-col border-l border-zinc-200 bg-white">
+    <div className="flex h-full w-[260px] flex-col border-l border-zinc-100 bg-white">
       <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-zinc-500" />

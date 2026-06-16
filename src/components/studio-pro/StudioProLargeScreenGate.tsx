@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Monitor, Workflow } from "lucide-react";
 
+import { StudioProPreloader } from "@/components/studio-pro/StudioProPreloader";
 import { Button } from "@/components/ui/button";
 import { useLargeScreen } from "@/hooks/useLargeScreen";
 import { STUDIO_PRO_MIN_WIDTH_PX } from "@/lib/layout/breakpoints";
@@ -12,11 +13,7 @@ export function StudioProLargeScreenGate({ children }: { children: ReactNode }) 
   const isLargeScreen = useLargeScreen();
 
   if (isLargeScreen === null) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center px-6">
-        <div className="h-8 w-8 animate-pulse rounded-full bg-zinc-200" />
-      </div>
-    );
+    return <StudioProPreloader fullscreen />;
   }
 
   if (!isLargeScreen) {

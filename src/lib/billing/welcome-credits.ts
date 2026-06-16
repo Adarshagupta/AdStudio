@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { maxWalletCreditsForWorkspace } from "@/lib/billing/credit-limits";
 
 export const WELCOME_CREDIT_BONUS = 5;
 
@@ -99,11 +100,16 @@ export async function claimWelcomeCredits(workspaceId: string, actorUserId: stri
       };
     }
 
+    const maxCredits = maxWalletCreditsForWorkspace({
+      plan: "FREE",
+      welcomeCreditsClaimed: true,
+    });
+
     const updated = await tx.$queryRaw<{ creditsRemaining: number }[]>`
       UPDATE "Workspace"
       SET
         "welcomeCreditsClaimedAt" = NOW(),
-        "creditsRemaining" = "creditsRemaining" + ${WELCOME_CREDIT_BONUS}
+        "creditsRemaining" = LEAST("creditsRemaining" + ${WELCOME_CREDIT_BONUS}, ${maxCredits})
       WHERE id = ${workspaceId}
         AND "welcomeCreditsClaimedAt" IS NULL
       RETURNING "creditsRemaining"

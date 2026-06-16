@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
-import { checkCredits, deductCreditsWithGeneration, InsufficientCreditsError, trackUsage } from "@/lib/billing/credits";
+import { checkCredits, consumeIncludedQuota, deductCreditsWithGeneration, isBillingCreditsError, trackUsage } from "@/lib/billing/credits";
 import { generateImage, generateScript } from "@/lib/cloudflare-ai";
-import { buildDashboardImagePrompt } from "@/lib/dashboard-generation";
+import { buildDashboardImagePrompt, enrichPromptWithProductContext } from "@/lib/dashboard-generation";
 import { formatValidationErrors, parseRequestJson } from "@/lib/http/json";
 import { backgroundUploadMedia, ensurePublicMediaUrl, ensurePublicMediaUrls } from "@/lib/media-url";
 import { resolveModelBilling } from "@/lib/models";
+import { resolveProductContextSafe } from "@/lib/product-research";
 import { startVideoGeneration } from "@/lib/video-generation";
 
 export const runtime = "nodejs";
@@ -92,6 +93,11 @@ export async function POST(request: Request) {
     outputType,
   };
 
+  const productContext = result.data.productUrl?.trim()
+    ? await resolveProductContextSafe(result.data.productUrl)
+    : undefined;
+  const enrichedPrompt = enrichPromptWithProductContext(prompt, productContext);
+
   if (outputType === "image") {
     const modelBilling = await resolveModelBilling(result.data.model ?? "", "image");
     const cost = modelBilling.cost;
@@ -100,7 +106,16 @@ export async function POST(request: Request) {
       try {
         await checkCredits(currentUser.workspace.id, cost);
       } catch (error) {
-        if (error instanceof InsufficientCreditsError) {
+        if (isBillingCreditsError(error)) {
+          return NextResponse.json({ error: error.message }, { status: 402 });
+        }
+        throw error;
+      }
+    } else {
+      try {
+        await consumeIncludedQuota(currentUser.workspace.id, { images: 1 });
+      } catch (error) {
+        if (isBillingCreditsError(error)) {
           return NextResponse.json({ error: error.message }, { status: 402 });
         }
         throw error;
@@ -126,7 +141,11 @@ export async function POST(request: Request) {
         });
 
         try {
-          const imagePrompt = buildDashboardImagePrompt(prompt, result.data.referenceImageUrl);
+          const imagePrompt = buildDashboardImagePrompt(
+            enrichedPrompt,
+            result.data.referenceImageUrl,
+            productContext,
+          );
           const image = await generateImage({
             prompt: imagePrompt,
             model: result.data.model,
@@ -182,11 +201,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Track usage based on billing type
+    // Track premium spend analytics only — included quota is reserved up front.
     if (modelBilling.type === "premium") {
       await trackUsage(currentUser.workspace.id, { premiumCreditsUsed: cost });
-    } else {
-      await trackUsage(currentUser.workspace.id, { imageCountUsed: 1 });
     }
 
     return NextResponse.json({
@@ -205,9 +222,10 @@ export async function POST(request: Request) {
   if (!scriptText) {
     try {
       scriptText = await generateScript({
-        prompt,
+        prompt: enrichedPrompt,
         format: result.data.format,
         productUrl: result.data.productUrl || undefined,
+        productContext,
         model: result.data.model,
       });
     } catch (error) {
@@ -226,7 +244,19 @@ export async function POST(request: Request) {
     try {
       await checkCredits(currentUser.workspace.id, cost);
     } catch (error) {
-      if (error instanceof InsufficientCreditsError) {
+      if (isBillingCreditsError(error)) {
+        return NextResponse.json({ error: error.message }, { status: 402 });
+      }
+      throw error;
+    }
+  } else {
+    const durationSec = result.data.style?.duration ?? 10;
+    try {
+      await consumeIncludedQuota(currentUser.workspace.id, {
+        videoMinutes: Math.max(1, Math.ceil(durationSec / 60)),
+      });
+    } catch (error) {
+      if (isBillingCreditsError(error)) {
         return NextResponse.json({ error: error.message }, { status: 402 });
       }
       throw error;
@@ -268,7 +298,7 @@ export async function POST(request: Request) {
           : undefined;
 
         const video = await startVideoGeneration({
-          prompt,
+          prompt: enrichedPrompt,
           scriptText: finalScriptText,
           format: result.data.format,
           model: result.data.model,
@@ -328,12 +358,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // Track usage based on billing type
-  const durationSec = updatedGeneration.durationSec ?? 10;
   if (modelBilling.type === "premium") {
     await trackUsage(currentUser.workspace.id, { premiumCreditsUsed: cost });
-  } else {
-    await trackUsage(currentUser.workspace.id, { videoMinutesUsed: Math.ceil(durationSec / 60) });
   }
 
   return NextResponse.json({

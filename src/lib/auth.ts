@@ -53,6 +53,11 @@ function revalidateAuthCache(token: string | undefined) {
   }
 }
 
+/** Bust cached workspace/plan data after billing or profile changes. */
+export function revalidateCurrentSessionCache() {
+  revalidateAuthCache(getSessionTokenFromRequest());
+}
+
 type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
 export async function hashPassword(password: string) {

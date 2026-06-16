@@ -25,6 +25,7 @@ const aiTabs = [
 ];
 
 const models = [
+  { id: "self-hosted/flux-2-dev", label: "Flux 2 Klein (Self-Hosted)" },
   { id: "sylicaai/flux-schnell", label: "Flux Schnell" },
   { id: "openai/dall-e-3", label: "DALL-E 3" },
   { id: "openai/gpt-image-1", label: "GPT Image 1" },
@@ -62,7 +63,7 @@ export function ImageStudioAIPanel({
 }) {
   const [activeTab, setActiveTab] = useState("generate");
   const [prompt, setPrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState("sylicaai/flux-schnell");
+  const [selectedModel, setSelectedModel] = useState("self-hosted/flux-2-dev");
   const [selectedAspectRatio, setSelectedAspectRatio] = useState("1:1");
   const [steps, setSteps] = useState(8);
   const [isLoading, setIsLoading] = useState(false);
@@ -203,7 +204,7 @@ export function ImageStudioAIPanel({
   };
 
   return (
-    <div className="flex w-[320px] flex-col border-l border-zinc-200 bg-white">
+    <div className="flex h-full w-[320px] flex-col border-l border-zinc-100 bg-white">
       <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-violet-500" />
@@ -286,7 +287,7 @@ export function ImageStudioAIPanel({
                   </div>
                 </div>
 
-                {selectedModel === "sylicaai/flux-schnell" && (
+                {(selectedModel === "sylicaai/flux-schnell" || selectedModel === "self-hosted/flux-2-dev") && (
                   <div>
                     <label className="mb-1 block text-xs font-medium text-zinc-500">Steps ({steps})</label>
                     <input

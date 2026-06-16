@@ -1,34 +1,20 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { MessageCircle } from "lucide-react";
+import { consumeStudioImageUrl } from "@/lib/studio-image-transfer";
+import { cn } from "@/lib/utils";
 import { ImageStudioCanvas, ImageStudioCanvasRef } from "./ImageStudioCanvas";
-import { ImageStudioToolbar } from "./ImageStudioToolbar";
 import { ImageStudioLayersPanel } from "./ImageStudioLayersPanel";
-import { ImageStudioAIPanel } from "./ImageStudioAIPanel";
-import { ImageStudioTopBar } from "./ImageStudioTopBar";
+import {
+  ImageStudioAgentPanel,
+  ImageStudioFloatingToolbar,
+} from "./ImageStudioFloatingToolbar";
+import { ImageStudioMiniHeader } from "./ImageStudioMiniHeader";
+import type { Layer, StudioTool } from "./image-studio-types";
 
-export type StudioTool =
-  | "select"
-  | "brush"
-  | "eraser"
-  | "rectangle"
-  | "circle"
-  | "line"
-  | "arrow"
-  | "text"
-  | "crop"
-  | "eyedropper"
-  | "shape";
-
-export interface Layer {
-  id: string;
-  name: string;
-  visible: boolean;
-  opacity: number;
-  locked: boolean;
-  canvas: HTMLCanvasElement;
-  thumbnail?: string;
-}
+export type { Layer, StudioTool } from "./image-studio-types";
 
 export interface WorkspaceState {
   tool: StudioTool;
@@ -50,17 +36,13 @@ export interface WorkspaceState {
 }
 
 export function ImageStudioWorkspace({
-  userId,
-  workspaceId,
   creditsRemaining,
-  initialImageUrl = null,
   initialWidth,
   initialHeight,
 }: {
   userId: string;
   workspaceId: string;
   creditsRemaining: number;
-  initialImageUrl?: string | null;
   initialWidth?: number;
   initialHeight?: number;
 }) {
@@ -69,15 +51,20 @@ export function ImageStudioWorkspace({
   const [brushSize, setBrushSize] = useState(4);
   const [opacity, setOpacity] = useState(1);
   const [fontSize, setFontSize] = useState(24);
-  const [fontFamily, setFontFamily] = useState("sans-serif");
-  const [fontWeight, setFontWeight] = useState("normal");
+  const [fontFamily] = useState("sans-serif");
+  const [fontWeight] = useState("normal");
   const [layers, setLayers] = useState<Layer[]>([]);
   const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
-  const [canvasWidth, setCanvasWidth] = useState(1200);
-  const [canvasHeight, setCanvasHeight] = useState(800);
+  const [canvasWidth, setCanvasWidth] = useState(1024);
+  const [canvasHeight, setCanvasHeight] = useState(576);
   const [zoom, setZoom] = useState(1);
-  const [showAIPanel, setShowAIPanel] = useState(true);
-  const [showLayersPanel] = useState(true);
+  const [agentOpen, setAgentOpen] = useState(true);
+  const [showLayersPanel, setShowLayersPanel] = useState(false);
+  const [toolbarPrompt, setToolbarPrompt] = useState("");
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentMessages, setAgentMessages] = useState<
+    Array<{ id: string; role: "user" | "assistant"; content: string; imageUrl?: string }>
+  >([]);
   const canvasRef = useRef<ImageStudioCanvasRef>(null);
   const initializedRef = useRef(false);
 
@@ -256,59 +243,236 @@ export function ImageStudioWorkspace({
       setActiveLayerId(newLayer.id);
     };
     img.onerror = () => {
-      handleNewCanvas(initialWidth ?? 1200, initialHeight ?? 800);
+      handleNewCanvas(initialWidth ?? 1024, initialHeight ?? 576);
     };
     img.src = url;
   }, [handleNewCanvas, initialHeight, initialWidth]);
 
-  const handleImportImage = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) loadImageFromUrl(result);
-    };
-    reader.readAsDataURL(file);
-  }, [loadImageFromUrl]);
+  const applyAgentImage = useCallback(
+    (url: string, layerName = "AI Generated") => {
+      if (layers.length === 0) {
+        loadImageFromUrl(url, layerName);
+        return;
+      }
+      addLayer(layerName, url);
+    },
+    [addLayer, layers.length, loadImageFromUrl],
+  );
+
+  const runAgentPrompt = useCallback(
+    async (prompt: string) => {
+      const trimmed = prompt.trim();
+      if (!trimmed) return;
+
+      const userMessage = { id: `msg-${Date.now()}`, role: "user" as const, content: trimmed };
+      setAgentMessages((prev) => [...prev, userMessage]);
+      setToolbarPrompt("");
+      setAgentBusy(true);
+
+      try {
+        const lower = trimmed.toLowerCase();
+
+        if (lower.includes("remove") && lower.includes("background")) {
+          const response = await fetch("/api/studio/image/edit/remove-background", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Background removal failed");
+          if (data.imageUrl) applyAgentImage(data.imageUrl, "Background removed");
+          setAgentMessages((prev) => [
+            ...prev,
+            {
+              id: `msg-${Date.now()}-assistant`,
+              role: "assistant",
+              content: data.imageUrl
+                ? "Background removed and applied to your canvas."
+                : data.message || "Background removal request received.",
+              imageUrl: data.imageUrl,
+            },
+          ]);
+          return;
+        }
+
+        if (lower.includes("upscale") || lower.includes("sharpen")) {
+          const response = await fetch("/api/studio/image/edit/upscale", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ scale: 2 }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Upscale failed");
+          if (data.imageUrl) applyAgentImage(data.imageUrl, "Upscaled");
+          setAgentMessages((prev) => [
+            ...prev,
+            {
+              id: `msg-${Date.now()}-assistant`,
+              role: "assistant",
+              content: "Upscaled image applied to your canvas.",
+              imageUrl: data.imageUrl,
+            },
+          ]);
+          return;
+        }
+
+        if (lower.includes("expand") || lower.includes("9:16") || lower.includes("story")) {
+          const response = await fetch("/api/studio/image/edit/expand", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              width: lower.includes("9:16") || lower.includes("story") ? 1080 : 1200,
+              height: lower.includes("9:16") || lower.includes("story") ? 1920 : 800,
+              prompt: trimmed,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Expand failed");
+          if (data.imageUrl) applyAgentImage(data.imageUrl, "Expanded");
+          setAgentMessages((prev) => [
+            ...prev,
+            {
+              id: `msg-${Date.now()}-assistant`,
+              role: "assistant",
+              content: "Expanded canvas applied to your design.",
+              imageUrl: data.imageUrl,
+            },
+          ]);
+          return;
+        }
+
+        const generatePrompt =
+          trimmed.length >= 10 ? trimmed : `${trimmed}. Professional marketing ad creative, clean composition.`;
+
+        const response = await fetch("/api/studio/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: generatePrompt,
+            model: "self-hosted/flux-2-dev",
+            aspectRatio: lower.includes("9:16") ? "9:16" : lower.includes("16:9") ? "16:9" : "1:1",
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Image generation failed");
+
+        applyAgentImage(data.imageUrl, "AI Generated");
+        setAgentMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}-assistant`,
+            role: "assistant",
+            content: "Generated a new creative and added it to your canvas.",
+            imageUrl: data.imageUrl,
+          },
+        ]);
+      } catch (error) {
+        setAgentMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}-assistant`,
+            role: "assistant",
+            content: error instanceof Error ? error.message : "Something went wrong.",
+          },
+        ]);
+      } finally {
+        setAgentBusy(false);
+      }
+    },
+    [applyAgentImage],
+  );
 
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
-    let imageUrl = initialImageUrl;
-    if (!imageUrl && typeof window !== "undefined") {
-      const stored = sessionStorage.getItem("studio-image-url");
-      if (stored) {
-        imageUrl = stored;
-        sessionStorage.removeItem("studio-image-url");
-      }
-    }
+    const imageUrl = consumeStudioImageUrl();
 
     if (imageUrl) {
       loadImageFromUrl(imageUrl);
       return;
     }
 
-    handleNewCanvas(initialWidth ?? 1200, initialHeight ?? 800);
-  }, [handleNewCanvas, initialHeight, initialImageUrl, initialWidth, loadImageFromUrl]);
+    handleNewCanvas(initialWidth ?? 1024, initialHeight ?? 576);
+  }, [handleNewCanvas, initialHeight, initialWidth, loadImageFromUrl]);
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-[#f5f5f5] overflow-hidden">
-      <ImageStudioTopBar
-        onExport={() => exportImage("png")}
-        onExportJpeg={() => exportImage("jpeg", 0.9)}
-        onNewCanvas={() => handleNewCanvas(1200, 800)}
-        onImport={handleImportImage}
-        onZoomIn={() => setZoom((z) => Math.min(z + 0.1, 3))}
-        onZoomOut={() => setZoom((z) => Math.max(z - 0.1, 0.2))}
-        onZoomReset={() => setZoom(1)}
-        zoom={zoom}
+    <div className="relative h-screen w-screen overflow-hidden bg-zinc-100">
+      <ImageStudioCanvas
+        ref={canvasRef}
+        layers={layers}
+        activeLayerId={activeLayerId}
+        tool={tool}
+        color={color}
+        brushSize={brushSize}
+        opacity={opacity}
+        fontSize={fontSize}
+        fontFamily={fontFamily}
+        fontWeight={fontWeight}
         canvasWidth={canvasWidth}
         canvasHeight={canvasHeight}
-        onResizeCanvas={handleNewCanvas}
-        creditsRemaining={creditsRemaining}
+        zoom={zoom}
+        leftInset={agentOpen ? 320 : 56}
+        onLayersChange={setLayers}
       />
-      <div className="flex flex-1 overflow-hidden">
-        <ImageStudioToolbar
+
+      <ImageStudioMiniHeader
+        creditsRemaining={creditsRemaining}
+        zoom={zoom}
+        agentOpen={agentOpen}
+        onToggleAgent={() => setAgentOpen((open) => !open)}
+        onZoomIn={() => setZoom((z) => Math.min(z + 0.1, 3))}
+        onZoomOut={() => setZoom((z) => Math.max(z - 0.1, 0.2))}
+        onExport={() => exportImage("png")}
+      />
+
+      <div
+        className={cn(
+          "studio-agent pointer-events-auto group absolute bottom-24 top-16 z-20 overflow-hidden border-r border-zinc-200/90 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.14)] transition-all duration-300 ease-out",
+          agentOpen
+            ? "left-0 w-[min(360px,calc(100%-2rem))] rounded-r-2xl"
+            : "left-0 w-12 rounded-r-2xl hover:w-[min(360px,calc(100%-2rem))]",
+        )}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <div
+          className={cn(
+            "h-full w-full transition-opacity duration-300",
+            agentOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
+        >
+          <ImageStudioAgentPanel
+            messages={agentMessages}
+            isBusy={agentBusy}
+            onSubmit={runAgentPrompt}
+            onClear={() => setAgentMessages([])}
+            onClose={() => setAgentOpen(false)}
+            onStarterSelect={(starter) => {
+              setAgentOpen(true);
+              void runAgentPrompt(starter);
+            }}
+          />
+        </div>
+        {!agentOpen ? (
+          <button
+            type="button"
+            onClick={() => setAgentOpen(true)}
+            className="absolute inset-0 flex items-center justify-center opacity-100 transition-opacity duration-300 group-hover:opacity-0"
+            aria-label="Open agent"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 shadow-sm">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+          </button>
+        ) : null}
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-5 z-30 flex justify-center">
+        <ImageStudioFloatingToolbar
+          prompt={toolbarPrompt}
+          onPromptChange={setToolbarPrompt}
+          onPromptSubmit={() => void runAgentPrompt(toolbarPrompt)}
+          isSubmitting={agentBusy}
           tool={tool}
           onToolChange={setTool}
           color={color}
@@ -319,52 +483,47 @@ export function ImageStudioWorkspace({
           onOpacityChange={setOpacity}
           fontSize={fontSize}
           onFontSizeChange={setFontSize}
-          fontFamily={fontFamily}
-          onFontFamilyChange={setFontFamily}
-          fontWeight={fontWeight}
-          onFontWeightChange={setFontWeight}
+          agentOpen={agentOpen}
+          onToggleAgent={() => setAgentOpen((open) => !open)}
+          layersOpen={showLayersPanel}
+          onToggleLayers={() => setShowLayersPanel((open) => !open)}
         />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <ImageStudioCanvas
-            ref={canvasRef}
-            layers={layers}
-            activeLayerId={activeLayerId}
-            tool={tool}
-            color={color}
-            brushSize={brushSize}
-            opacity={opacity}
-            fontSize={fontSize}
-            fontFamily={fontFamily}
-            fontWeight={fontWeight}
-            canvasWidth={canvasWidth}
-            canvasHeight={canvasHeight}
-            zoom={zoom}
-            onLayersChange={setLayers}
-          />
-        </div>
-        {showLayersPanel && (
-          <ImageStudioLayersPanel
-            layers={layers}
-            activeLayerId={activeLayerId}
-            onLayerSelect={setActiveLayerId}
-            onLayerAdd={() => addLayer()}
-            onLayerDelete={deleteLayer}
-            onLayerUpdate={updateLayer}
-            onLayerReorder={reorderLayer}
-            onLayerDuplicate={duplicateLayer}
-            onMergeVisible={mergeVisibleLayers}
-          />
-        )}
-        {showAIPanel && (
-          <ImageStudioAIPanel
-            userId={userId}
-            workspaceId={workspaceId}
-            creditsRemaining={creditsRemaining}
-            onGeneratedImage={(url) => addLayer("AI Generated", url)}
-            onClose={() => setShowAIPanel(false)}
-          />
-        )}
       </div>
+
+      <AnimatePresence>
+        {showLayersPanel ? (
+          <>
+            <motion.button
+              type="button"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 bg-zinc-900/20 backdrop-blur-[1px]"
+              aria-label="Close layers panel"
+              onClick={() => setShowLayersPanel(false)}
+            />
+            <motion.aside
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 36 }}
+              className="absolute right-0 top-0 z-50 h-full shadow-2xl"
+            >
+              <ImageStudioLayersPanel
+                layers={layers}
+                activeLayerId={activeLayerId}
+                onLayerSelect={setActiveLayerId}
+                onLayerAdd={() => addLayer()}
+                onLayerDelete={deleteLayer}
+                onLayerUpdate={updateLayer}
+                onLayerReorder={reorderLayer}
+                onLayerDuplicate={duplicateLayer}
+                onMergeVisible={mergeVisibleLayers}
+              />
+            </motion.aside>
+          </>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

@@ -37,7 +37,7 @@ class LandingScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Ad Studio',
+                      'LiteMoov',
                       style: TextStyle(
                         fontFamily: 'Quicksand',
                         fontSize: 24,
@@ -182,7 +182,7 @@ class LandingScreen extends StatelessWidget {
                   child: Column(
                     children: [
                       Text(
-                        'Ad Studio',
+                        'LiteMoov',
                         style: TextStyle(
                           fontFamily: 'Quicksand',
                           fontWeight: FontWeight.bold,

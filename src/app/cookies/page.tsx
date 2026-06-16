@@ -1,8 +1,26 @@
+import type { Metadata } from "next";
+
+import { JsonLd } from "@/components/seo/JsonLd";
 import { PublicPageLayout } from "@/components/layout/PublicPageLayout";
+import { buildLegalJsonLd, buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Cookie Policy",
+  description: "How LiteMoov uses cookies, local storage, and similar technologies on litemoov.com.",
+  path: "/cookies",
+});
 
 export default function CookiesPage() {
   return (
-    <PublicPageLayout
+    <>
+      <JsonLd
+        data={buildLegalJsonLd({
+          path: "/cookies",
+          name: "Cookie Policy",
+          description: "How LiteMoov uses cookies and similar technologies.",
+        })}
+      />
+      <PublicPageLayout
       title="Cookie Policy"
       description="How we use cookies and similar technologies."
     >
@@ -50,7 +68,7 @@ export default function CookiesPage() {
             4. Managing Cookies
           </h2>
           <p className="mt-3">
-            You can manage or disable cookies through your browser settings. Please note that disabling essential cookies may prevent you from using certain features of Ad Studio.
+            You can manage or disable cookies through your browser settings. Please note that disabling essential cookies may prevent you from using certain features of LiteMoov.
           </p>
         </section>
 
@@ -69,8 +87,8 @@ export default function CookiesPage() {
           </h2>
           <p className="mt-3">
             If you have questions about our use of cookies, please contact us at{" "}
-            <a href="mailto:privacy@adstudio.com" className="text-violet-700 hover:underline">
-              privacy@adstudio.com
+            <a href="mailto:privacy@litemoov.com" className="text-violet-700 hover:underline">
+              privacy@litemoov.com
             </a>
             .
           </p>
@@ -81,10 +99,7 @@ export default function CookiesPage() {
         </p>
       </div>
     </PublicPageLayout>
+    </>
   );
 }
 
-export const metadata = {
-  title: "Cookie Policy - Ad Studio",
-  description: "How Ad Studio uses cookies and similar technologies.",
-};

@@ -134,11 +134,11 @@ export function OnboardingWizard({ initial }: { initial: OnboardingState }) {
         return;
       }
       if (!hearAboutSource) {
-        notify.error("Tell us how you heard about Ad Studio.");
+        notify.error("Tell us how you heard about LiteMoov.");
         return;
       }
       if (hearAboutSource === "other" && !hearAboutOther.trim()) {
-        notify.error("Tell us where you heard about Ad Studio.");
+        notify.error("Tell us where you heard about LiteMoov.");
         return;
       }
       setIsBusy(true);
@@ -296,7 +296,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingState }) {
               </div>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-zinc-800">Where did you first hear about Ad Studio?</p>
+              <p className="text-sm font-medium text-zinc-800">Where did you first hear about LiteMoov?</p>
               <div className="grid gap-2">
                 {hearAboutOptions.map((option) => (
                   <OptionCard

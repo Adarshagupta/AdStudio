@@ -8,6 +8,7 @@ import { Coins, Link2, PanelLeftClose, PanelLeftOpen, Settings, UserPlus, X } fr
 
 import { AppLogo } from "@/components/layout/AppLogo";
 import { MembersNavHint } from "@/components/layout/MembersNavHint";
+import { SidebarModelPromoBanner } from "@/components/layout/SidebarModelPromoBanner";
 import { UniversalNav } from "@/components/layout/UniversalNav";
 import {
   SIDEBAR_COLLAPSED_WIDTH_CLASS,
@@ -261,6 +262,7 @@ function SidebarFooterLink({
 function SidebarContent({
   user,
   workspace,
+  userWorkspaces = [],
   collapsed,
   onCollapsedChange,
   onNavigate,
@@ -277,6 +279,7 @@ function SidebarContent({
     plan: string;
     creditsRemaining: number;
   };
+  userWorkspaces?: Array<{ id: string; name: string }>;
   collapsed: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   onNavigate?: () => void;
@@ -337,6 +340,7 @@ function SidebarContent({
         collapsed={collapsed}
         activeWorkspaceId={workspace.id}
         activeWorkspaceName={workspace.name}
+        initialWorkspaces={userWorkspaces}
       />
 
       <div className={cn("flex-1 overflow-y-auto", collapsed ? "px-1 py-2" : "px-3 py-4")}>
@@ -344,6 +348,8 @@ function SidebarContent({
       </div>
 
       <div className={cn("shrink-0 space-y-1.5 border-t border-zinc-100", collapsed ? "p-2" : "p-3")}>
+        <SidebarModelPromoBanner collapsed={collapsed} onNavigate={onNavigate} />
+
         {collapsed ? (
           <motion.div
             whileHover={{ scale: 1.05 }}
@@ -402,6 +408,7 @@ function SidebarContent({
 export function Sidebar({
   user,
   workspace,
+  userWorkspaces = [],
   collapsed,
   onCollapsedChange,
   mobileOpen = false,
@@ -417,6 +424,7 @@ export function Sidebar({
     plan: string;
     creditsRemaining: number;
   };
+  userWorkspaces?: Array<{ id: string; name: string }>;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   mobileOpen?: boolean;
@@ -445,6 +453,7 @@ export function Sidebar({
         <SidebarContent
           user={user}
           workspace={workspace}
+          userWorkspaces={userWorkspaces}
           collapsed={false}
           onNavigate={onMobileClose}
           showCloseButton
@@ -464,6 +473,7 @@ export function Sidebar({
         <SidebarContent
           user={user}
           workspace={workspace}
+          userWorkspaces={userWorkspaces}
           collapsed={collapsed}
           onCollapsedChange={onCollapsedChange}
         />

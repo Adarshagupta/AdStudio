@@ -1,20 +1,19 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useRef, useState } from "react";
+import Link from "next/link";
 import {
+  ChevronLeft,
   Download,
-  FileImage,
-  ImagePlus,
+  Layers,
+  MoreHorizontal,
+  Sparkles,
   ZoomIn,
   ZoomOut,
-  Maximize,
-  ChevronLeft,
-  Upload,
-  CreditCard,
 } from "lucide-react";
-import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
-import { useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function ImageStudioTopBar({
   onExport,
@@ -27,8 +26,11 @@ export function ImageStudioTopBar({
   zoom,
   canvasWidth,
   canvasHeight,
-  onResizeCanvas,
   creditsRemaining,
+  showLayersPanel,
+  showAIPanel,
+  onToggleLayers,
+  onToggleAI,
 }: {
   onExport: () => void;
   onExportJpeg: () => void;
@@ -40,108 +42,152 @@ export function ImageStudioTopBar({
   zoom: number;
   canvasWidth: number;
   canvasHeight: number;
-  onResizeCanvas: (w: number, h: number) => void;
   creditsRemaining: number;
+  showLayersPanel: boolean;
+  showAIPanel: boolean;
+  onToggleLayers: () => void;
+  onToggleAI: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showResize, setShowResize] = useState(false);
-  const [newWidth, setNewWidth] = useState(canvasWidth);
-  const [newHeight, setNewHeight] = useState(canvasHeight);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
-      <Link href="/studio/image">
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-          <Button variant="ghost" size="sm" className="gap-1 text-zinc-600">
-            <ChevronLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </motion.div>
+    <header className="relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-zinc-100 bg-white/90 px-4 backdrop-blur-md">
+      <Link
+        href="/studio/image"
+        className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        <span className="hidden sm:inline">Back</span>
       </Link>
 
-      <div className="mx-2 h-5 w-px bg-zinc-200" />
-
-      <Button variant="ghost" size="sm" className="gap-1 text-zinc-600" onClick={onNewCanvas}>
-        <FileImage className="h-4 w-4" />
-        New
-      </Button>
-
-      <label className="cursor-pointer">
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          ref={fileInputRef}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onImport(file);
-          }}
-        />
-        <Button variant="ghost" size="sm" className="gap-1 text-zinc-600" onClick={() => fileInputRef.current?.click()}>
-          <Upload className="h-4 w-4" />
-          Import
-        </Button>
-      </label>
-
-      <div className="relative">
-        <Button variant="ghost" size="sm" className="gap-1 text-zinc-600" onClick={() => setShowResize(!showResize)}>
-          <Maximize className="h-4 w-4" />
-          Resize
-        </Button>
-        {showResize && (
-          <div className="absolute top-full left-0 z-50 mt-1 flex items-center gap-2 rounded-lg border bg-white p-2 shadow-lg">
-            <input
-              type="number"
-              value={newWidth}
-              onChange={(e) => setNewWidth(Number(e.target.value))}
-              className="w-16 rounded border border-zinc-200 px-2 py-1 text-sm"
-            />
-            <span className="text-zinc-400">×</span>
-            <input
-              type="number"
-              value={newHeight}
-              onChange={(e) => setNewHeight(Number(e.target.value))}
-              className="w-16 rounded border border-zinc-200 px-2 py-1 text-sm"
-            />
-            <Button size="sm" onClick={() => { onResizeCanvas(newWidth, newHeight); setShowResize(false); }}>
-              Apply
-            </Button>
-          </div>
-        )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-zinc-900">Editor</p>
+        <p className="truncate text-xs text-zinc-400">
+          {canvasWidth} × {canvasHeight} · {creditsRemaining} credits
+        </p>
       </div>
 
-      <div className="mx-2 h-5 w-px bg-zinc-200" />
+      <div className="hidden items-center gap-0.5 rounded-full bg-zinc-100 p-0.5 md:flex">
+        <button
+          type="button"
+          onClick={onZoomOut}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-600 transition hover:bg-white hover:text-zinc-900"
+          aria-label="Zoom out"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onZoomReset}
+          className="min-w-[52px] px-2 text-xs font-medium text-zinc-600 transition hover:text-zinc-900"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          onClick={onZoomIn}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-600 transition hover:bg-white hover:text-zinc-900"
+          aria-label="Zoom in"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </button>
+      </div>
 
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600" onClick={onZoomOut}>
-          <ZoomOut className="h-4 w-4" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn("h-9 w-9 rounded-full", showLayersPanel && "bg-zinc-100 text-zinc-900")}
+          onClick={onToggleLayers}
+          aria-label="Toggle layers"
+        >
+          <Layers className="h-4 w-4" />
         </Button>
-        <span className="w-12 text-center text-xs text-zinc-500">{Math.round(zoom * 100)}%</span>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600" onClick={onZoomIn}>
-          <ZoomIn className="h-4 w-4" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn("h-9 w-9 rounded-full", showAIPanel && "bg-violet-100 text-violet-700")}
+          onClick={onToggleAI}
+          aria-label="Toggle AI tools"
+        >
+          <Sparkles className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600" onClick={onZoomReset}>
-          <Maximize className="h-4 w-4" />
+
+        <div className="relative">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="More actions"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+          {menuOpen ? (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-30"
+                aria-label="Close menu"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute right-0 top-full z-40 mt-2 w-44 overflow-hidden rounded-xl border border-zinc-100 bg-white py-1 shadow-lg">
+                <button
+                  type="button"
+                  className="flex w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+                  onClick={() => {
+                    onNewCanvas();
+                    setMenuOpen(false);
+                  }}
+                >
+                  New canvas
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+                  onClick={() => {
+                    fileInputRef.current?.click();
+                    setMenuOpen(false);
+                  }}
+                >
+                  Import image
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+                  onClick={() => {
+                    onExportJpeg();
+                    setMenuOpen(false);
+                  }}
+                >
+                  Export JPEG
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
+
+        <Button size="sm" className="gap-1.5 rounded-full bg-zinc-900 px-4" onClick={onExport}>
+          <Download className="h-4 w-4" />
+          Export
         </Button>
       </div>
 
-      <div className="flex-1" />
-
-      <div className="flex items-center gap-1 rounded-md bg-zinc-50 px-2 py-1 text-xs text-zinc-500">
-        <CreditCard className="h-3 w-3" />
-        {creditsRemaining} credits
-      </div>
-
-      <div className="mx-2 h-5 w-px bg-zinc-200" />
-
-      <Button variant="outline" size="sm" className="gap-1" onClick={onExportJpeg}>
-        <ImagePlus className="h-4 w-4" />
-        JPEG
-      </Button>
-      <Button size="sm" className="gap-1 bg-zinc-900" onClick={onExport}>
-        <Download className="h-4 w-4" />
-        Export PNG
-      </Button>
-    </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onImport(file);
+          event.target.value = "";
+        }}
+      />
+    </header>
   );
 }

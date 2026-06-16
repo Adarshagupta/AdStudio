@@ -1,5 +1,5 @@
-import { AppShellSkeleton } from "@/components/layout/AppShellSkeleton";
+import { LiteMoovPreloader } from "@/components/brand/LiteMoovPreloader";
 
 export default function ShellLoading() {
-  return <AppShellSkeleton />;
+  return <LiteMoovPreloader variant="shell" />;
 }

@@ -1,4 +1,4 @@
-# Android Setup Guide for Ad Studio Flutter App
+# Android Setup Guide for LiteMoov Flutter App
 
 ## Prerequisites
 

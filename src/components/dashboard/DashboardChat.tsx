@@ -10,6 +10,7 @@ import {
   Film,
   ImageIcon,
   ImagePlus,
+  Link2,
   Loader2,
   Pencil,
   Plus,
@@ -24,6 +25,7 @@ import {
 
 import { MediaUploadTrigger } from "@/components/assets/MediaUploadTrigger";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,6 +96,12 @@ export function DashboardChat({
   const [sessions, setSessions] = useState<ChatSessionMeta[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [productUrl, setProductUrl] = useState("");
+  const [showProductUrl, setShowProductUrl] = useState(false);
+  const [productResearchSummary, setProductResearchSummary] = useState<string | null>(null);
+  const [productContextCache, setProductContextCache] = useState<string | null>(null);
+  const [productContextUrl, setProductContextUrl] = useState<string | null>(null);
+  const [isResearchingProduct, setIsResearchingProduct] = useState(false);
   const [toolMode, setToolMode] = useState<ChatToolMode>("video");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -117,6 +125,11 @@ export function DashboardChat({
     }
     setMessages(loadChatSessionMessages(sessionId));
     setDraft("");
+    setProductUrl("");
+    setShowProductUrl(false);
+    setProductResearchSummary(null);
+    setProductContextCache(null);
+    setProductContextUrl(null);
     setAttachments([]);
     setHydrated(true);
     refreshSessions();
@@ -365,13 +378,16 @@ export function DashboardChat({
     assistantId: string,
     prompt: string,
     refs: ChatAttachment[],
-    options?: { productUrl?: string; aspectRatio?: string },
+    options?: { productUrl?: string; aspectRatio?: string; productContext?: string },
   ) => {
     const imageRef = refs.find((item) => item.kind === "image");
     const referenceImageUrls = refs.filter((item) => item.kind === "image").map((item) => item.url);
 
     const initialSteps: AgentStep[] = [
-      { id: "think", label: "think", description: "Analyzing prompt", status: "running" },
+      ...(options?.productUrl
+        ? [{ id: "research", label: "research", description: "Researching product page", status: "running" as const }]
+        : []),
+      { id: "think", label: "think", description: "Analyzing prompt", status: options?.productUrl ? "pending" : "running" },
       { id: "script", label: "script", description: "Writing script", status: "pending" },
       { id: "image", label: "image", description: "Generating image", status: "pending" },
       { id: "audio", label: "audio", description: "Creating voiceover", status: "pending" },
@@ -412,6 +428,7 @@ export function DashboardChat({
           prompt,
           aspectRatio: options?.aspectRatio ?? "9:16",
           productUrl: options?.productUrl,
+          productContext: options?.productContext,
           referenceImageUrl: imageRef?.url,
           referenceImageUrls,
           imageModel,
@@ -419,6 +436,38 @@ export function DashboardChat({
         },
         (event: AgentStreamEvent) => {
           const { step: stepName, status, payload } = event;
+          const agentStepIds = new Set(["research", "think", "script", "image", "audio", "video"]);
+
+          if (agentStepIds.has(stepName) && status === "running") {
+            step(stepName, "running");
+            if (stepName === "research") {
+              updateAssistant(
+                assistantId,
+                { thinking: "Researching product and website…" },
+                ownerSessionId,
+              );
+            }
+            if (stepName === "script") {
+              step("think", "completed");
+            }
+          }
+
+          if (stepName === "research" && status === "completed") {
+            step("research", "completed", {
+              output: (payload?.productContext as string | undefined)?.split("\n")[0],
+              assetKind: "script",
+            });
+            step("think", "running");
+            updateAssistant(
+              assistantId,
+              {
+                thinking: payload?.partial
+                  ? "Using limited product details — continuing with your prompt…"
+                  : "Product research complete — planning your ad…",
+              },
+              ownerSessionId,
+            );
+          }
 
           if (stepName === "think" && status === "completed") {
             step("think", "completed");
@@ -547,6 +596,10 @@ export function DashboardChat({
 
           if (stepName === "error") {
             const message = (payload?.error as string) || "Agent generation failed.";
+            const runningStep = initialSteps.find((item) => item.status === "running");
+            if (runningStep) {
+              step(runningStep.id, "failed", { error: message });
+            }
             updateAssistant(
               assistantId,
               { status: "failed", error: message, thinking: undefined },
@@ -592,7 +645,8 @@ export function DashboardChat({
 
     const refs = input.refs ?? attachments;
     const mode = input.mode ?? inferToolMode(toolMode, refs);
-    const validation = validateChatPrompt(input.promptText ?? draft, refs, mode);
+    const activeProductUrl = input.productUrl ?? productUrl;
+    const validation = validateChatPrompt(input.promptText ?? draft, refs, mode, activeProductUrl);
     if (!validation.ok) {
       notify.error(validation.message);
       return;
@@ -604,6 +658,7 @@ export function DashboardChat({
       createdAt: Date.now(),
       text: validation.prompt,
       attachments: refs.length ? [...refs] : undefined,
+      productUrl: activeProductUrl.trim() || undefined,
       toolMode: mode,
     };
 
@@ -624,6 +679,9 @@ export function DashboardChat({
     });
     if (input.clearDraft !== false) {
       setDraft("");
+      setProductUrl("");
+      setShowProductUrl(false);
+      setProductResearchSummary(null);
       clearAttachments();
     }
     setIsBusy(true);
@@ -631,12 +689,16 @@ export function DashboardChat({
     try {
       if (agentMode) {
         await runAgentGeneration(ownerSessionId, assistantId, validation.prompt, refs, {
-          productUrl: input.productUrl,
+          productUrl: activeProductUrl.trim() || undefined,
+          productContext:
+            activeProductUrl.trim() && productContextUrl === activeProductUrl.trim()
+              ? productContextCache ?? undefined
+              : undefined,
           aspectRatio: input.aspectRatio,
         });
       } else {
         await runGeneration(ownerSessionId, assistantId, validation.prompt, mode, refs, {
-          productUrl: input.productUrl,
+          productUrl: activeProductUrl.trim() || undefined,
           aspectRatio: input.aspectRatio,
         });
       }
@@ -660,8 +722,52 @@ export function DashboardChat({
   };
 
   const sendMessage = async (textOverride?: string) => {
-    await submitPrompt({ promptText: textOverride });
+    await submitPrompt({ promptText: textOverride, productUrl: productUrl.trim() || undefined });
   };
+
+  const previewProductResearch = useCallback(async () => {
+    const trimmed = productUrl.trim();
+    if (!trimmed) {
+      setProductResearchSummary(null);
+      return;
+    }
+
+    try {
+      new URL(trimmed);
+    } catch {
+      notify.error("Enter a valid product URL (https://…).");
+      return;
+    }
+
+    setIsResearchingProduct(true);
+    try {
+      const response = await fetch("/api/dashboard/product-research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productUrl: trimmed }),
+      });
+      const data = (await response.json()) as {
+        context?: string;
+        partial?: boolean;
+        research?: { summary?: string; brandName?: string; productName?: string };
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error || "Could not research that URL.");
+      }
+      const headline = [data.research?.brandName, data.research?.productName].filter(Boolean).join(" · ");
+      setProductResearchSummary(
+        headline ? `${headline} — ${data.research?.summary ?? ""}` : data.research?.summary ?? null,
+      );
+      setProductContextCache(data.context ?? null);
+      setProductContextUrl(trimmed);
+    } catch (error) {
+      setProductResearchSummary(null);
+      notify.error(error instanceof Error ? error.message : "Product research failed.");
+    } finally {
+      setIsResearchingProduct(false);
+    }
+  }, [productUrl]);
 
   const runLaunch = useCallback(
     (launch: {
@@ -673,6 +779,10 @@ export function DashboardChat({
       aspectRatio?: string;
     }) => {
       setToolMode(launch.toolMode);
+      if (launch.productUrl) {
+        setProductUrl(launch.productUrl);
+        setShowProductUrl(true);
+      }
 
       const launchAttachments: ChatAttachment[] = [];
       if (launch.referenceImageUrl) {
@@ -825,6 +935,39 @@ export function DashboardChat({
             </div>
           ) : null}
 
+          {showProductUrl ? (
+            <div className="mb-2 space-y-2 rounded-2xl border border-zinc-200/80 bg-white/90 p-3">
+              <Input
+                value={productUrl}
+                onChange={(event) => {
+                  setProductUrl(event.target.value);
+                  setProductResearchSummary(null);
+                  setProductContextCache(null);
+                  setProductContextUrl(null);
+                }}
+                onBlur={() => {
+                  if (productUrl.trim()) void previewProductResearch();
+                }}
+                disabled={isBusy}
+                type="url"
+                placeholder="https://your-product-page.com"
+                className="h-10 border-zinc-200 bg-zinc-50"
+              />
+              {isResearchingProduct ? (
+                <p className="flex items-center gap-2 text-xs text-zinc-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Researching product and website…
+                </p>
+              ) : productResearchSummary ? (
+                <p className="text-xs leading-5 text-zinc-600">{productResearchSummary}</p>
+              ) : (
+                <p className="text-xs text-zinc-500">
+                  We&apos;ll read the page and use OpenAI to extract brand, product, and offer details for your ad.
+                </p>
+              )}
+            </div>
+          ) : null}
+
           <Textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -868,6 +1011,21 @@ export function DashboardChat({
                   </Button>
                 )}
               />
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8 rounded-full bg-transparent text-zinc-500 hover:bg-transparent hover:text-zinc-800",
+                  showProductUrl && "text-purple-700",
+                )}
+                disabled={isBusy}
+                onClick={() => setShowProductUrl((open) => !open)}
+                aria-label="Add product URL"
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1014,6 +1172,19 @@ function ChatBubble({ message }: { message: ChatMessage }) {
                   </div>
                 ),
               )}
+            </div>
+          ) : null}
+          {message.productUrl ? (
+            <div className="flex justify-end">
+              <a
+                href={message.productUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-zinc-100 px-3 py-1 text-[11px] text-zinc-600"
+              >
+                <Link2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">{message.productUrl.replace(/^https?:\/\//, "")}</span>
+              </a>
             </div>
           ) : null}
           <div className="rounded-[1.25rem] bg-zinc-900 px-4 py-3 text-[15px] leading-6 text-white whitespace-pre-wrap">

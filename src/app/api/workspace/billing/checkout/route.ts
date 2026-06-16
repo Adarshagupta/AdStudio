@@ -9,6 +9,7 @@ import { parseRequestJson } from "@/lib/http/json";
 const checkoutSchema = z.object({
   plan: z.enum(["STARTER", "PRO", "BUSINESS"]),
   interval: z.enum(["monthly", "yearly"]).default("monthly"),
+  trial: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       email: currentUser.user.email,
       plan: result.data.plan as SubscriptionPlanId,
       interval: result.data.interval as BillingInterval,
+      trialDays: result.data.trial ? 7 : undefined,
       request,
     });
 

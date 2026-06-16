@@ -1,8 +1,21 @@
+import type { Metadata } from "next";
+
+import { JsonLd } from "@/components/seo/JsonLd";
 import { PublicPageLayout } from "@/components/layout/PublicPageLayout";
+import { buildContactJsonLd, buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Contact LiteMoov — Support, Sales & Partnerships",
+  description:
+    "Contact the LiteMoov team for product support, enterprise sales, partnerships, or legal inquiries. We respond within 24 business hours.",
+  path: "/contact",
+});
 
 export default function ContactPage() {
   return (
-    <PublicPageLayout
+    <>
+      <JsonLd data={buildContactJsonLd()} />
+      <PublicPageLayout
       title="Contact Us"
       description="We&apos;d love to hear from you. Reach out for support, feedback, or partnerships."
     >
@@ -17,10 +30,10 @@ export default function ContactPage() {
                 For general inquiries and support:
               </p>
               <a
-                href="mailto:support@adstudio.com"
+                href="mailto:support@litemoov.com"
                 className="mt-1 inline-block text-sm font-medium text-violet-700 hover:underline"
               >
-                support@adstudio.com
+                support@litemoov.com
               </a>
             </div>
 
@@ -32,10 +45,10 @@ export default function ContactPage() {
                 For enterprise plans and partnerships:
               </p>
               <a
-                href="mailto:sales@adstudio.com"
+                href="mailto:sales@litemoov.com"
                 className="mt-1 inline-block text-sm font-medium text-violet-700 hover:underline"
               >
-                sales@adstudio.com
+                sales@litemoov.com
               </a>
             </div>
 
@@ -47,10 +60,10 @@ export default function ContactPage() {
                 For legal and privacy matters:
               </p>
               <a
-                href="mailto:legal@adstudio.com"
+                href="mailto:legal@litemoov.com"
                 className="mt-1 inline-block text-sm font-medium text-violet-700 hover:underline"
               >
-                legal@adstudio.com
+                legal@litemoov.com
               </a>
             </div>
 
@@ -86,7 +99,7 @@ export default function ContactPage() {
               </li>
               <li>
                 <a href="/about" className="text-violet-700 hover:underline">
-                  About Ad Studio
+                  About LiteMoov
                 </a>
               </li>
             </ul>
@@ -102,11 +115,8 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
-    </PublicPageLayout>
+      </PublicPageLayout>
+    </>
   );
 }
 
-export const metadata = {
-  title: "Contact Us - Ad Studio",
-  description: "Get in touch with the Ad Studio team for support, sales, or partnerships.",
-};

@@ -26,7 +26,6 @@ export default async function ImageStudioEditPage({
       userId={currentUser.user.id}
       workspaceId={currentUser.workspace.id}
       creditsRemaining={currentUser.workspace.creditsRemaining}
-      initialImageUrl={searchParams.image ?? null}
       initialWidth={Number.isFinite(width) ? width : undefined}
       initialHeight={Number.isFinite(height) ? height : undefined}
     />

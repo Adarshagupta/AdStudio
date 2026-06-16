@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
-import { checkCredits, deductCredits, InsufficientCreditsError, trackUsage } from "@/lib/billing/credits";
+import {
+  consumeIncludedQuota,
+  deductCredits,
+  isBillingCreditsError,
+  trackUsage,
+} from "@/lib/billing/credits";
 import { generateImage } from "@/lib/cloudflare-ai";
 import { prisma } from "@/lib/db";
 import { parseRequestJson } from "@/lib/http/json";
@@ -48,15 +53,24 @@ export async function POST(request: Request) {
   const modelBilling = await resolveModelBilling(result.data.model ?? "", "image");
   const cost = modelBilling.cost;
 
-  if (modelBilling.type === "premium") {
-    try {
-      await checkCredits(currentUser.workspace.id, cost);
-    } catch (error) {
-      if (error instanceof InsufficientCreditsError) {
-        return NextResponse.json({ error: error.message }, { status: 402 });
-      }
-      throw error;
+  let creditsRemaining: number;
+
+  try {
+    if (modelBilling.type === "premium") {
+      creditsRemaining = await deductCredits(currentUser.workspace.id, cost);
+    } else {
+      await consumeIncludedQuota(currentUser.workspace.id, { images: 1 });
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: currentUser.workspace.id },
+        select: { creditsRemaining: true },
+      });
+      creditsRemaining = workspace?.creditsRemaining ?? 0;
     }
+  } catch (error) {
+    if (isBillingCreditsError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 402 });
+    }
+    throw error;
   }
 
   try {
@@ -79,19 +93,8 @@ export async function POST(request: Request) {
           kind: "image",
         });
 
-    let creditsRemaining: number | undefined;
-
     if (modelBilling.type === "premium") {
-      creditsRemaining = await deductCredits(currentUser.workspace.id, cost);
       await trackUsage(currentUser.workspace.id, { premiumCreditsUsed: cost });
-    } else {
-      // Uses included quota — deduct from image count
-      await trackUsage(currentUser.workspace.id, { imageCountUsed: 1 });
-      const workspace = await prisma.workspace.findUnique({
-        where: { id: currentUser.workspace.id },
-        select: { creditsRemaining: true },
-      });
-      creditsRemaining = workspace?.creditsRemaining ?? 0;
     }
 
     return NextResponse.json({

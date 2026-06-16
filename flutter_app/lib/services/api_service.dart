@@ -12,8 +12,8 @@ class ApiService {
   String? _sessionToken;
 
   static const String sessionCookieName = 'ugc_session';
-  static const String baseUrl = 'https://ugc-ad-platform.vercel.app';
-  static const String apiBaseUrl = 'https://ugc-ad-platform.vercel.app/api';
+  static const String baseUrl = 'https://litemoov.com';
+  static const String apiBaseUrl = 'https://litemoov.com/api';
 
   static String messageFromDioException(DioException error) {
     final data = error.response?.data;

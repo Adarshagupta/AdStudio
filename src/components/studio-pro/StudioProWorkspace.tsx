@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { StudioNodeContextMenu } from "@/components/studio-pro/StudioNodeContextMenu";
+import { StudioProPreloader } from "@/components/studio-pro/StudioProPreloader";
 import { StudioConnectionLayer } from "@/components/studio-pro/StudioConnectionLayer";
 import { StudioFloatingToolbar, type StudioCanvasTool } from "@/components/studio-pro/StudioFloatingToolbar";
 import { StudioNodeCard } from "@/components/studio-pro/StudioNodeCard";
@@ -178,6 +179,7 @@ export function StudioProWorkspace({
     name: string;
   };
 }) {
+  const [bootPhase, setBootPhase] = useState<"loading" | "exiting" | "ready">("loading");
   const { theme, isDark } = useStudioTheme();
   const agentRuntimeRef = useRef(createAgentRuntimeBridge(creditsRemaining));
   agentRuntimeRef.current.creditsRemaining = creditsRemaining;
@@ -1665,6 +1667,28 @@ export function StudioProWorkspace({
     };
   }, []);
 
+  useLayoutEffect(() => {
+    const started = performance.now();
+    const minDisplayMs = 520;
+
+    const beginExit = () => {
+      const remaining = Math.max(0, minDisplayMs - (performance.now() - started));
+      window.setTimeout(() => setBootPhase("exiting"), remaining);
+    };
+
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(beginExit);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (bootPhase !== "exiting") return;
+    const timer = window.setTimeout(() => setBootPhase("ready"), 280);
+    return () => window.clearTimeout(timer);
+  }, [bootPhase]);
+
   return (
     <div
       className={cn(
@@ -1672,6 +1696,15 @@ export function StudioProWorkspace({
         theme === "dark" && "dark",
       )}
     >
+      {bootPhase !== "ready" ? (
+        <StudioProPreloader
+          fullscreen
+          className={cn(
+            "transition-opacity duration-300 ease-out",
+            bootPhase === "exiting" && "pointer-events-none opacity-0",
+          )}
+        />
+      ) : null}
       <div
         ref={canvasRef}
         data-studio-canvas-bg

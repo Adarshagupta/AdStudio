@@ -201,7 +201,7 @@ if (fireworksSynced === 0) {
   console.warn("No FIREWORKS_* variables found — text generation needs FIREWORKS_API_KEY in .env.");
 }
 
-const ltxKeys = ["LTX_API_KEY", "LTX_API_KEYS", "LTX_VIDEO_MODEL"];
+const ltxKeys = ["LTX_API_BASE", "LTX_API_KEY", "LTX_API_KEYS", "LTX_VIDEO_MODEL"];
 
 let ltxSynced = 0;
 for (const name of ltxKeys) {
@@ -210,6 +210,23 @@ for (const name of ltxKeys) {
   console.log(`Syncing ${name} to Vercel production…`);
   upsertVercelEnv(name, value);
   ltxSynced += 1;
+}
+
+const fluxKeys = ["FLUX_API_BASE", "FLUX_API_KEY"];
+
+let fluxSynced = 0;
+for (const name of fluxKeys) {
+  const value = env[name]?.trim();
+  if (!value) continue;
+  console.log(`Syncing ${name} to Vercel production…`);
+  upsertVercelEnv(name, value);
+  fluxSynced += 1;
+}
+
+if (fluxSynced === 0) {
+  console.warn("No FLUX_* variables found — self-hosted Flux needs FLUX_API_BASE and FLUX_API_KEY in .env.");
+} else if (fluxSynced < fluxKeys.length) {
+  console.warn(`Only ${fluxSynced}/${fluxKeys.length} FLUX variables were synced.`);
 }
 
 if (ltxSynced === 0) {
@@ -254,6 +271,28 @@ if (stripeSynced === 0) {
   console.warn(
     "No STRIPE_* variables found — template marketplace checkout needs STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.",
   );
+}
+
+const productionAppUrl = env.APP_URL?.trim() || env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.litemoov.com";
+console.log("Syncing APP_URL and NEXT_PUBLIC_APP_URL to Vercel production…");
+upsertVercelEnv("APP_URL", productionAppUrl);
+upsertVercelEnv("NEXT_PUBLIC_APP_URL", productionAppUrl);
+
+const googleKeys = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_OAUTH_STATE_SECRET"];
+
+let googleSynced = 0;
+for (const name of googleKeys) {
+  const value = env[name]?.trim();
+  if (!value) continue;
+  console.log(`Syncing ${name} to Vercel production…`);
+  upsertVercelEnv(name, value);
+  googleSynced += 1;
+}
+
+if (googleSynced === 0) {
+  console.warn("No GOOGLE_* variables found — Google sign-in needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
+} else if (googleSynced < 2) {
+  console.warn("Google OAuth env incomplete — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
 }
 
 console.log("Vercel env vars updated.");

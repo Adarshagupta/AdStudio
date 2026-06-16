@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
-import { checkCredits, deductCredits, InsufficientCreditsError, trackUsage } from "@/lib/billing/credits";
+import { deductCredits, isBillingCreditsError, trackUsage } from "@/lib/billing/credits";
 import { generateImage } from "@/lib/cloudflare-ai";
 import { parseRequestJson } from "@/lib/http/json";
 import { backgroundUploadMedia, ensurePublicMediaUrl } from "@/lib/media-url";
@@ -41,16 +41,8 @@ export async function POST(request: Request) {
 
   try {
     const cost = 1;
-    try {
-      await checkCredits(currentUser.workspace.id, cost);
-    } catch (error) {
-      if (error instanceof InsufficientCreditsError) {
-        return NextResponse.json({ error: error.message }, { status: 402 });
-      }
-      throw error;
-    }
+    const creditsRemaining = await deductCredits(currentUser.workspace.id, cost);
 
-    // Use image generation to create the replacement
     const replacePrompt = `Replace the masked area in this image with: ${prompt}`;
 
     const image = await generateImage({
@@ -75,7 +67,6 @@ export async function POST(request: Request) {
       });
     }
 
-    const creditsRemaining = await deductCredits(currentUser.workspace.id, cost);
     await trackUsage(currentUser.workspace.id, { premiumCreditsUsed: cost });
 
     return NextResponse.json({
@@ -84,6 +75,9 @@ export async function POST(request: Request) {
       creditsRemaining,
     });
   } catch (error) {
+    if (isBillingCreditsError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 402 });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Replace failed." },
       { status: 502 }

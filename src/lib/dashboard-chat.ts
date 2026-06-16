@@ -29,6 +29,7 @@ export type ChatMessage = {
   createdAt: number;
   text?: string;
   attachments?: ChatAttachment[];
+  productUrl?: string;
   toolMode?: ChatToolMode;
   status?: "pending" | "processing" | "completed" | "failed";
   generationId?: string;
@@ -147,15 +148,29 @@ export function launchFromSearchParams(params: URLSearchParams): DashboardChatLa
 
 export const CHAT_STARTER_PROMPTS = [
   "Agent: Create a full skincare ad with script, image, voiceover, and video",
+  "Research my product URL and create a UGC ad for it",
   "Product hero image on a clean pastel background",
   "Turn my reference photo into a 10s vertical ad",
-  "Make this clip feel more cinematic and premium",
 ] as const;
 
-export function validateChatPrompt(text: string, attachments: ChatAttachment[], toolMode: ChatToolMode) {
+export function validateChatPrompt(
+  text: string,
+  attachments: ChatAttachment[],
+  toolMode: ChatToolMode,
+  productUrl?: string,
+) {
   const trimmed = text.trim();
+  const normalizedProductUrl = productUrl?.trim() ?? "";
   const hasImage = attachments.some((item) => item.kind === "image");
   const hasVideo = attachments.some((item) => item.kind === "video");
+
+  if (normalizedProductUrl) {
+    try {
+      new URL(normalizedProductUrl);
+    } catch {
+      return { ok: false as const, message: "Enter a valid product URL (https://…)." };
+    }
+  }
 
   if (toolMode === "edit-video" || toolMode === "extend-video") {
     if (!hasVideo) {
@@ -175,6 +190,13 @@ export function validateChatPrompt(text: string, attachments: ChatAttachment[], 
 
   if (trimmed.length >= 3) {
     return { ok: true as const, prompt: trimmed };
+  }
+
+  if (normalizedProductUrl) {
+    return {
+      ok: true as const,
+      prompt: "Create a UGC ad using the product and brand details from the website.",
+    };
   }
 
   if (hasImage || hasVideo) {

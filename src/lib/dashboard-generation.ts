@@ -20,17 +20,39 @@ export function validateDashboardPrompt(prompt: string, hasReferenceImage: boole
   };
 }
 
-export function buildDashboardImagePrompt(prompt: string, referenceImageUrl?: string) {
+export function buildDashboardImagePrompt(
+  prompt: string,
+  referenceImageUrl?: string,
+  productContext?: string,
+) {
   const trimmed = prompt.trim();
+  const productBlock = productContext?.trim()
+    ? `Product and brand context:\n${productContext.trim()}`
+    : "";
+
   if (!referenceImageUrl) {
-    return trimmed || "Marketing product image, clean composition, ad-ready.";
+    return [
+      trimmed || "Marketing product image, clean composition, ad-ready.",
+      productBlock,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   return [
     "Create a marketing still image inspired by the reference image.",
     "Preserve the subject, product, and overall visual style from the reference.",
     trimmed ? `Creative direction: ${trimmed}` : "Polished ad-ready composition with clear focal point.",
-  ].join("\n");
+    productBlock,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+export function enrichPromptWithProductContext(prompt: string, productContext?: string) {
+  const trimmed = prompt.trim();
+  if (!productContext?.trim()) return trimmed;
+  return `${trimmed}\n\nProduct context:\n${productContext.trim()}`;
 }
 
 export function getGenerationOutputType(style: unknown): DashboardOutputType {

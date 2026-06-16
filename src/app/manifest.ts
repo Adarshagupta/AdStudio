@@ -1,11 +1,14 @@
 import type { MetadataRoute } from "next";
 
+import { SITE_NAME } from "@/lib/site";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Ad Studio",
-    short_name: "Ad Studio",
+    id: "/",
+    name: SITE_NAME,
+    short_name: SITE_NAME,
     description: "UGC ad and short-video generation platform for marketing teams.",
-    start_url: "/dashboard",
+    start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "any",
@@ -28,6 +31,20 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
+      },
+    ],
+    shortcuts: [
+      {
+        name: "Dashboard",
+        short_name: "Dashboard",
+        url: "/dashboard",
+        description: "Open your LiteMoov workspace",
+      },
+      {
+        name: "Blog",
+        short_name: "Blog",
+        url: "/blog",
+        description: "Read LiteMoov guides and updates",
       },
     ],
   };

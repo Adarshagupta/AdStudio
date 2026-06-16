@@ -7,6 +7,7 @@ export function PageShell({
   children,
   user,
   workspace,
+  userWorkspaces = [],
   fullWidth = false,
   fullscreen = false,
   hideTopbar = false,
@@ -24,6 +25,7 @@ export function PageShell({
     plan: string;
     creditsRemaining: number;
   };
+  userWorkspaces?: Array<{ id: string; name: string }>;
   fullWidth?: boolean;
   fullscreen?: boolean;
   hideTopbar?: boolean;
@@ -42,6 +44,7 @@ export function PageShell({
     <ShellLayout
       user={user}
       workspace={workspace}
+      userWorkspaces={userWorkspaces}
       fullWidth={fullWidth}
       hideTopbar={hideTopbar}
     >

@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
+import { clampCreditsToPlanCap, maxWalletCreditsForWorkspace } from "@/lib/billing/credits";
 import {
   creditsForSubscription,
-  planCreditAllocation,
   type SubscriptionPlanId,
 } from "@/lib/billing/plans";
 import { isStripeConfigured } from "@/lib/billing/stripe";
@@ -55,25 +55,34 @@ export async function POST(request: Request) {
   const workspace =
     planId === "FREE"
       ? await downgradeWorkspaceToFree(currentUser.workspace.id)
-      : await prisma.workspace.update({
-          where: { id: currentUser.workspace.id },
-          data: {
+      : await (async () => {
+          const maxCredits = maxWalletCreditsForWorkspace({
             plan: planId,
-            creditsRemaining: creditsForSubscription(planId, result.data.interval),
             billingInterval: result.data.interval,
-          },
-          select: {
-            id: true,
-            plan: true,
-            creditsRemaining: true,
-          },
-        });
+            subscriptionStatus: null,
+            welcomeCreditsClaimed: Boolean(currentUser.workspace.welcomeCreditsClaimedAt),
+          });
+          const granted = creditsForSubscription(planId, result.data.interval);
+          return prisma.workspace.update({
+            where: { id: currentUser.workspace.id },
+            data: {
+              plan: planId,
+              creditsRemaining: clampCreditsToPlanCap(granted, maxCredits),
+              billingInterval: result.data.interval,
+            },
+            select: {
+              id: true,
+              plan: true,
+              creditsRemaining: true,
+            },
+          });
+        })();
 
   return NextResponse.json({
     ok: true,
     plan: workspace.plan,
     creditsRemaining: workspace.creditsRemaining,
-    creditAllocation: planCreditAllocation[planId],
+    creditAllocation: creditsForSubscription(planId, result.data.interval),
     interval: result.data.interval,
   });
 }

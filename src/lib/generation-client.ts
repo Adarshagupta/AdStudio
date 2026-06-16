@@ -57,6 +57,7 @@ export function isInsufficientCreditsError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   return (
     error.message.includes("Insufficient credits") ||
+    error.message.includes("Premium credits are not available during your free trial") ||
     error.message.includes("No credits remaining") ||
     error.message.includes("402")
   );
@@ -325,6 +326,8 @@ export type AgentStreamEvent = {
     error?: string;
     notice?: string;
     thinking?: string[];
+    productContext?: string;
+    partial?: boolean;
     settings?: {
       aspectRatio?: string;
       duration?: number;
@@ -340,6 +343,7 @@ export function streamAgentGeneration(
     prompt: string;
     aspectRatio?: string;
     productUrl?: string;
+    productContext?: string;
     referenceImageUrl?: string;
     referenceImageUrls?: string[];
     imageModel?: string;
@@ -371,32 +375,51 @@ export function streamAgentGeneration(
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let finished = false;
+
+      const processChunk = (chunk: string) => {
+        if (chunk.startsWith(":")) return;
+        const dataLine = chunk.trim().split("\n").find((l) => l.startsWith("data:"));
+        if (!dataLine) return;
+        const data = dataLine.slice(5).trim();
+        if (!data) return;
+
+        try {
+          const event = JSON.parse(data) as AgentStreamEvent;
+          onEvent(event);
+          if (event.step === "done" || event.step === "error") {
+            finished = true;
+            abortController.abort();
+          }
+        } catch {
+          // ignore malformed events
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const dataLine = line.trim().split("\n").find((l) => l.startsWith("data:"));
-          if (!dataLine) continue;
-          const data = dataLine.slice(5).trim();
-          if (!data) continue;
-
-          try {
-            const event = JSON.parse(data) as AgentStreamEvent;
-            onEvent(event);
-            if (event.step === "done" || event.step === "error") {
-              abortController.abort();
-              return;
-            }
-          } catch {
-            // ignore malformed events
-          }
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
         }
+
+        const parts = buffer.split("\n\n");
+        buffer = done ? "" : (parts.pop() ?? "");
+
+        for (const part of parts) {
+          processChunk(part);
+          if (finished) return;
+        }
+
+        if (done) {
+          if (buffer.trim()) {
+            processChunk(buffer);
+          }
+          break;
+        }
+      }
+
+      if (!finished) {
+        onError?.(new Error("Generation stream ended before completion."));
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") return;

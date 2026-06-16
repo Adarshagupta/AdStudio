@@ -90,7 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Ad Studio',
+                    'LiteMoov',
                     style: TextStyle(
                       fontFamily: 'Quicksand',
                       fontSize: 36,

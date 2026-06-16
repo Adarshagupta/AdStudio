@@ -18,7 +18,10 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
+  FileText,
 } from "lucide-react";
+
+import { BlogSection } from "@/components/admin/BlogSection";
 
 interface ModelEntry {
   id: string;
@@ -73,7 +76,7 @@ interface PlanEntry {
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const [section, setSection] = useState<"models" | "users" | "workspaces" | "plans">("models");
+  const [section, setSection] = useState<"models" | "users" | "workspaces" | "plans" | "blog">("models");
   const [error, setError] = useState("");
 
   return (
@@ -103,6 +106,7 @@ export default function AdminDashboardPage() {
             { key: "users" as const, label: "Users", icon: Users },
             { key: "workspaces" as const, label: "Workspaces", icon: Building2 },
             { key: "plans" as const, label: "Plans", icon: CreditCard },
+            { key: "blog" as const, label: "Blog", icon: FileText },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -126,6 +130,7 @@ export default function AdminDashboardPage() {
           {section === "users" && <UsersSection onError={setError} />}
           {section === "workspaces" && <WorkspacesSection onError={setError} />}
           {section === "plans" && <PlansSection onError={setError} />}
+          {section === "blog" && <BlogSection onError={setError} />}
         </div>
       </div>
     </div>

@@ -9,7 +9,7 @@ import {
   useImperativeHandle,
 } from "react";
 import { cn } from "@/lib/utils";
-import { StudioTool, Layer } from "./ImageStudioWorkspace";
+import type { Layer, StudioTool } from "./image-studio-types";
 
 interface ImageStudioCanvasProps {
   layers: Layer[];
@@ -24,6 +24,8 @@ interface ImageStudioCanvasProps {
   canvasWidth: number;
   canvasHeight: number;
   zoom: number;
+  /** Extra left inset when agent panel is open (keeps artboard in visible sandbox). */
+  leftInset?: number;
   onLayersChange?: (layers: Layer[]) => void;
 }
 
@@ -49,10 +51,12 @@ export const ImageStudioCanvas = forwardRef<
     canvasWidth,
     canvasHeight,
     zoom,
+    leftInset = 0,
   },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [fitScale, setFitScale] = useState(1);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
@@ -113,6 +117,33 @@ export const ImageStudioCanvas = forwardRef<
   useEffect(() => {
     redrawDisplay();
   }, [redrawDisplay]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateFit = () => {
+      const rect = container.getBoundingClientRect();
+      const padX = 48;
+      const padTop = 72;
+      const padBottom = 160;
+      const maxW = Math.max(rect.width - padX * 2 - leftInset, 200);
+      const maxH = Math.max(rect.height - padTop - padBottom, 200);
+      const scale = Math.min(maxW / canvasWidth, maxH / canvasHeight, 1);
+      setFitScale(Math.max(scale, 0.15));
+    };
+
+    updateFit();
+    const observer = new ResizeObserver(updateFit);
+    observer.observe(container);
+    window.addEventListener("resize", updateFit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateFit);
+    };
+  }, [canvasWidth, canvasHeight, leftInset]);
+
+  const displayScale = fitScale * zoom;
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!activeLayer || activeLayer.locked) return;
@@ -290,13 +321,14 @@ export const ImageStudioCanvas = forwardRef<
   return (
     <div
       ref={containerRef}
-      className="relative flex flex-1 items-center justify-center overflow-auto bg-[#e5e5e5] p-8"
+      className="absolute inset-0 flex items-center justify-center overflow-auto bg-[radial-gradient(circle_at_top,#fafafa,#ececef)] p-4 pb-28 pt-16 md:p-6 md:pb-32 md:pt-20"
+      style={{ paddingLeft: leftInset > 0 ? leftInset / 2 : undefined }}
     >
       <div
-        className="relative shadow-xl"
+        className="relative shrink-0 overflow-hidden rounded-xl bg-white shadow-[0_16px_48px_rgba(15,23,42,0.07)] ring-1 ring-zinc-200/70"
         style={{
-          width: canvasWidth * zoom,
-          height: canvasHeight * zoom,
+          width: canvasWidth * displayScale,
+          height: canvasHeight * displayScale,
         }}
       >
         <canvas
@@ -308,20 +340,16 @@ export const ImageStudioCanvas = forwardRef<
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           className={cn(
-            "absolute inset-0",
+            "absolute inset-0 h-full w-full",
             tool === "text" ? "cursor-text" : "cursor-crosshair"
           )}
-          style={{
-            width: canvasWidth * zoom,
-            height: canvasHeight * zoom,
-          }}
         />
         {showTextInput && textPos && (
           <div
             className="absolute z-50 flex flex-col gap-2 rounded-xl border bg-white p-3 shadow-lg"
             style={{
-              left: textPos.x * zoom,
-              top: textPos.y * zoom - 80,
+              left: textPos.x * displayScale,
+              top: textPos.y * displayScale - 80,
             }}
           >
             <input

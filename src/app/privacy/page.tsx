@@ -1,8 +1,26 @@
+import type { Metadata } from "next";
+
+import { JsonLd } from "@/components/seo/JsonLd";
 import { PublicPageLayout } from "@/components/layout/PublicPageLayout";
+import { buildLegalJsonLd, buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Privacy Policy",
+  description: "How LiteMoov collects, uses, stores, and protects your personal information and generated content.",
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (
-    <PublicPageLayout
+    <>
+      <JsonLd
+        data={buildLegalJsonLd({
+          path: "/privacy",
+          name: "Privacy Policy",
+          description: "How LiteMoov collects, uses, stores, and protects your personal information.",
+        })}
+      />
+      <PublicPageLayout
       title="Privacy Policy"
       description="How we collect, use, and protect your information."
     >
@@ -79,8 +97,8 @@ export default function PrivacyPage() {
           </h2>
           <p className="mt-3">
             If you have questions about this Privacy Policy, please contact us at{" "}
-            <a href="mailto:privacy@adstudio.com" className="text-violet-700 hover:underline">
-              privacy@adstudio.com
+            <a href="mailto:privacy@litemoov.com" className="text-violet-700 hover:underline">
+              privacy@litemoov.com
             </a>
             .
           </p>
@@ -91,10 +109,7 @@ export default function PrivacyPage() {
         </p>
       </div>
     </PublicPageLayout>
+    </>
   );
 }
 
-export const metadata = {
-  title: "Privacy Policy - Ad Studio",
-  description: "How we collect, use, and protect your information at Ad Studio.",
-};

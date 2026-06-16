@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { CheckCircle2, XCircle } from "lucide-react";
+import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { prisma } from "@/lib/db";
 import { hashEmailToken } from "@/lib/email/tokens";
+import { noIndexMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = noIndexMetadata;
 
 export default async function VerifyEmailPage({ params }: { params: { token: string } }) {
   const token = await prisma.emailToken.findUnique({

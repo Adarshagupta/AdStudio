@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
-import { checkCredits, InsufficientCreditsError } from "@/lib/billing/credits";
+import { deductCredits, isBillingCreditsError } from "@/lib/billing/credits";
 import { parseRequestJson } from "@/lib/http/json";
 
 export const runtime = "nodejs";
@@ -44,19 +44,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Deduct credits for background removal (cost: 1 credit)
     const cost = 1;
     try {
-      await checkCredits(currentUser.workspace.id, cost);
+      await deductCredits(currentUser.workspace.id, cost);
     } catch (error) {
-      if (error instanceof InsufficientCreditsError) {
+      if (isBillingCreditsError(error)) {
         return NextResponse.json({ error: error.message }, { status: 402 });
       }
       throw error;
     }
 
-    // For now, return a placeholder indicating the feature needs configuration
-    // In production, this would call the Remove.bg API or similar
     return NextResponse.json(
       { error: "Background removal requires a third-party API. Configure REMOVE_BG_API_KEY or use a service like remove.bg" },
       { status: 503 }

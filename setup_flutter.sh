@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🚀 Ad Studio Flutter - Android Setup"
+echo "🚀 LiteMoov Flutter - Android Setup"
 echo "======================================"
 
 # Colors

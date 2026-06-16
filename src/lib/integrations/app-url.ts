@@ -1,3 +1,5 @@
+import { PRODUCTION_APP_URL } from "@/lib/site";
+
 function normalizeOrigin(value: string) {
   return value.replace(/\/$/, "");
 }
@@ -6,7 +8,7 @@ function stripProtocol(host: string) {
   return host.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
-function getConfiguredAppUrl() {
+export function getConfiguredAppUrl() {
   const explicit =
     process.env.APP_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
 
@@ -63,7 +65,20 @@ export function getAppUrl(requestOrOrigin?: Request | string) {
     return configured;
   }
 
+  if (process.env.NODE_ENV === "production") {
+    return PRODUCTION_APP_URL;
+  }
+
   return "http://localhost:3000";
+}
+
+/** Stable origin for OAuth redirect URIs — avoids www/apex mismatches with Google. */
+export function getOAuthAppUrl(requestOrOrigin?: Request | string) {
+  if (process.env.NODE_ENV === "production") {
+    return getConfiguredAppUrl() ?? PRODUCTION_APP_URL;
+  }
+
+  return getAppUrl(requestOrOrigin);
 }
 
 export function getIntegrationRedirectUri(provider: string, requestOrOrigin?: Request | string) {

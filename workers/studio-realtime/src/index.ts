@@ -9,6 +9,8 @@ export interface Env {
   ALLOWED_ORIGINS?: string;
 }
 
+const LITEMOOV_ORIGIN_SUFFIXES = [".litemoov.com", "litemoov.com"] as const;
+
 function allowedOrigins(env: Env) {
   return (env.ALLOWED_ORIGINS ?? "")
     .split(",")
@@ -16,11 +18,25 @@ function allowedOrigins(env: Env) {
     .filter(Boolean);
 }
 
+function isLiteMoovOrigin(origin: string) {
+  try {
+    const host = new URL(origin).hostname.toLowerCase();
+    return LITEMOOV_ORIGIN_SUFFIXES.some(
+      (suffix) => host === suffix || host.endsWith(suffix),
+    );
+  } catch {
+    return false;
+  }
+}
+
 function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("Origin") ?? "";
   const allowed = allowedOrigins(env);
   const allowOrigin =
-    allowed.length === 0 || allowed.includes(origin) || allowed.includes("*")
+    allowed.length === 0 ||
+    allowed.includes(origin) ||
+    allowed.includes("*") ||
+    isLiteMoovOrigin(origin)
       ? origin || "*"
       : allowed[0];
 
@@ -35,6 +51,8 @@ function corsHeaders(request: Request, env: Env): HeadersInit {
 function isOriginAllowed(request: Request, env: Env) {
   const origin = request.headers.get("Origin");
   if (!origin) return true;
+
+  if (isLiteMoovOrigin(origin)) return true;
 
   const allowed = allowedOrigins(env);
   if (allowed.length === 0) return true;

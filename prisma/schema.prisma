@@ -118,6 +118,12 @@ enum StudioTemplateListingStatus {
   ARCHIVED
 }
 
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 enum CompanySize {
   SIZE_1_5
   SIZE_6_50
@@ -140,6 +146,7 @@ model Workspace {
   stripeCustomerId          String?       @unique
   stripeSubscriptionId      String?       @unique
   billingInterval           String?
+  subscriptionStatus        String?
   creditsRemaining          Int           @default(0)
   videoMinutesUsed          Int           @default(0)
   imageCountUsed            Int           @default(0)
@@ -170,6 +177,8 @@ model Workspace {
   notifications      Notification[]
   templateListings   StudioTemplateListing[]
   templatePurchases  StudioTemplatePurchase[]
+  referralRewardsGranted ReferralReward[] @relation("ReferrerWorkspaceRewards")
+  referralRewardsFrom    ReferralReward[] @relation("ReferredWorkspaceRewards")
 }
 
 model User {
@@ -199,9 +208,16 @@ model User {
   notifications         Notification[]
   publishedTemplates    StudioTemplateListing[]
   templatePurchases     StudioTemplatePurchase[]
+  referralCode          String?          @unique
+  referredByUserId        String?
+  referredBy              User?            @relation("UserReferrals", fields: [referredByUserId], references: [id], onDelete: SetNull)
+  referrals               User[]           @relation("UserReferrals")
+  referralRewardsEarned   ReferralReward[] @relation("ReferralRewardsEarned")
+  referralRewardsTriggered ReferralReward[] @relation("ReferralRewardsTriggered")
 
   @@index([lastWorkspaceId])
   @@index([emailVerifiedAt])
+  @@index([referredByUserId])
 }
 
 model WorkspaceMember {
@@ -625,4 +641,42 @@ model Model {
   @@index([category])
   @@index([isActive])
   @@index([isSystem])
+}
+
+model ReferralReward {
+  id                      String    @id @default(cuid())
+  referrerUserId          String
+  referrerWorkspaceId     String
+  referredUserId          String    @unique
+  referredWorkspaceId     String
+  stripeCheckoutSessionId String?   @unique
+  stripeSubscriptionId    String?   @unique
+  plan                    Plan
+  creditsAwarded          Int
+  createdAt               DateTime  @default(now())
+
+  referrerUser      User      @relation("ReferralRewardsEarned", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referredUser      User      @relation("ReferralRewardsTriggered", fields: [referredUserId], references: [id], onDelete: Cascade)
+  referrerWorkspace Workspace @relation("ReferrerWorkspaceRewards", fields: [referrerWorkspaceId], references: [id], onDelete: Cascade)
+  referredWorkspace Workspace @relation("ReferredWorkspaceRewards", fields: [referredWorkspaceId], references: [id], onDelete: Cascade)
+
+  @@index([referrerUserId])
+  @@index([referrerWorkspaceId])
+}
+
+model BlogPost {
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  title         String
+  excerpt       String         @default("")
+  content       String         @default("")
+  coverImageUrl String?
+  authorName    String?
+  status        BlogPostStatus @default(DRAFT)
+  tags          Json           @default("[]")
+  publishedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status, publishedAt])
 }

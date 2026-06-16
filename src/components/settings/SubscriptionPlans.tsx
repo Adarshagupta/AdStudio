@@ -19,12 +19,10 @@ import { cn } from "@/lib/utils";
 
 export function SubscriptionPlans({
   currentPlan,
-  creditsRemaining,
   isAdmin,
   stripeEnabled = false,
 }: {
   currentPlan: SubscriptionPlanId;
-  creditsRemaining: number;
   isAdmin: boolean;
   stripeEnabled?: boolean;
 }) {
@@ -86,19 +84,8 @@ export function SubscriptionPlans({
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Subscribe to boost your business
-          </h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Current plan: <span className="font-medium text-zinc-800">{formatPlanLabel(currentPlan)}</span>
-            {" · "}
-            {creditsRemaining.toLocaleString()} credits
-          </p>
-        </div>
-
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
         <div className="inline-flex rounded-full bg-zinc-100 p-1">
           <button
             type="button"

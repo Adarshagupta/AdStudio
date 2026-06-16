@@ -15,7 +15,12 @@ import {
   fitProviderVideoPrompt,
 } from "@/lib/video-prompt";
 
-const LTX_API_BASE = "https://api.ltx.video";
+const LTX_API_BASE = process.env.LTX_API_BASE?.trim() || "https://api.ltx.video";
+
+function isSelfHostedLtx() {
+  const base = LTX_API_BASE.toLowerCase();
+  return base !== "https://api.ltx.video" && !base.endsWith("api.ltx.video");
+}
 
 export { LTX_DEFAULT_VIDEO_MODEL };
 
@@ -72,6 +77,9 @@ function getApiKey(index = 0) {
   const keys = getLtxApiKeys();
   const key = keys[index];
   if (!key) {
+    if (isSelfHostedLtx()) {
+      return "";
+    }
     throw new Error(
       "LTX_API_KEY is required for video generation. Get a key at https://console.ltx.video",
     );
@@ -126,13 +134,17 @@ export function decodeLtxJob(requestId: string): LtxJobRef {
 }
 
 async function ltxRequestWithKey<T>(path: string, apiKey: string, init?: RequestInit) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
   const response = await fetch(`${LTX_API_BASE}${path}`, {
     ...init,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -173,6 +185,10 @@ async function ltxRequestWithFallback<T>(
 ) {
   const keys = getLtxApiKeys();
   if (keys.length === 0) {
+    if (isSelfHostedLtx()) {
+      const data = await ltxRequestWithKey<T>(path, "", init);
+      return { data, keyIndex: 0 };
+    }
     throw new Error(
       "LTX_API_KEY is required for video generation. Get a key at https://console.ltx.video",
     );
@@ -432,6 +448,10 @@ export function getConfiguredLtxVideoModel() {
 
 export function getConfiguredLtxApiKeyCount() {
   return getLtxApiKeys().length;
+}
+
+export function isLtxVideoConfigured() {
+  return getLtxApiKeys().length > 0 || isSelfHostedLtx();
 }
 
 type StoredGenerationVideoInput = {

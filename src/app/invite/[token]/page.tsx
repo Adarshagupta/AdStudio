@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
+import type { Metadata } from "next";
 
 import { AcceptInviteForm } from "@/components/settings/AcceptInviteForm";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getAccessLabel } from "@/lib/permissions";
 import { hashInviteToken, isInviteUsable } from "@/lib/team";
+import { noIndexMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = noIndexMetadata;
 
 export default async function InvitePage({ params }: { params: { token: string } }) {
   const invite = await prisma.workspaceInvite.findUnique({

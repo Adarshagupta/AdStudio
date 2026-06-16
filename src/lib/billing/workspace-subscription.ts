@@ -4,14 +4,27 @@ import type { Plan } from "@prisma/client";
 import type Stripe from "stripe";
 
 import {
+  clampCreditsToPlanCap,
+  maxWalletCreditsForWorkspace,
+} from "@/lib/billing/credit-limits";
+import {
   creditsForSubscription,
   planCheckoutPricing,
   type BillingInterval,
   type SubscriptionPlanId,
 } from "@/lib/billing/plans";
+import {
+  isSubscriptionTrialStatus,
+  walletCreditsForSubscription,
+} from "@/lib/billing/subscription-trial";
+import {
+  purchaseDetailsFromCheckoutSession,
+  type SubscriptionPurchaseDetails,
+} from "@/lib/billing/purchase-summary";
+import { processReferralSubscriptionReward } from "@/lib/referral/program";
 import { getStripe, isStripeConfigured } from "@/lib/billing/stripe";
 import { prisma } from "@/lib/db";
-import { getAppUrl } from "@/lib/integrations/app-url";
+import { getOAuthAppUrl } from "@/lib/integrations/app-url";
 
 export async function getOrCreateStripeCustomer(input: {
   workspaceId: string;
@@ -53,6 +66,7 @@ export async function createWorkspaceSubscriptionCheckout(input: {
   email: string;
   plan: SubscriptionPlanId;
   interval: BillingInterval;
+  trialDays?: number;
   request: Request;
 }) {
   if (!isStripeConfigured()) {
@@ -75,11 +89,26 @@ export async function createWorkspaceSubscriptionCheckout(input: {
     email: input.email,
   });
 
-  const appUrl = getAppUrl(input.request);
+  const appUrl = getOAuthAppUrl(input.request);
+
+  const subscriptionMetadata = {
+    type: "workspace_subscription",
+    workspaceId: input.workspaceId,
+    plan: input.plan,
+    interval: input.interval,
+  };
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
+    ...(input.trialDays
+      ? {
+          subscription_data: {
+            trial_period_days: input.trialDays,
+            metadata: subscriptionMetadata,
+          },
+        }
+      : {}),
     line_items: [
       {
         quantity: 1,
@@ -104,8 +133,8 @@ export async function createWorkspaceSubscriptionCheckout(input: {
       plan: input.plan,
       interval: input.interval,
     },
-    success_url: `${appUrl}/settings/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/settings/billing?checkout=cancelled`,
+    success_url: `${appUrl}/billing/return?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/billing/return?checkout=cancelled`,
   });
 
   if (!session.url) {
@@ -129,6 +158,29 @@ function parseCheckoutBillingInterval(value: string | undefined): BillingInterva
   return null;
 }
 
+async function resolveStripeSubscriptionStatus(
+  subscriptionRef: string | Stripe.Subscription | null | undefined,
+): Promise<string | null> {
+  if (!subscriptionRef) {
+    return null;
+  }
+
+  if (typeof subscriptionRef !== "string") {
+    return subscriptionRef.status ?? null;
+  }
+
+  if (!isStripeConfigured()) {
+    return null;
+  }
+
+  try {
+    const subscription = await getStripe().subscriptions.retrieve(subscriptionRef);
+    return subscription.status;
+  } catch {
+    return null;
+  }
+}
+
 export async function fulfillWorkspaceSubscriptionCheckoutSession(session: Stripe.Checkout.Session) {
   if (session.metadata?.type !== "workspace_subscription") {
     throw new Error("Not a workspace subscription checkout.");
@@ -146,7 +198,7 @@ export async function fulfillWorkspaceSubscriptionCheckoutSession(session: Strip
     throw new Error("Checkout session is missing subscription metadata.");
   }
 
-  return applyWorkspaceSubscriptionFromCheckout({
+  const workspace = await applyWorkspaceSubscriptionFromCheckout({
     workspaceId,
     plan,
     interval,
@@ -156,21 +208,169 @@ export async function fulfillWorkspaceSubscriptionCheckoutSession(session: Strip
       typeof session.subscription === "string"
         ? session.subscription
         : session.subscription?.id ?? null,
+    subscriptionStatus: await resolveStripeSubscriptionStatus(session.subscription),
   });
+
+  const checkoutUserId = session.metadata?.userId;
+  if (checkoutUserId) {
+    await processReferralSubscriptionReward({
+      referredUserId: checkoutUserId,
+      referredWorkspaceId: workspaceId,
+      plan,
+      stripeCheckoutSessionId: session.id,
+      stripeSubscriptionId:
+        typeof session.subscription === "string"
+          ? session.subscription
+          : session.subscription?.id ?? null,
+    });
+  }
+
+  return workspace;
 }
 
 export async function completeWorkspaceSubscriptionCheckout(input: {
   sessionId: string;
   workspaceId: string;
-}) {
+}): Promise<{
+  workspace: Awaited<ReturnType<typeof applyWorkspaceSubscriptionFromCheckout>>;
+  purchase: SubscriptionPurchaseDetails;
+}> {
   const stripe = getStripe();
-  const session = await stripe.checkout.sessions.retrieve(input.sessionId);
 
-  if (session.metadata?.workspaceId !== input.workspaceId) {
-    throw new Error("Checkout session does not belong to this workspace.");
+  const maxAttempts = 5;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const session = await stripe.checkout.sessions.retrieve(input.sessionId, {
+      expand: ["subscription"],
+    });
+
+    if (session.metadata?.workspaceId !== input.workspaceId) {
+      throw new Error("Checkout session does not belong to this workspace.");
+    }
+
+    try {
+      const workspace = await fulfillWorkspaceSubscriptionCheckoutSession(session);
+      const purchase = purchaseDetailsFromCheckoutSession(session, workspace);
+
+      return { workspace, purchase };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Checkout fulfillment failed.");
+      const retryable =
+        lastError.message.includes("not complete") && attempt < maxAttempts - 1;
+
+      if (!retryable) {
+        throw lastError;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+    }
   }
 
-  return fulfillWorkspaceSubscriptionCheckoutSession(session);
+  throw lastError ?? new Error("Checkout fulfillment failed.");
+}
+
+export async function syncWorkspaceSubscriptionFromStripe(
+  subscription: Stripe.Subscription,
+  workspaceIdOverride?: string,
+) {
+  const workspaceId = subscription.metadata?.workspaceId ?? workspaceIdOverride;
+  const plan = parseCheckoutSubscriptionPlan(subscription.metadata?.plan);
+  const interval = parseCheckoutBillingInterval(subscription.metadata?.interval);
+
+  const isWorkspaceSubscription =
+    subscription.metadata?.type === "workspace_subscription" ||
+    Boolean(workspaceId && plan && interval);
+
+  if (!isWorkspaceSubscription || !workspaceId || !plan || !interval) {
+    return null;
+  }
+
+  if (
+    subscription.status === "canceled" ||
+    subscription.status === "incomplete_expired" ||
+    subscription.status === "unpaid"
+  ) {
+    return downgradeWorkspaceToFree(workspaceId);
+  }
+
+  if (
+    subscription.status === "active" ||
+    subscription.status === "trialing" ||
+    subscription.status === "past_due"
+  ) {
+    return applyWorkspaceSubscriptionFromCheckout({
+      workspaceId,
+      plan,
+      interval,
+      stripeCustomerId:
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer?.id ?? null,
+      stripeSubscriptionId: subscription.id,
+      subscriptionStatus: subscription.status,
+    });
+  }
+
+  return null;
+}
+
+/** Recover billing when checkout completed in Stripe but the app never applied the plan. */
+export async function syncWorkspaceBillingFromStripe(workspaceId: string) {
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { stripeCustomerId: true, stripeSubscriptionId: true },
+  });
+
+  if (!workspace?.stripeCustomerId) {
+    throw new Error("This workspace is not linked to Stripe yet.");
+  }
+
+  const stripe = getStripe();
+
+  if (workspace.stripeSubscriptionId) {
+    try {
+      const subscription = await stripe.subscriptions.retrieve(workspace.stripeSubscriptionId);
+      const synced = await syncWorkspaceSubscriptionFromStripe(subscription, workspaceId);
+      if (synced) return synced;
+    } catch {
+      // Subscription id may be stale — fall through to list/search.
+    }
+  }
+
+  const subscriptions = await stripe.subscriptions.list({
+    customer: workspace.stripeCustomerId,
+    status: "all",
+    limit: 10,
+  });
+
+  for (const subscription of subscriptions.data) {
+    if (
+      subscription.status === "active" ||
+      subscription.status === "trialing" ||
+      subscription.status === "past_due"
+    ) {
+      const synced = await syncWorkspaceSubscriptionFromStripe(subscription, workspaceId);
+      if (synced) return synced;
+    }
+  }
+
+  const sessions = await stripe.checkout.sessions.list({
+    customer: workspace.stripeCustomerId,
+    limit: 10,
+  });
+
+  for (const session of sessions.data) {
+    if (
+      session.metadata?.type === "workspace_subscription" &&
+      session.metadata.workspaceId === workspaceId &&
+      session.status === "complete"
+    ) {
+      return fulfillWorkspaceSubscriptionCheckoutSession(session);
+    }
+  }
+
+  throw new Error("No active Stripe subscription found for this workspace.");
 }
 
 export async function applyWorkspaceSubscriptionFromCheckout(input: {
@@ -179,8 +379,33 @@ export async function applyWorkspaceSubscriptionFromCheckout(input: {
   interval: BillingInterval;
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
+  subscriptionStatus?: string | null;
 }) {
-  const creditsRemaining = creditsForSubscription(input.plan, input.interval);
+  const existing = await prisma.workspace.findUnique({
+    where: { id: input.workspaceId },
+    select: { subscriptionStatus: true },
+  });
+
+  const status = input.subscriptionStatus ?? "active";
+  const isTrial = isSubscriptionTrialStatus(status);
+  const wasTrial = isSubscriptionTrialStatus(existing?.subscriptionStatus);
+
+  let creditsRemaining = walletCreditsForSubscription(input.plan, input.interval, status);
+
+  // Trial ended — grant the full premium wallet allocation.
+  if (wasTrial && !isTrial && status === "active") {
+    creditsRemaining = creditsForSubscription(input.plan, input.interval);
+  }
+
+  creditsRemaining = clampCreditsToPlanCap(
+    creditsRemaining,
+    maxWalletCreditsForWorkspace({
+      plan: input.plan,
+      billingInterval: input.interval,
+      subscriptionStatus: status,
+      welcomeCreditsClaimed: false,
+    }),
+  );
 
   return prisma.workspace.update({
     where: { id: input.workspaceId },
@@ -188,6 +413,7 @@ export async function applyWorkspaceSubscriptionFromCheckout(input: {
       plan: input.plan as Plan,
       creditsRemaining,
       billingInterval: input.interval,
+      subscriptionStatus: status,
       ...(input.stripeCustomerId ? { stripeCustomerId: input.stripeCustomerId } : {}),
       ...(input.stripeSubscriptionId ? { stripeSubscriptionId: input.stripeSubscriptionId } : {}),
       paymentSetupCompletedAt: new Date(),
@@ -197,8 +423,41 @@ export async function applyWorkspaceSubscriptionFromCheckout(input: {
       plan: true,
       creditsRemaining: true,
       billingInterval: true,
+      subscriptionStatus: true,
     },
   });
+}
+
+export async function createWorkspaceBillingPortalSession(input: {
+  workspaceId: string;
+  request: Request;
+}) {
+  if (!isStripeConfigured()) {
+    throw new Error("Stripe is not configured.");
+  }
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: input.workspaceId },
+    select: { stripeCustomerId: true },
+  });
+
+  if (!workspace?.stripeCustomerId) {
+    throw new Error("No billing account linked yet. Subscribe to a paid plan first.");
+  }
+
+  const stripe = getStripe();
+  const appUrl = getOAuthAppUrl(input.request);
+
+  const session = await stripe.billingPortal.sessions.create({
+    customer: workspace.stripeCustomerId,
+    return_url: `${appUrl}/settings/billing`,
+  });
+
+  if (!session.url) {
+    throw new Error("Could not open billing portal.");
+  }
+
+  return { url: session.url };
 }
 
 export async function downgradeWorkspaceToFree(workspaceId: string) {
@@ -226,6 +485,7 @@ export async function downgradeWorkspaceToFree(workspaceId: string) {
       plan: "FREE",
       creditsRemaining: creditsForSubscription("FREE", "monthly"),
       billingInterval: null,
+      subscriptionStatus: null,
       stripeSubscriptionId: null,
     },
     select: {

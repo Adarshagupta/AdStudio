@@ -83,11 +83,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Monthly ad spend is required." }, { status: 400 });
     }
     if (!fields.hearAboutSource) {
-      return NextResponse.json({ error: "Please tell us how you heard about Ad Studio." }, { status: 400 });
+      return NextResponse.json({ error: "Please tell us how you heard about LiteMoov." }, { status: 400 });
     }
     if (fields.hearAboutSource === "other" && !fields.hearAboutOther?.trim()) {
       return NextResponse.json(
-        { error: "Please tell us where you heard about Ad Studio." },
+        { error: "Please tell us where you heard about LiteMoov." },
         { status: 400 },
       );
     }

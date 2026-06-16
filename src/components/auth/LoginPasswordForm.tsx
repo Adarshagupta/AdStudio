@@ -36,7 +36,7 @@ export function LoginPasswordForm({
       title="Welcome back"
       subtitle={
         <>
-          New to Ad Studio?{" "}
+          New to LiteMoov?{" "}
           <Link href="/signup" className={authLinkClassName()}>
             Sign up free
           </Link>

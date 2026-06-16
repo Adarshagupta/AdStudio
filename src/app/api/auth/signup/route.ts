@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { cookies } from "next/headers";
+
 import { hashPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -10,6 +12,8 @@ import {
 import { sendVerificationEmail } from "@/lib/email/service";
 import { getRequestOrigin } from "@/lib/integrations/app-url";
 import { parseRequestJson } from "@/lib/http/json";
+import { readReferralCodeFromCookie } from "@/lib/referral/codes";
+import { attachReferralOnUserCreate } from "@/lib/referral/program";
 import { allWorkspacePermissions } from "@/lib/permissions";
 
 const signupSchema = z.object({
@@ -20,6 +24,7 @@ const signupSchema = z.object({
   ),
   password: z.string().min(8),
   workspaceName: z.string().trim().min(2),
+  referralCode: z.string().trim().optional(),
 });
 
 function slugify(value: string) {
@@ -57,6 +62,10 @@ export async function POST(request: Request) {
     const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`;
     const passwordHash = await hashPassword(result.data.password);
 
+    const referralCode =
+      readReferralCodeFromCookie(cookies().get("litemoov_ref")?.value) ??
+      (result.data.referralCode ? readReferralCodeFromCookie(result.data.referralCode) : null);
+
     const { user, workspace } = await prisma.$transaction(async (tx) => {
       const workspace = await tx.workspace.create({
         data: {
@@ -83,6 +92,12 @@ export async function POST(request: Request) {
           role: "ADMIN",
           permissions: allWorkspacePermissions,
         },
+      });
+
+      await attachReferralOnUserCreate(tx, {
+        userId: user.id,
+        email: user.email,
+        referralCode,
       });
 
       return { user, workspace };
