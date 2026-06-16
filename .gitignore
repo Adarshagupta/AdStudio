@@ -45,4 +45,9 @@ next-env.d.ts
 # studio uploads (served from /studio-assets when not using Vercel Blob)
 /public/studio-assets/*
 !/public/studio-assets/.gitkeep
+
+# large video files
+/public/assets/openai/video/*.mp4
+/public/assets/openai/video/*.mov
+
 .env*
