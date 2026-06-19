@@ -74,6 +74,8 @@ export async function findUserById(id: string): Promise<User | null> {
       isActive: row.isActive,
       emailVerifiedAt: row.emailVerifiedAt,
       createdAt: row.createdAt,
+      referralCode: null,
+      referredByUserId: null,
     };
   } catch {
     const rows = await prisma.$queryRaw<User[]>`
@@ -146,6 +148,8 @@ export async function findUserByEmail(email: string) {
     isActive: row.isActive,
     emailVerifiedAt: row.emailVerifiedAt,
     createdAt: row.createdAt,
+    referralCode: null,
+    referredByUserId: null,
   };
 }
 

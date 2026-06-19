@@ -38,7 +38,7 @@ export async function sendVerificationEmail(
     workspaceName ??
     user.lastWorkspace?.name ??
     user.memberships[0]?.workspace.name ??
-    "Ad Studio";
+    "LiteMoov";
 
   const token = await createAuthEmailToken(user.id, user.email, "EMAIL_VERIFICATION", VERIFICATION_TOKEN_HOURS);
   const verifyUrl = `${getAppUrl(origin)}/verify-email/${token}`;
@@ -52,7 +52,7 @@ export async function sendVerificationEmail(
 
   await sendTrackedEmail({
     to: { address: user.email, name: user.name ?? undefined },
-    subject: "Verify your Ad Studio account",
+    subject: "Verify your LiteMoov account",
     channel: "AUTH",
     workspaceId: user.lastWorkspaceId,
     userId: user.id,
@@ -69,7 +69,7 @@ export async function sendPasswordResetEmail(
   const resetUrl = `${getAppUrl(origin)}/reset-password/${token}`;
   const content = renderEmail({
     headline: "Reset your password",
-    body: "Use this secure link to set a new password for your Ad Studio account. If you did not request this, you can ignore this email.",
+    body: "Use this secure link to set a new password for your LiteMoov account. If you did not request this, you can ignore this email.",
     actionLabel: "Reset password",
     actionUrl: resetUrl,
     footer: "This password reset link expires in 2 hours.",
@@ -77,7 +77,7 @@ export async function sendPasswordResetEmail(
 
   await sendTrackedEmail({
     to: { address: user.email, name: user.name ?? undefined },
-    subject: "Reset your Ad Studio password",
+    subject: "Reset your LiteMoov password",
     channel: "AUTH",
     workspaceId: user.lastWorkspaceId,
     userId: user.id,

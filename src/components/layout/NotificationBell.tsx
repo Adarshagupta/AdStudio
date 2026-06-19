@@ -46,9 +46,9 @@ function NotificationRow({
         aria-hidden
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-zinc-900">{item.title}</p>
-        <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-zinc-500">{item.message}</p>
-        <p className="mt-1 text-[10px] text-zinc-400">{formatRelativeTime(item.createdAt)}</p>
+        <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{item.title}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-zinc-500 dark:text-zinc-400">{item.message}</p>
+        <p className="mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">{formatRelativeTime(item.createdAt)}</p>
       </div>
     </div>
   );
@@ -57,7 +57,7 @@ function NotificationRow({
     return (
       <DropdownMenuItem
         asChild
-        className="cursor-pointer rounded-lg px-2 py-2 focus:bg-zinc-50"
+        className="cursor-pointer rounded-lg px-2 py-2 focus:bg-zinc-50 dark:focus:bg-zinc-800"
         onSelect={() => {
           if (!item.readAt) void onRead(item.id);
         }}
@@ -69,7 +69,7 @@ function NotificationRow({
 
   return (
     <DropdownMenuItem
-      className="cursor-pointer rounded-lg px-2 py-2 focus:bg-zinc-50"
+      className="cursor-pointer rounded-lg px-2 py-2 focus:bg-zinc-50 dark:focus:bg-zinc-800"
       onSelect={() => {
         if (!item.readAt) void onRead(item.id);
       }}
@@ -98,16 +98,16 @@ export function NotificationBell() {
           ) : null}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 rounded-2xl p-2">
+      <DropdownMenuContent align="end" className="w-80 rounded-2xl border border-border/80 p-2">
         <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-          <DropdownMenuLabel className="p-0 text-sm font-semibold text-zinc-900">
+          <DropdownMenuLabel className="p-0 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             Notifications
           </DropdownMenuLabel>
           {unreadCount > 0 ? (
             <button
               type="button"
               onClick={() => void markAllRead()}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 transition hover:text-zinc-800"
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 transition hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Mark all read
@@ -116,12 +116,12 @@ export function NotificationBell() {
         </div>
         <DropdownMenuSeparator />
         {!loaded ? (
-          <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-zinc-500">
+          <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-zinc-500 dark:text-zinc-400">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading…
           </div>
         ) : notifications.length === 0 ? (
-          <p className="px-3 py-8 text-center text-sm text-zinc-500">You&apos;re all caught up.</p>
+          <p className="px-3 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">You&apos;re all caught up.</p>
         ) : (
           <div className="max-h-80 space-y-0.5 overflow-y-auto">
             {notifications.map((item) => (

@@ -72,7 +72,7 @@ export default async function AnalyticsPage() {
             const Icon = metricIcons[index];
 
             return (
-              <Card key={metric.label} className="space-y-4 bg-white">
+              <Card key={metric.label} className="space-y-4 bg-card">
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
                   <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-zinc-50 text-zinc-600">
@@ -88,7 +88,7 @@ export default async function AnalyticsPage() {
           })}
         </div>
 
-        <Card className="space-y-4 bg-white">
+        <Card className="space-y-4 bg-card">
           <div>
             <h2 className="text-sm font-medium">Generations per day</h2>
             <p className="text-xs text-muted-foreground">Last 30 days</p>
@@ -96,7 +96,7 @@ export default async function AnalyticsPage() {
           <GenerationsBarChartLazy data={chartData} />
         </Card>
 
-        <Card className="overflow-hidden bg-white p-0">
+        <Card className="overflow-hidden bg-card p-0">
           <div className="border-b p-4">
             <h2 className="text-sm font-medium">Recent generations</h2>
             <p className="text-xs text-muted-foreground">Latest jobs across the workspace</p>
@@ -113,7 +113,7 @@ export default async function AnalyticsPage() {
               </thead>
               <tbody>
                 {recentGenerations.map((generation) => (
-                  <tr key={generation.id} className="border-b transition-colors last:border-b-0 hover:bg-zinc-50">
+                  <tr key={generation.id} className="border-b transition-colors last:border-b-0 hover:bg-muted/50">
                     <td className="px-4 py-3 font-medium">{generation.prompt}</td>
                     <td className="px-4 py-3">
                       <TypeBadge type={generation.format} />

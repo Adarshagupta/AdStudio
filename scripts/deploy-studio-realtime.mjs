@@ -96,6 +96,9 @@ if (cfToken && process.env.WRANGLER_USE_API_TOKEN === "1") {
 }
 
 const allowedOrigins = new Set([
+  "https://litemoov.com",
+  "https://www.litemoov.com",
+  "https://studio.sylicaai.com",
   "https://ugc-ad-platform.vercel.app",
   "http://localhost:3000",
 ]);

@@ -50,8 +50,8 @@ export async function POST(request: Request) {
     if (!user.passwordHash) {
       return NextResponse.json(
         {
-          error:
-            "This account has no password yet. Use Forgot password to set one, or sign in the way you originally registered.",
+          error: "This account uses Google sign-in. Continue with Google instead.",
+          useGoogle: true,
         },
         { status: 401 },
       );

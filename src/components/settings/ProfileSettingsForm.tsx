@@ -45,10 +45,10 @@ export function ProfileSettingsForm({
   }
 
   return (
-    <Card className="max-w-lg space-y-5 bg-white p-6">
+    <Card className="max-w-lg space-y-5 p-6">
       <form onSubmit={onSave} className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="profile-name" className="text-sm font-medium text-zinc-900">
+          <label htmlFor="profile-name" className="text-sm font-medium text-foreground">
             Display name
           </label>
           <Input
@@ -60,11 +60,11 @@ export function ProfileSettingsForm({
           />
         </div>
         <div className="space-y-2">
-          <p className="text-sm font-medium text-zinc-900">Email</p>
+          <p className="text-sm font-medium text-foreground">Email</p>
           <p className="text-sm text-zinc-500">{email}</p>
         </div>
         <div className="space-y-2">
-          <p className="text-sm font-medium text-zinc-900">Workspace role</p>
+          <p className="text-sm font-medium text-foreground">Workspace role</p>
           <p className="text-sm text-zinc-500">{role === "ADMIN" ? "Admin" : "Member"}</p>
         </div>
         <Button type="submit" disabled={saving}>

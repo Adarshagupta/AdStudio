@@ -5,7 +5,7 @@ import type { Plan, Workspace } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isDatabaseSetupError, isPrismaError } from "@/lib/prisma-errors";
 
-const KNOWN_PLANS = new Set<string>(["FREE", "STARTER", "PLUS", "PRO"]);
+const KNOWN_PLANS = new Set<string>(["FREE", "STARTER", "PLUS", "PRO", "BUSINESS"]);
 
 function normalizePlanValue(plan: string): Plan {
   if (KNOWN_PLANS.has(plan)) {
@@ -24,8 +24,15 @@ type WorkspaceRow = {
   plan: string;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  dodoCustomerId: string | null;
+  dodoSubscriptionId: string | null;
+  billingProvider: string | null;
   billingInterval: string | null;
+  subscriptionStatus: string | null;
   creditsRemaining: number;
+  videoMinutesUsed: number | null;
+  imageCountUsed: number | null;
+  premiumCreditsUsed: number | null;
   welcomeCreditsClaimedAt: Date | null;
   paymentSetupSkippedAt: Date | null;
   paymentSetupCompletedAt: Date | null;
@@ -49,8 +56,15 @@ export async function findWorkspaceById(id: string): Promise<Workspace | null> {
         plan::text AS plan,
         "stripeCustomerId",
         "stripeSubscriptionId",
+        "dodoCustomerId",
+        "dodoSubscriptionId",
+        "billingProvider",
         "billingInterval",
+        "subscriptionStatus",
         "creditsRemaining",
+        "videoMinutesUsed",
+        "imageCountUsed",
+        "premiumCreditsUsed",
         "welcomeCreditsClaimedAt",
         "paymentSetupSkippedAt",
         "paymentSetupCompletedAt",
@@ -72,8 +86,15 @@ export async function findWorkspaceById(id: string): Promise<Workspace | null> {
       plan: normalizePlanValue(row.plan),
       stripeCustomerId: row.stripeCustomerId,
       stripeSubscriptionId: row.stripeSubscriptionId,
+      dodoCustomerId: row.dodoCustomerId,
+      dodoSubscriptionId: row.dodoSubscriptionId,
+      billingProvider: row.billingProvider,
       billingInterval: row.billingInterval,
+      subscriptionStatus: row.subscriptionStatus,
       creditsRemaining: row.creditsRemaining,
+      videoMinutesUsed: row.videoMinutesUsed ?? 0,
+      imageCountUsed: row.imageCountUsed ?? 0,
+      premiumCreditsUsed: row.premiumCreditsUsed ?? 0,
       welcomeCreditsClaimedAt: row.welcomeCreditsClaimedAt,
       paymentSetupSkippedAt: row.paymentSetupSkippedAt,
       paymentSetupCompletedAt: row.paymentSetupCompletedAt,

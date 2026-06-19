@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { StudioNodeContextMenu } from "@/components/studio-pro/StudioNodeContextMenu";
+import { StudioProPreloader } from "@/components/studio-pro/StudioProPreloader";
 import { StudioConnectionLayer } from "@/components/studio-pro/StudioConnectionLayer";
 import { StudioFloatingToolbar, type StudioCanvasTool } from "@/components/studio-pro/StudioFloatingToolbar";
 import { StudioNodeCard } from "@/components/studio-pro/StudioNodeCard";
@@ -22,6 +23,7 @@ import type { StudioCollaborator } from "@/hooks/useStudioCollaboration";
 import {
   buildVideoGenerationContext,
   findSnapTarget,
+  getDescendantNodes,
   getIncomingEdges,
   topologicalSort,
   wouldCreateCycle,
@@ -177,6 +179,7 @@ export function StudioProWorkspace({
     name: string;
   };
 }) {
+  const [bootPhase, setBootPhase] = useState<"loading" | "exiting" | "ready">("loading");
   const { theme, isDark } = useStudioTheme();
   const agentRuntimeRef = useRef(createAgentRuntimeBridge(creditsRemaining));
   agentRuntimeRef.current.creditsRemaining = creditsRemaining;
@@ -1201,11 +1204,21 @@ export function StudioProWorkspace({
 
     try {
       const result = await runStudioNode(node, runningNodes, workingEdges);
+      // eslint-disable-next-line no-console
+      if (node.type === "schedule") {
+        console.log("[executeNode] Schedule result:", result);
+        console.log("[executeNode] Before merge - scheduleEnabled:", node.data.scheduleEnabled);
+      }
       const doneNodes = runningNodes.map((item) => {
         if (item.id !== nodeId) return item;
+        const merged = { ...item.data, ...result, status: "done" as const, error: undefined };
+        // eslint-disable-next-line no-console
+        if (node.type === "schedule") {
+          console.log("[executeNode] After merge - scheduleEnabled:", merged.scheduleEnabled);
+        }
         return syncMediaNodeHeight({
           ...item,
-          data: { ...item.data, ...result, status: "done" as const, error: undefined },
+          data: merged,
         });
       });
       nodesRef.current = doneNodes;
@@ -1308,7 +1321,32 @@ export function StudioProWorkspace({
 
   const runSingleNode = async (nodeId: string) => {
     try {
-      await executeNode(nodeId, nodes, edges);
+      const node = nodesRef.current.find((n) => n.id === nodeId);
+      if (node?.type === "schedule") {
+        // Run the schedule node and all downstream nodes in dependency order
+        let workingNodes: StudioNode[] = nodesRef.current.map((n) => ({
+          ...n,
+          data: { ...n.data, status: "idle" as const, error: undefined },
+        }));
+
+        const descendants = getDescendantNodes(nodeId, workingNodes, edgesRef.current);
+        const targetIds = new Set([nodeId, ...descendants.map((n) => n.id)]);
+
+        const relevantNodes = workingNodes.filter((n) => targetIds.has(n.id));
+        const relevantEdges = edgesRef.current.filter(
+          (e) => targetIds.has(e.source) && targetIds.has(e.target),
+        );
+
+        const batches = dependencyBatches(relevantNodes, relevantEdges);
+        for (const batch of batches) {
+          workingNodes =
+            batch.length === 1
+              ? await executeNode(batch[0]!.id, workingNodes, edgesRef.current)
+              : await executeNodeBatch(batch, workingNodes, edgesRef.current);
+        }
+      } else {
+        await executeNode(nodeId, nodes, edges);
+      }
       await flushSave();
     } catch {
       // Error stored on node.
@@ -1333,6 +1371,31 @@ export function StudioProWorkspace({
           batch.length === 1
             ? await executeNode(batch[0]!.id, workingNodes, edgesRef.current)
             : await executeNodeBatch(batch, workingNodes, edgesRef.current);
+
+        // After running schedule nodes, also run their downstream descendants immediately
+        for (const node of batch) {
+          if (node?.type === "schedule" && node.data.scheduleEnabled) {
+            const { getDescendantNodes } = await import("@/lib/studio-pro/graph");
+            const descendants = getDescendantNodes(node.id, workingNodes, edgesRef.current);
+            if (descendants.length > 0) {
+              // Run downstream nodes in dependency order
+              const downstreamBatches = dependencyBatches(
+                descendants,
+                edgesRef.current.filter(
+                  (e) =>
+                    descendants.some((n) => n.id === e.source) &&
+                    descendants.some((n) => n.id === e.target),
+                ),
+              );
+              for (const downstreamBatch of downstreamBatches) {
+                workingNodes =
+                  downstreamBatch.length === 1
+                    ? await executeNode(downstreamBatch[0]!.id, workingNodes, edgesRef.current)
+                    : await executeNodeBatch(downstreamBatch, workingNodes, edgesRef.current);
+              }
+            }
+          }
+        }
       }
 
       await flushSave();
@@ -1343,6 +1406,14 @@ export function StudioProWorkspace({
       setActiveEdgeIds([]);
     }
   };
+
+  // Keep latest function refs for the schedule timer effect
+  const executeNodeRef = useRef(executeNode);
+  executeNodeRef.current = executeNode;
+  const executeNodeBatchRef = useRef(executeNodeBatch);
+  executeNodeBatchRef.current = executeNodeBatch;
+  const flushSaveRef = useRef(flushSave);
+  flushSaveRef.current = flushSave;
 
   const agentActions = useMemo<StudioAgentActions>(
     () => ({
@@ -1483,13 +1554,157 @@ export function StudioProWorkspace({
     setToolbarPrompt("");
   }, [selectedId, toolbarPrompt, updateNodeData]);
 
+  // Schedule auto-fire timer
+  const scheduleTimerRef = useRef<number | null>(null);
+  const scheduleRunningRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const checkSchedules = () => {
+      const now = Date.now();
+      const enabledSchedules = nodesRef.current.filter(
+        (n) => n.type === "schedule" && n.data.scheduleEnabled,
+      );
+
+      // Debug: log schedule checks
+      if (enabledSchedules.length > 0) {
+        // eslint-disable-next-line no-console
+        console.log("[Schedule] Checking", enabledSchedules.length, "enabled schedules at", new Date().toISOString());
+      }
+
+      for (const scheduleNode of enabledSchedules) {
+        const nodeId = scheduleNode.id;
+        if (scheduleRunningRef.current.has(nodeId)) {
+          // eslint-disable-next-line no-console
+          console.log("[Schedule] Node", nodeId, "already running, skipping");
+          continue;
+        }
+
+        const nextRun = scheduleNode.data.scheduleNextRun
+          ? new Date(scheduleNode.data.scheduleNextRun).getTime()
+          : 0;
+
+        // eslint-disable-next-line no-console
+        console.log("[Schedule] Node", nodeId, "nextRun:", scheduleNode.data.scheduleNextRun, "diff:", nextRun - now);
+
+        if (!nextRun || nextRun <= now) {
+          // eslint-disable-next-line no-console
+          console.log("[Schedule] Triggering node", nodeId);
+          scheduleRunningRef.current.add(nodeId);
+
+          // Capture schedule data by value to avoid closure issues
+          const scheduleData = {
+            nodeId: scheduleNode.id,
+            interval: scheduleNode.data.scheduleInterval ?? 60,
+          };
+
+          void (async () => {
+            try {
+              let workingNodes: StudioNode[] = nodesRef.current.map((n) => ({
+                ...n,
+                data: { ...n.data, status: "idle" as const, error: undefined },
+              }));
+
+              const descendants = getDescendantNodes(scheduleData.nodeId, workingNodes, edgesRef.current);
+              const targetIds = new Set([scheduleData.nodeId, ...descendants.map((n) => n.id)]);
+
+              const relevantNodes = workingNodes.filter((n) => targetIds.has(n.id));
+              const relevantEdges = edgesRef.current.filter(
+                (e) => targetIds.has(e.source) && targetIds.has(e.target),
+              );
+
+              const batches = dependencyBatches(relevantNodes, relevantEdges);
+              for (const batch of batches) {
+                workingNodes =
+                  batch.length === 1
+                    ? await executeNodeRef.current(batch[0]!.id, workingNodes, edgesRef.current)
+                    : await executeNodeBatchRef.current(batch, workingNodes, edgesRef.current);
+              }
+
+              // Update nextRun
+              const intervalMs = scheduleData.interval * 60_000;
+              const nextNextRun = new Date(Date.now() + intervalMs).toISOString();
+              // eslint-disable-next-line no-console
+              console.log("[Schedule] Node", scheduleData.nodeId, "completed, next run:", nextNextRun);
+              const scheduleIndex = nodesRef.current.findIndex((n) => n.id === scheduleData.nodeId);
+              if (scheduleIndex >= 0) {
+                const nextNodes = [...nodesRef.current];
+                nextNodes[scheduleIndex] = {
+                  ...nextNodes[scheduleIndex]!,
+                  data: {
+                    ...nextNodes[scheduleIndex]!.data,
+                    scheduleNextRun: nextNextRun,
+                  },
+                };
+                nodesRef.current = nextNodes;
+                setNodes(nextNodes);
+                await flushSaveRef.current();
+              }
+            } catch (error) {
+              // eslint-disable-next-line no-console
+              console.error("[Schedule] Error executing node", scheduleData.nodeId, error);
+            } finally {
+              scheduleRunningRef.current.delete(scheduleData.nodeId);
+              // eslint-disable-next-line no-console
+              console.log("[Schedule] Node", scheduleData.nodeId, "removed from running set");
+            }
+          })();
+        }
+      }
+    };
+
+    // Check immediately on mount and then every 5 seconds
+    // eslint-disable-next-line no-console
+    console.log("[Schedule] Timer starting - checking every 5 seconds");
+    checkSchedules();
+    const timer = window.setInterval(checkSchedules, 5000);
+    scheduleTimerRef.current = timer;
+
+    return () => {
+      // eslint-disable-next-line no-console
+      console.log("[Schedule] Timer cleanup - stopping checks");
+      window.clearInterval(timer);
+      scheduleTimerRef.current = null;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const started = performance.now();
+    const minDisplayMs = 520;
+
+    const beginExit = () => {
+      const remaining = Math.max(0, minDisplayMs - (performance.now() - started));
+      window.setTimeout(() => setBootPhase("exiting"), remaining);
+    };
+
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(beginExit);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (bootPhase !== "exiting") return;
+    const timer = window.setTimeout(() => setBootPhase("ready"), 280);
+    return () => window.clearTimeout(timer);
+  }, [bootPhase]);
+
   return (
     <div
       className={cn(
-        "studio-pro relative h-full min-h-0 w-full overflow-hidden bg-[#fcfcfc] text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100",
+        "studio-pro relative h-full min-h-0 w-full overflow-hidden bg-background text-foreground",
         theme === "dark" && "dark",
       )}
     >
+      {bootPhase !== "ready" ? (
+        <StudioProPreloader
+          fullscreen
+          className={cn(
+            "transition-opacity duration-300 ease-out",
+            bootPhase === "exiting" && "pointer-events-none opacity-0",
+          )}
+        />
+      ) : null}
       <div
         ref={canvasRef}
         data-studio-canvas-bg
@@ -1499,7 +1714,7 @@ export function StudioProWorkspace({
           <StudioRemoteCursors peers={peers} zoom={zoom} pan={pan} />
           <div
             data-studio-canvas-bg
-            className="studio-canvas-grid absolute inset-0 bg-zinc-50/80 dark:bg-zinc-900/90"
+            className="studio-canvas-grid absolute inset-0 bg-muted/40"
             style={{
               backgroundImage: "radial-gradient(circle, rgba(161,161,170,0.35) 1px, transparent 1px)",
               backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
@@ -1619,12 +1834,12 @@ export function StudioProWorkspace({
 
           {!showPicker && nodes.length === 0 ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="max-w-md rounded-3xl bg-white px-8 py-10 text-center shadow-[0_8px_30px_rgba(15,23,42,0.06)] dark:border dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
-                <p className="font-display text-lg font-semibold text-zinc-900 dark:text-zinc-100">Blank canvas</p>
+              <div className="max-w-md rounded-3xl bg-card px-8 py-10 text-center shadow-[0_8px_30px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
+                <p className="font-display text-lg font-semibold text-foreground">Blank canvas</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
                   Use the toolbar below to add nodes, describe your flow, and connect cards left-to-right.
                 </p>
-                <div className="mt-5 rounded-2xl border border-zinc-100 bg-zinc-50/80 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-800/50">
+                <div className="mt-5 rounded-2xl border border-zinc-100 bg-muted/40 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-800/50">
                   <StudioMultiClipWorkflow />
                 </div>
               </div>
@@ -1650,30 +1865,55 @@ export function StudioProWorkspace({
             </div>
           ) : null}
 
-          {agentOpen && !showPicker ? (
+          {!showPicker ? (
             <div
-              className="studio-agent pointer-events-auto absolute bottom-24 left-4 top-16 z-20 w-[min(360px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.14)] dark:border-zinc-700 dark:bg-zinc-900"
+              className={cn(
+                "studio-agent pointer-events-auto group absolute bottom-24 top-16 z-20 overflow-hidden border-r border-border/90 bg-card shadow-[0_16px_48px_rgba(15,23,42,0.14)] transition-all duration-300 ease-out dark:shadow-[0_16px_48px_rgba(0,0,0,0.35)]",
+                agentOpen
+                  ? "left-0 w-[min(360px,calc(100%-2rem))] rounded-r-2xl"
+                  : "-left-0 w-12 rounded-r-2xl hover:w-[min(360px,calc(100%-2rem))]",
+              )}
               data-studio-overlay
               onPointerDown={stopCanvasPointer}
               onWheel={stopCanvasWheel}
             >
-              <StudioProAgentPanel
-                flowId={sessionId}
-                workspaceId={workspaceId}
-                actions={agentActions}
-                collaboration={agentCollaboration}
-                agentRuntimeRef={agentRuntimeRef}
-                applyRemoteAgentChatRef={applyRemoteAgentChatRef}
-                autoStartPrompt={agentAutoPrompt}
-                onAutoStartPromptConsumed={() => setAgentAutoPrompt(null)}
-                onClose={() => setAgentOpen(false)}
-              />
+              <div
+                className={cn(
+                  "h-full w-full transition-opacity duration-300",
+                  agentOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                )}
+              >
+                <StudioProAgentPanel
+                  flowId={sessionId}
+                  workspaceId={workspaceId}
+                  actions={agentActions}
+                  collaboration={agentCollaboration}
+                  agentRuntimeRef={agentRuntimeRef}
+                  applyRemoteAgentChatRef={applyRemoteAgentChatRef}
+                  autoStartPrompt={agentAutoPrompt}
+                  onAutoStartPromptConsumed={() => setAgentAutoPrompt(null)}
+                  onClose={() => setAgentOpen(false)}
+                />
+              </div>
+              {!agentOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setAgentOpen(true)}
+                  className="absolute inset-0 flex items-center justify-center opacity-100 transition-opacity duration-300 group-hover:opacity-0"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                  </div>
+                </button>
+              ) : null}
             </div>
           ) : null}
 
           {inspectorOpen && selectedNode ? (
             <div
-              className="studio-inspector pointer-events-auto absolute bottom-24 right-4 top-16 z-20 w-[min(300px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.14)] dark:border-zinc-700 dark:bg-zinc-900"
+              className="studio-inspector pointer-events-auto absolute bottom-24 right-4 top-16 z-20 w-[min(300px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-border/90 bg-card shadow-[0_16px_48px_rgba(15,23,42,0.14)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.35)]"
               data-studio-overlay
               onPointerDown={stopCanvasPointer}
               onWheel={stopCanvasWheel}

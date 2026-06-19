@@ -85,6 +85,21 @@ function patchFromArgs(args: Record<string, unknown>): Partial<StudioNode["data"
   ) {
     patch.videoOperation = args.videoOperation;
   }
+  if (typeof args.steps === "number") patch.steps = args.steps;
+  if (typeof args.width === "number") patch.width = args.width;
+  if (typeof args.height === "number") patch.height = args.height;
+  if (typeof args.seed === "number") patch.seed = args.seed;
+  if (args.outputFormat === "png" || args.outputFormat === "jpg" || args.outputFormat === "webp") {
+    patch.outputFormat = args.outputFormat;
+  }
+  if (typeof args.imageUrl === "string") patch.imageUrl = args.imageUrl;
+  if (typeof args.videoUrl === "string") patch.videoUrl = args.videoUrl;
+  if (typeof args.audioUrl === "string") patch.audioUrl = args.audioUrl;
+  if (typeof args.scheduleInterval === "number") patch.scheduleInterval = args.scheduleInterval;
+  if (typeof args.scheduleEnabled === "boolean") patch.scheduleEnabled = args.scheduleEnabled;
+  if (typeof args.socialProvider === "string") patch.socialProvider = args.socialProvider;
+  if (typeof args.socialCaption === "string") patch.socialCaption = args.socialCaption;
+  if (typeof args.socialMediaUrl === "string") patch.socialMediaUrl = args.socialMediaUrl;
   return patch;
 }
 
@@ -578,10 +593,28 @@ export async function executeAgentTool(
         if (!node) {
           return { ok: false, message: `Node ${nodeId} not found.` };
         }
-        const assets = await actions.listAssets(undefined, 48);
-        const asset = assets.find((item) => item.id === assetId);
+        const assets = await actions.listAssets(undefined, 200);
+        let asset = assets.find((item) => item.id === assetId);
         if (!asset) {
-          return { ok: false, message: `Asset ${assetId} not found. Call list_assets first.` };
+          asset = assets.find((item) => item.id.startsWith(assetId) || item.id.endsWith(assetId));
+        }
+        if (!asset) {
+          const nameMatch = assets.find((item) =>
+            item.name?.toLowerCase().includes(assetId.toLowerCase()),
+          );
+          if (nameMatch) {
+            asset = nameMatch;
+          }
+        }
+        if (!asset) {
+          const assetList = assets
+            .slice(0, 12)
+            .map((a) => `${a.id} · ${a.kind} · ${a.name ?? "Untitled"}`)
+            .join("\n");
+          return {
+            ok: false,
+            message: `Asset ${assetId} not found. Available assets:\n${assetList}`,
+          };
         }
         const patch = assetPatchForNode(node, asset);
         if (Object.keys(patch).length === 0) {
@@ -595,7 +628,59 @@ export async function executeAgentTool(
         await actions.flushSave();
         return {
           ok: true,
-          message: `Attached ${asset.kind} asset to ${nodeId}.`,
+          message: `Attached ${asset.kind} asset ${asset.name ?? asset.id} to ${nodeId}.`,
+          nodeId,
+          imageUrl: patch.imageUrl,
+          videoUrl: patch.videoUrl,
+          audioUrl: patch.audioUrl,
+        };
+      }
+
+      case "set_node_media": {
+        const nodeId = String(call.arguments.nodeId);
+        const blocked = guardTeammateOnNode(actions, nodeId, call.name);
+        if (blocked) return blocked;
+        const node = nodes.find((item) => item.id === nodeId);
+        if (!node) {
+          return { ok: false, message: `Node ${nodeId} not found.` };
+        }
+        const patch = patchFromArgs(call.arguments);
+        if (Object.keys(patch).length === 0) {
+          return {
+            ok: false,
+            message: `Pass imageUrl, videoUrl, or audioUrl for ${nodeId}.`,
+          };
+        }
+        if (patch.imageUrl && node.type !== "image") {
+          return { ok: false, message: `imageUrl only works on image nodes, not ${node.type}.` };
+        }
+        if (patch.videoUrl && node.type !== "video") {
+          return { ok: false, message: `videoUrl only works on video nodes, not ${node.type}.` };
+        }
+        if (patch.audioUrl && node.type !== "audio") {
+          return { ok: false, message: `audioUrl only works on audio nodes, not ${node.type}.` };
+        }
+        const mediaPatch: Partial<StudioNode["data"]> = {
+          ...patch,
+          mediaSource: "upload",
+          status: "done",
+          error: undefined,
+        };
+        if (patch.imageUrl) {
+          mediaPatch.output = patch.imageUrl;
+        }
+        if (patch.videoUrl) {
+          mediaPatch.output = patch.videoUrl;
+        }
+        if (patch.audioUrl) {
+          mediaPatch.output = patch.audioUrl;
+        }
+        actions.updateNodeData(nodeId, mediaPatch);
+        actions.focusNode(nodeId);
+        await actions.flushSave();
+        return {
+          ok: true,
+          message: `Set media on ${nodeId}.`,
           nodeId,
           imageUrl: patch.imageUrl,
           videoUrl: patch.videoUrl,

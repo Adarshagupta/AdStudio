@@ -16,6 +16,8 @@ const TYPE_LAYER: Record<StudioNodeType, number> = {
   character: 0,
   image: 1,
   video: 2,
+  schedule: 0,
+  social: 1,
 };
 
 function snap(value: number) {

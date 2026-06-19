@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { FileText, Image as ImageIcon, Music2, UserRound, Video } from "lucide-react";
+import { CalendarClock, FileText, Image as ImageIcon, Music2, Share2, UserRound, Video } from "lucide-react";
 
 import { buildEdgePath } from "@/lib/studio-pro/graph";
 import type { StudioEdge, StudioNode, StudioNodeType } from "@/lib/studio-pro/types";
@@ -14,6 +14,8 @@ const icons: Record<StudioNodeType, typeof FileText> = {
   image: ImageIcon,
   audio: Music2,
   video: Video,
+  schedule: CalendarClock,
+  social: Share2,
 };
 
 const typeAccent: Record<StudioNodeType, string> = {
@@ -22,6 +24,8 @@ const typeAccent: Record<StudioNodeType, string> = {
   image: "from-sky-500/20 to-sky-500/5",
   audio: "from-amber-500/20 to-amber-500/5",
   video: "from-emerald-500/20 to-emerald-500/5",
+  schedule: "from-rose-500/20 to-rose-500/5",
+  social: "from-orange-500/20 to-orange-500/5",
 };
 
 function PreviewNode({ node }: { node: StudioNode }) {
@@ -31,7 +35,7 @@ function PreviewNode({ node }: { node: StudioNode }) {
 
   return (
     <div
-      className="absolute rounded-xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+      className="absolute rounded-xl border border-border/90 bg-card shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
       style={{
         left: node.x,
         top: node.y,
@@ -46,7 +50,7 @@ function PreviewNode({ node }: { node: StudioNode }) {
           <Icon className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">{node.title}</p>
+          <p className="truncate text-xs font-medium text-foreground">{node.title}</p>
           <p className="truncate text-[10px] text-zinc-500">{node.subtitle}</p>
         </div>
       </div>

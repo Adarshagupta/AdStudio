@@ -8,18 +8,24 @@ import {
   ChevronDown,
   Clapperboard,
   Film,
+  ImageIcon,
   ImagePlus,
+  Link2,
   Loader2,
   Pencil,
   Plus,
   Send,
   Sparkles,
   Video,
+  VideoIcon,
+  Wand2,
   X,
+  Zap,
 } from "lucide-react";
 
 import { MediaUploadTrigger } from "@/components/assets/MediaUploadTrigger";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,15 +42,20 @@ import {
   type ChatAttachment,
   type ChatMessage,
   type ChatToolMode,
+  type AgentStep,
   inferToolMode,
   toolModeLabel,
   validateChatPrompt,
 } from "@/lib/dashboard-chat";
 import {
   fetchGenerationStatus,
+  isInsufficientCreditsError,
   isTransientGenerationStatusError,
   pollGenerationUntilComplete,
   startGeneration,
+  streamAgentGeneration,
+  type AgentGenerationResult,
+  type AgentStreamEvent,
 } from "@/lib/generation-client";
 import {
   createChatSessionRecord,
@@ -57,6 +68,9 @@ import { notify } from "@/lib/notify";
 import { uploadStudioAsset } from "@/lib/studio-asset-upload";
 import { ChatScriptView } from "@/components/dashboard/ChatScriptView";
 import { DashboardChatHistoryDropdown } from "@/components/dashboard/DashboardChatSessionList";
+import { AgentStepProgress } from "@/components/dashboard/AgentStepProgress";
+import { AgentThinking } from "@/components/dashboard/AgentThinking";
+import { cn } from "@/lib/utils";
 
 function newId() {
   return crypto.randomUUID();
@@ -82,11 +96,20 @@ export function DashboardChat({
   const [sessions, setSessions] = useState<ChatSessionMeta[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [productUrl, setProductUrl] = useState("");
+  const [showProductUrl, setShowProductUrl] = useState(false);
+  const [productResearchSummary, setProductResearchSummary] = useState<string | null>(null);
+  const [productContextCache, setProductContextCache] = useState<string | null>(null);
+  const [productContextUrl, setProductContextUrl] = useState<string | null>(null);
+  const [isResearchingProduct, setIsResearchingProduct] = useState(false);
   const [toolMode, setToolMode] = useState<ChatToolMode>("video");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [agentMode, setAgentMode] = useState(true);
+  const [imageModel, setImageModel] = useState("openai/gpt-image-1");
+  const [videoModel, setVideoModel] = useState("openai/sora-2");
   const launchHandledRef = useRef<string | null>(null);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
@@ -102,6 +125,11 @@ export function DashboardChat({
     }
     setMessages(loadChatSessionMessages(sessionId));
     setDraft("");
+    setProductUrl("");
+    setShowProductUrl(false);
+    setProductResearchSummary(null);
+    setProductContextCache(null);
+    setProductContextUrl(null);
     setAttachments([]);
     setHydrated(true);
     refreshSessions();
@@ -345,6 +373,263 @@ export function DashboardChat({
     throw new Error("Timed out waiting for video generation.");
   };
 
+  const runAgentGeneration = async (
+    ownerSessionId: string,
+    assistantId: string,
+    prompt: string,
+    refs: ChatAttachment[],
+    options?: { productUrl?: string; aspectRatio?: string; productContext?: string },
+  ) => {
+    const imageRef = refs.find((item) => item.kind === "image");
+    const referenceImageUrls = refs.filter((item) => item.kind === "image").map((item) => item.url);
+
+    const initialSteps: AgentStep[] = [
+      ...(options?.productUrl
+        ? [{ id: "research", label: "research", description: "Researching product page", status: "running" as const }]
+        : []),
+      { id: "think", label: "think", description: "Analyzing prompt", status: options?.productUrl ? "pending" : "running" },
+      { id: "script", label: "script", description: "Writing script", status: "pending" },
+      { id: "image", label: "image", description: "Generating image", status: "pending" },
+      { id: "audio", label: "audio", description: "Creating voiceover", status: "pending" },
+      { id: "video", label: "video", description: "Rendering video", status: "pending" },
+    ];
+
+    updateAssistant(
+      assistantId,
+      {
+        agentMode: true,
+        thinking: "Analyzing your prompt…",
+        agentSteps: initialSteps,
+      },
+      ownerSessionId,
+    );
+
+    const step = (id: string, status: AgentStep["status"], patch?: Partial<AgentStep>) => {
+      const updated = initialSteps.map((s) => (s.id === id ? { ...s, ...patch, status } : s));
+      // keep local array in sync
+      initialSteps.splice(0, initialSteps.length, ...updated);
+      updateAssistant(assistantId, { agentSteps: updated }, ownerSessionId);
+    };
+
+    return new Promise<void>((resolve, reject) => {
+      let finalResult: {
+        generationId: string;
+        scriptText: string;
+        imageUrl?: string;
+        audioUrl?: string;
+        videoUrl?: string;
+        requestId?: string;
+        thinking?: string[];
+        settings?: AgentGenerationResult["settings"];
+      } | null = null;
+
+      const cleanup = streamAgentGeneration(
+        {
+          prompt,
+          aspectRatio: options?.aspectRatio ?? "9:16",
+          productUrl: options?.productUrl,
+          productContext: options?.productContext,
+          referenceImageUrl: imageRef?.url,
+          referenceImageUrls,
+          imageModel,
+          videoModel,
+        },
+        (event: AgentStreamEvent) => {
+          const { step: stepName, status, payload } = event;
+          const agentStepIds = new Set(["research", "think", "script", "image", "audio", "video"]);
+
+          if (agentStepIds.has(stepName) && status === "running") {
+            step(stepName, "running");
+            if (stepName === "research") {
+              updateAssistant(
+                assistantId,
+                { thinking: "Researching product and website…" },
+                ownerSessionId,
+              );
+            }
+            if (stepName === "script") {
+              step("think", "completed");
+            }
+          }
+
+          if (stepName === "research" && status === "completed") {
+            step("research", "completed", {
+              output: (payload?.productContext as string | undefined)?.split("\n")[0],
+              assetKind: "script",
+            });
+            step("think", "running");
+            updateAssistant(
+              assistantId,
+              {
+                thinking: payload?.partial
+                  ? "Using limited product details — continuing with your prompt…"
+                  : "Product research complete — planning your ad…",
+              },
+              ownerSessionId,
+            );
+          }
+
+          if (stepName === "think" && status === "completed") {
+            step("think", "completed");
+            if (payload?.thinking) {
+              updateAssistant(
+                assistantId,
+                {
+                  thinking: "Analysis complete",
+                  thinkingSteps: payload.thinking as string[],
+                  settings: payload.settings as AgentGenerationResult["settings"],
+                },
+                ownerSessionId,
+              );
+            }
+          }
+
+          if (stepName === "script" && status === "completed") {
+            step("script", "completed", { output: payload?.scriptText as string, assetKind: "script" });
+          }
+
+          if (stepName === "image" && status === "completed") {
+            step("image", "completed", { assetUrl: payload?.imageUrl as string, assetKind: "image" });
+          }
+
+          if (stepName === "audio" && status === "completed") {
+            step("audio", "completed", { assetUrl: payload?.audioUrl as string, assetKind: "audio" });
+          }
+
+          if (stepName === "video" && status === "completed") {
+            step("video", "completed", { assetUrl: payload?.videoUrl as string, assetKind: "video" });
+            if (payload?.videoUrl) {
+              updateAssistant(
+                assistantId,
+                {
+                  status: "completed",
+                  outputType: "video",
+                  videoUrl: payload.videoUrl as string,
+                  imageUrl: payload.imageUrl as string,
+                  scriptText: payload.scriptText as string,
+                  generationId: payload.generationId as string,
+                  thinking: undefined,
+                },
+                ownerSessionId,
+              );
+              cleanup();
+              resolve();
+              return;
+            }
+          }
+
+          if (stepName === "done") {
+            finalResult = {
+              generationId: payload?.generationId as string,
+              scriptText: payload?.scriptText as string,
+              imageUrl: payload?.imageUrl as string,
+              audioUrl: payload?.audioUrl as string,
+              videoUrl: payload?.videoUrl as string,
+              requestId: payload?.requestId as string,
+              thinking: payload?.thinking as string[],
+              settings: payload?.settings as AgentGenerationResult["settings"],
+            };
+
+            if (finalResult.videoUrl) {
+              step("video", "completed", { assetUrl: finalResult.videoUrl, assetKind: "video" });
+              updateAssistant(
+                assistantId,
+                {
+                  status: "completed",
+                  outputType: "video",
+                  videoUrl: finalResult.videoUrl,
+                  imageUrl: finalResult.imageUrl,
+                  scriptText: finalResult.scriptText,
+                  generationId: finalResult.generationId,
+                  thinking: undefined,
+                },
+                ownerSessionId,
+              );
+              cleanup();
+              resolve();
+              return;
+            }
+
+            if (finalResult.requestId) {
+              step("video", "running");
+              pollGenerationUntilComplete(finalResult.generationId, {
+                maxAttempts: 120,
+                intervalMs: 5000,
+              })
+                .then((polled) => {
+                  if (polled.videoUrl) {
+                    step("video", "completed", { assetUrl: polled.videoUrl, assetKind: "video" });
+                    updateAssistant(
+                      assistantId,
+                      {
+                        status: "completed",
+                        outputType: "video",
+                        videoUrl: polled.videoUrl,
+                        imageUrl: finalResult?.imageUrl,
+                        scriptText: finalResult?.scriptText,
+                        generationId: finalResult?.generationId,
+                        thinking: undefined,
+                      },
+                      ownerSessionId,
+                    );
+                  } else {
+                    throw new Error("Video generation did not return a video URL.");
+                  }
+                })
+                .catch((err) => {
+                  const message = err instanceof Error ? err.message : "Agent generation failed.";
+                  updateAssistant(
+                    assistantId,
+                    { status: "failed", error: message, thinking: undefined },
+                    ownerSessionId,
+                  );
+                  reject(err);
+                })
+                .finally(() => cleanup());
+              return;
+            }
+
+            cleanup();
+            resolve();
+            return;
+          }
+
+          if (stepName === "error") {
+            const message = (payload?.error as string) || "Agent generation failed.";
+            const runningStep = initialSteps.find((item) => item.status === "running");
+            if (runningStep) {
+              step(runningStep.id, "failed", { error: message });
+            }
+            updateAssistant(
+              assistantId,
+              { status: "failed", error: message, thinking: undefined },
+              ownerSessionId,
+            );
+            cleanup();
+            reject(new Error(message));
+          }
+        },
+        (error) => {
+          const isCreditError = isInsufficientCreditsError(error);
+          const message = error instanceof Error ? error.message : "Agent generation failed.";
+          updateAssistant(
+            assistantId,
+            {
+              status: "failed",
+              error: isCreditError
+                ? `${message} Upgrade your plan to get more credits.`
+                : message,
+              thinking: undefined,
+            },
+            ownerSessionId,
+          );
+          cleanup();
+          reject(error);
+        },
+      );
+    });
+  };
+
   const submitPrompt = async (input: {
     promptText?: string;
     mode?: ChatToolMode;
@@ -360,7 +645,8 @@ export function DashboardChat({
 
     const refs = input.refs ?? attachments;
     const mode = input.mode ?? inferToolMode(toolMode, refs);
-    const validation = validateChatPrompt(input.promptText ?? draft, refs, mode);
+    const activeProductUrl = input.productUrl ?? productUrl;
+    const validation = validateChatPrompt(input.promptText ?? draft, refs, mode, activeProductUrl);
     if (!validation.ok) {
       notify.error(validation.message);
       return;
@@ -372,6 +658,7 @@ export function DashboardChat({
       createdAt: Date.now(),
       text: validation.prompt,
       attachments: refs.length ? [...refs] : undefined,
+      productUrl: activeProductUrl.trim() || undefined,
       toolMode: mode,
     };
 
@@ -392,21 +679,39 @@ export function DashboardChat({
     });
     if (input.clearDraft !== false) {
       setDraft("");
+      setProductUrl("");
+      setShowProductUrl(false);
+      setProductResearchSummary(null);
       clearAttachments();
     }
     setIsBusy(true);
 
     try {
-      await runGeneration(ownerSessionId, assistantId, validation.prompt, mode, refs, {
-        productUrl: input.productUrl,
-        aspectRatio: input.aspectRatio,
-      });
+      if (agentMode) {
+        await runAgentGeneration(ownerSessionId, assistantId, validation.prompt, refs, {
+          productUrl: activeProductUrl.trim() || undefined,
+          productContext:
+            activeProductUrl.trim() && productContextUrl === activeProductUrl.trim()
+              ? productContextCache ?? undefined
+              : undefined,
+          aspectRatio: input.aspectRatio,
+        });
+      } else {
+        await runGeneration(ownerSessionId, assistantId, validation.prompt, mode, refs, {
+          productUrl: activeProductUrl.trim() || undefined,
+          aspectRatio: input.aspectRatio,
+        });
+      }
     } catch (error) {
+      const isCreditError = isInsufficientCreditsError(error);
+      const message = error instanceof Error ? error.message : "Generation failed.";
       updateAssistant(
         assistantId,
         {
           status: "failed",
-          error: error instanceof Error ? error.message : "Generation failed.",
+          error: isCreditError
+            ? `${message} Upgrade your plan to get more credits.`
+            : message,
           text: undefined,
         },
         ownerSessionId,
@@ -417,8 +722,52 @@ export function DashboardChat({
   };
 
   const sendMessage = async (textOverride?: string) => {
-    await submitPrompt({ promptText: textOverride });
+    await submitPrompt({ promptText: textOverride, productUrl: productUrl.trim() || undefined });
   };
+
+  const previewProductResearch = useCallback(async () => {
+    const trimmed = productUrl.trim();
+    if (!trimmed) {
+      setProductResearchSummary(null);
+      return;
+    }
+
+    try {
+      new URL(trimmed);
+    } catch {
+      notify.error("Enter a valid product URL (https://…).");
+      return;
+    }
+
+    setIsResearchingProduct(true);
+    try {
+      const response = await fetch("/api/dashboard/product-research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productUrl: trimmed }),
+      });
+      const data = (await response.json()) as {
+        context?: string;
+        partial?: boolean;
+        research?: { summary?: string; brandName?: string; productName?: string };
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error || "Could not research that URL.");
+      }
+      const headline = [data.research?.brandName, data.research?.productName].filter(Boolean).join(" · ");
+      setProductResearchSummary(
+        headline ? `${headline} — ${data.research?.summary ?? ""}` : data.research?.summary ?? null,
+      );
+      setProductContextCache(data.context ?? null);
+      setProductContextUrl(trimmed);
+    } catch (error) {
+      setProductResearchSummary(null);
+      notify.error(error instanceof Error ? error.message : "Product research failed.");
+    } finally {
+      setIsResearchingProduct(false);
+    }
+  }, [productUrl]);
 
   const runLaunch = useCallback(
     (launch: {
@@ -430,6 +779,10 @@ export function DashboardChat({
       aspectRatio?: string;
     }) => {
       setToolMode(launch.toolMode);
+      if (launch.productUrl) {
+        setProductUrl(launch.productUrl);
+        setShowProductUrl(true);
+      }
 
       const launchAttachments: ChatAttachment[] = [];
       if (launch.referenceImageUrl) {
@@ -528,7 +881,7 @@ export function DashboardChat({
               What would you like to create?
             </h1>
             <p className="mt-2 max-w-lg text-sm leading-6 text-zinc-500">
-              Chat to generate images and videos, edit clips, or extend footage — like Gemini, built for ads.
+              Quick mode for instant results. Toggle Agent mode for a full creative pipeline — script, image, voiceover, and video in one go.
             </p>
             <div className="mt-8 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
               {CHAT_STARTER_PROMPTS.map((starter) => (
@@ -582,6 +935,39 @@ export function DashboardChat({
             </div>
           ) : null}
 
+          {showProductUrl ? (
+            <div className="mb-2 space-y-2 rounded-2xl border border-zinc-200/80 bg-white/90 p-3">
+              <Input
+                value={productUrl}
+                onChange={(event) => {
+                  setProductUrl(event.target.value);
+                  setProductResearchSummary(null);
+                  setProductContextCache(null);
+                  setProductContextUrl(null);
+                }}
+                onBlur={() => {
+                  if (productUrl.trim()) void previewProductResearch();
+                }}
+                disabled={isBusy}
+                type="url"
+                placeholder="https://your-product-page.com"
+                className="h-10 border-zinc-200 bg-zinc-50"
+              />
+              {isResearchingProduct ? (
+                <p className="flex items-center gap-2 text-xs text-zinc-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Researching product and website…
+                </p>
+              ) : productResearchSummary ? (
+                <p className="text-xs leading-5 text-zinc-600">{productResearchSummary}</p>
+              ) : (
+                <p className="text-xs text-zinc-500">
+                  We&apos;ll read the page and use OpenAI to extract brand, product, and offer details for your ad.
+                </p>
+              )}
+            </div>
+          ) : null}
+
           <Textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -626,6 +1012,21 @@ export function DashboardChat({
                 )}
               />
 
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8 rounded-full bg-transparent text-zinc-500 hover:bg-transparent hover:text-zinc-800",
+                  showProductUrl && "text-purple-700",
+                )}
+                disabled={isBusy}
+                onClick={() => setShowProductUrl((open) => !open)}
+                aria-label="Add product URL"
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -659,6 +1060,69 @@ export function DashboardChat({
                   })}
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <button
+                type="button"
+                onClick={() => setAgentMode((prev) => !prev)}
+                disabled={isBusy}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition",
+                  agentMode
+                    ? "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                    : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200",
+                )}
+              >
+                {agentMode ? <Wand2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
+                {agentMode ? "Agent" : "Quick"}
+              </button>
+
+              {agentMode && (
+                <div className="flex items-center gap-1.5">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-200"
+                      >
+                        <ImageIcon className="h-3 w-3" />
+                        {imageModel === "openai/dall-e-3" ? "DALL·E 3" : "GPT Image"}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-40">
+                      <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => setImageModel("openai/dall-e-3")}>
+                        DALL·E 3
+                        <span className="ml-1 text-[10px] text-zinc-400">($0.04)</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => setImageModel("openai/gpt-image-1")}>
+                        GPT Image 1
+                        <span className="ml-1 text-[10px] text-zinc-400">($0.05)</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-200"
+                      >
+                        <VideoIcon className="h-3 w-3" />
+                        {videoModel === "openai/sora-2" ? "Sora" : "Sora Pro"}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-40">
+                      <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => setVideoModel("openai/sora-2")}>
+                        Sora 2
+                        <span className="ml-1 text-[10px] text-zinc-400">($0.50)</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => setVideoModel("openai/sora-2-pro")}>
+                        Sora 2 Pro
+                        <span className="ml-1 text-[10px] text-zinc-400">($1.00)</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
 
             <Button
@@ -710,6 +1174,19 @@ function ChatBubble({ message }: { message: ChatMessage }) {
               )}
             </div>
           ) : null}
+          {message.productUrl ? (
+            <div className="flex justify-end">
+              <a
+                href={message.productUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-zinc-100 px-3 py-1 text-[11px] text-zinc-600"
+              >
+                <Link2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">{message.productUrl.replace(/^https?:\/\//, "")}</span>
+              </a>
+            </div>
+          ) : null}
           <div className="rounded-[1.25rem] bg-zinc-900 px-4 py-3 text-[15px] leading-6 text-white whitespace-pre-wrap">
             {message.text}
           </div>
@@ -727,6 +1204,14 @@ function ChatBubble({ message }: { message: ChatMessage }) {
         <Sparkles className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1 space-y-3 text-zinc-900">
+        {message.agentMode && message.thinking ? (
+          <AgentThinking text={message.thinking} steps={message.thinkingSteps} />
+        ) : null}
+
+        {message.agentMode && message.agentSteps ? (
+          <AgentStepProgress steps={message.agentSteps} />
+        ) : null}
+
         {showProcessing ? (
           <div className="flex items-center gap-2 text-sm text-zinc-600">
             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-purple-600" />
@@ -759,9 +1244,20 @@ function ChatBubble({ message }: { message: ChatMessage }) {
         ) : null}
 
         {message.scriptText ? (
-          <div className="rounded-2xl border border-zinc-200/90 bg-white px-3 py-3 shadow-sm md:px-4">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Script</p>
+          <div className="rounded-2xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
             <ChatScriptView text={message.scriptText} />
+          </div>
+        ) : null}
+
+        {message.status === "completed" && message.settings ? (
+          <div className="flex flex-wrap gap-1.5 text-[10px] text-zinc-400">
+            <span>{message.settings.aspectRatio}</span>
+            <span>·</span>
+            <span>{message.settings.duration}s</span>
+            <span>·</span>
+            <span>{message.settings.imageModel}</span>
+            <span>·</span>
+            <span>{message.settings.videoModel}</span>
           </div>
         ) : null}
 

@@ -152,7 +152,7 @@ export function EditTemplateDialog({
 
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
-            <label htmlFor="edit-template-title" className="text-sm font-medium text-zinc-900">
+            <label htmlFor="edit-template-title" className="text-sm font-medium text-foreground">
               Title
             </label>
             <Input
@@ -163,7 +163,7 @@ export function EditTemplateDialog({
           </div>
 
           <div className="grid gap-2">
-            <label htmlFor="edit-template-description" className="text-sm font-medium text-zinc-900">
+            <label htmlFor="edit-template-description" className="text-sm font-medium text-foreground">
               Description
             </label>
             <Textarea
@@ -184,7 +184,7 @@ export function EditTemplateDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <label htmlFor="edit-template-price" className="text-sm font-medium text-zinc-900">
+              <label htmlFor="edit-template-price" className="text-sm font-medium text-foreground">
                 Price (USD)
               </label>
               <Input
@@ -197,7 +197,7 @@ export function EditTemplateDialog({
               />
             </div>
             <div className="grid gap-2">
-              <label htmlFor="edit-template-category" className="text-sm font-medium text-zinc-900">
+              <label htmlFor="edit-template-category" className="text-sm font-medium text-foreground">
                 Category
               </label>
               <Input
@@ -209,7 +209,7 @@ export function EditTemplateDialog({
           </div>
 
           <div className="grid gap-2">
-            <label htmlFor="edit-template-tags" className="text-sm font-medium text-zinc-900">
+            <label htmlFor="edit-template-tags" className="text-sm font-medium text-foreground">
               Tags (comma-separated)
             </label>
             <Input

@@ -15,7 +15,7 @@ export function AppToaster() {
       toastOptions={{
         classNames: {
           toast:
-            "group toast rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-[0_8px_30px_rgba(15,23,42,0.08)]",
+            "group toast rounded-xl border border-border bg-card text-foreground shadow-[0_8px_30px_rgba(15,23,42,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]",
           title: "text-sm font-medium",
           description: "text-sm text-zinc-600",
           actionButton: "bg-zinc-900 text-white",

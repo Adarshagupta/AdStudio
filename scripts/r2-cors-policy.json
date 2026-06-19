@@ -1,6 +1,9 @@
 [
   {
     "AllowedOrigins": [
+      "https://litemoov.com",
+      "https://www.litemoov.com",
+      "https://studio.sylicaai.com",
       "https://ugc-ad-platform.vercel.app",
       "http://localhost:3000"
     ],

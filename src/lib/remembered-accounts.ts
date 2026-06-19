@@ -1,4 +1,4 @@
-const STORAGE_KEY = "ad-studio-remembered-accounts";
+const STORAGE_KEY = "litemoov-remembered-accounts";
 const MAX_ACCOUNTS = 5;
 
 export type RememberedAccount = {

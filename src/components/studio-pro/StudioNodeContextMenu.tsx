@@ -47,7 +47,7 @@ export function StudioNodeContextMenu({
         className={`absolute min-w-[180px] overflow-hidden rounded-xl border py-1 shadow-[0_12px_40px_rgba(15,23,42,0.12)] ${
           isDark
             ? "border-zinc-700 bg-zinc-900 shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
-            : "border-zinc-200 bg-white"
+            : "border-border bg-card"
         }`}
         style={{ left: x, top: y }}
         onPointerDown={(event) => event.stopPropagation()}

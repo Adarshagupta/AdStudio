@@ -9,8 +9,7 @@ export type SidebarIconMotion = "bob" | "sway" | "pulse" | "sparkle";
 const motionByHref: Record<string, SidebarIconMotion> = {
   "/dashboard": "bob",
   "/studio-pro": "sway",
-  "/create/ugc-talking-head": "sway",
-  "/create/brain-rot": "sparkle",
+  "/studio/image": "pulse",
   "/library": "bob",
   "/assets": "pulse",
   "/analytics": "pulse",

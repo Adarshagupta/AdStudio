@@ -1,10 +1,28 @@
+import type { Metadata } from "next";
+
+import { JsonLd } from "@/components/seo/JsonLd";
 import { PublicPageLayout } from "@/components/layout/PublicPageLayout";
+import { buildLegalJsonLd, buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Terms of Service",
+  description: "Terms and conditions for using LiteMoov's AI video generation, UGC ad creation, and collaboration platform.",
+  path: "/terms",
+});
 
 export default function TermsPage() {
   return (
-    <PublicPageLayout
+    <>
+      <JsonLd
+        data={buildLegalJsonLd({
+          path: "/terms",
+          name: "Terms of Service",
+          description: "Terms and conditions for using LiteMoov.",
+        })}
+      />
+      <PublicPageLayout
       title="Terms of Service"
-      description="The rules and guidelines for using Ad Studio."
+      description="The rules and guidelines for using LiteMoov."
     >
       <div className="mx-auto max-w-3xl space-y-10 px-5 text-sm leading-7 text-zinc-700 md:px-8 md:text-base">
         <section>
@@ -12,7 +30,7 @@ export default function TermsPage() {
             1. Acceptance of Terms
           </h2>
           <p className="mt-3">
-            By accessing or using Ad Studio, you agree to be bound by these Terms of Service. If you do not agree to these terms, you may not use the platform.
+            By accessing or using LiteMoov, you agree to be bound by these Terms of Service. If you do not agree to these terms, you may not use the platform.
           </p>
         </section>
 
@@ -21,7 +39,7 @@ export default function TermsPage() {
             2. Eligibility
           </h2>
           <p className="mt-3">
-            You must be at least 18 years old to use Ad Studio. By creating an account, you represent that you have the legal capacity to enter into these terms.
+            You must be at least 18 years old to use LiteMoov. By creating an account, you represent that you have the legal capacity to enter into these terms.
           </p>
         </section>
 
@@ -39,7 +57,7 @@ export default function TermsPage() {
             4. Acceptable Use
           </h2>
           <p className="mt-3">
-            You agree not to use Ad Studio for any unlawful purpose, to generate harmful, offensive, or infringing content, or to attempt to interfere with the platform&apos;s security or performance.
+            You agree not to use LiteMoov for any unlawful purpose, to generate harmful, offensive, or infringing content, or to attempt to interfere with the platform&apos;s security or performance.
           </p>
         </section>
 
@@ -48,7 +66,7 @@ export default function TermsPage() {
             5. Intellectual Property
           </h2>
           <p className="mt-3">
-            You retain ownership of the content you generate using Ad Studio. We grant you a limited, non-exclusive license to use the platform. We retain all rights to our technology, trademarks, and branding.
+            You retain ownership of the content you generate using LiteMoov. We grant you a limited, non-exclusive license to use the platform. We retain all rights to our technology, trademarks, and branding.
           </p>
         </section>
 
@@ -75,7 +93,7 @@ export default function TermsPage() {
             8. Limitation of Liability
           </h2>
           <p className="mt-3">
-            Ad Studio is provided &ldquo;as is&rdquo; without warranties of any kind. We are not liable for any indirect, incidental, or consequential damages arising from your use of the platform.
+            LiteMoov is provided &ldquo;as is&rdquo; without warranties of any kind. We are not liable for any indirect, incidental, or consequential damages arising from your use of the platform.
           </p>
         </section>
 
@@ -94,8 +112,8 @@ export default function TermsPage() {
           </h2>
           <p className="mt-3">
             For questions about these Terms of Service, please contact us at{" "}
-            <a href="mailto:legal@adstudio.com" className="text-violet-700 hover:underline">
-              legal@adstudio.com
+            <a href="mailto:legal@litemoov.com" className="text-violet-700 hover:underline">
+              legal@litemoov.com
             </a>
             .
           </p>
@@ -106,10 +124,7 @@ export default function TermsPage() {
         </p>
       </div>
     </PublicPageLayout>
+    </>
   );
 }
 
-export const metadata = {
-  title: "Terms of Service - Ad Studio",
-  description: "The rules and guidelines for using Ad Studio.",
-};

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { cloudflareModels } from "@/lib/cloudflare/models";
 import { generateScript, getConfiguredCloudflareModels } from "@/lib/cloudflare-ai";
-import { getConfiguredLtxApiKeyCount, getConfiguredLtxVideoModel } from "@/lib/ltx-ai";
+import { getConfiguredLtxApiKeyCount, getConfiguredLtxVideoModel, isLtxVideoConfigured } from "@/lib/ltx-ai";
 
 export async function GET() {
   const checks: Record<string, { ok: boolean; detail: string }> = {};
@@ -29,10 +29,13 @@ export async function GET() {
   }
 
   const ltxKeyCount = getConfiguredLtxApiKeyCount();
-  if (ltxKeyCount > 0) {
+  if (isLtxVideoConfigured()) {
     checks.ltx = {
       ok: true,
-      detail: `LTX video configured (${getConfiguredLtxVideoModel()}, ${ltxKeyCount} API key${ltxKeyCount === 1 ? "" : "s"} with fallback).`,
+      detail:
+        ltxKeyCount > 0
+          ? `LTX video configured (${getConfiguredLtxVideoModel()}, ${ltxKeyCount} API key${ltxKeyCount === 1 ? "" : "s"} with fallback).`
+          : `LTX self-hosted API configured (${process.env.LTX_API_BASE?.trim() || "custom base"}).`,
     };
   } else {
     checks.ltx = {

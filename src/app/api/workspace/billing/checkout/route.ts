@@ -3,12 +3,18 @@ import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
 import type { BillingInterval, SubscriptionPlanId } from "@/lib/billing/plans";
+import {
+  getPaidCheckoutUnavailableMessage,
+  isPaidCheckoutEnabled,
+  requiresPaidCheckout,
+} from "@/lib/billing/payment-provider";
 import { createWorkspaceSubscriptionCheckout } from "@/lib/billing/workspace-subscription";
 import { parseRequestJson } from "@/lib/http/json";
 
 const checkoutSchema = z.object({
-  plan: z.enum(["STARTER", "PLUS", "PRO"]),
+  plan: z.enum(["STARTER", "PRO", "BUSINESS"]),
   interval: z.enum(["monthly", "yearly"]).default("monthly"),
+  trial: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -37,6 +43,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
   }
 
+  if (requiresPaidCheckout() && !isPaidCheckoutEnabled()) {
+    return NextResponse.json({ error: getPaidCheckoutUnavailableMessage() }, { status: 503 });
+  }
+
   try {
     const checkout = await createWorkspaceSubscriptionCheckout({
       workspaceId: currentUser.workspace.id,
@@ -45,6 +55,7 @@ export async function POST(request: Request) {
       email: currentUser.user.email,
       plan: result.data.plan as SubscriptionPlanId,
       interval: result.data.interval as BillingInterval,
+      trialDays: result.data.trial ? 7 : undefined,
       request,
     });
 

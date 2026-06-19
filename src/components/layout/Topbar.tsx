@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { motion } from "framer-motion";
+import { Gift, Menu } from "lucide-react";
 
 import { AppLogo } from "@/components/layout/AppLogo";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
 
 export function Topbar({
@@ -27,26 +29,50 @@ export function Topbar({
   onOpenMobileSidebar?: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b border-zinc-100/80 bg-[#fafafa]/90 px-4 backdrop-blur-md md:justify-end md:px-8">
+    <motion.header
+      className="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b border-border/80 bg-background/90 px-4 backdrop-blur-md md:justify-end md:px-8"
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+    >
       <div className="flex items-center gap-2 md:hidden">
-        <Button
-          variant="icon"
-          size="icon"
-          aria-label="Open navigation"
-          onClick={onOpenMobileSidebar}
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
+        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+          <Button
+            variant="icon"
+            size="icon"
+            aria-label="Open navigation"
+            onClick={onOpenMobileSidebar}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </motion.div>
         <AppLogo variant="mark" className="h-9 w-9 items-center justify-center" />
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" className="hidden sm:inline-flex" asChild>
-          <Link href="/settings/billing">{workspace.creditsRemaining.toLocaleString()} credits</Link>
-        </Button>
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="sm:hidden">
+          <Button variant="outline" size="icon" className="h-9 w-9" asChild>
+            <Link href="/settings/referral" aria-label="Refer and earn credits">
+              <Gift className="h-4 w-4 text-violet-600" aria-hidden />
+            </Link>
+          </Button>
+        </motion.div>
+        <motion.div
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          className="hidden sm:block"
+        >
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href="/settings/referral">
+              <Gift className="h-3.5 w-3.5 text-violet-600" aria-hidden />
+              Refer and earn
+            </Link>
+          </Button>
+        </motion.div>
+        <ThemeToggle />
         <NotificationBell />
         <AccountMenu user={user} creditsRemaining={workspace.creditsRemaining} />
       </div>
-    </header>
+    </motion.header>
   );
 }

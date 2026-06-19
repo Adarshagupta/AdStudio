@@ -31,7 +31,7 @@ export default async function IntegrationsSettingsPage() {
 
         <Suspense
           fallback={
-            <Card className="bg-white px-5 py-8 text-sm text-muted-foreground">Loading integrations...</Card>
+            <Card className="px-5 py-8 text-sm text-muted-foreground">Loading integrations...</Card>
           }
         >
           <SocialIntegrationsPanel initialProviders={providers} />

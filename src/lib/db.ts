@@ -19,7 +19,11 @@ function getPrismaClient() {
   const cached = globalForPrisma.prisma;
 
   // Hot reload can keep an old Prisma client after schema changes.
-  if (cached && typeof cached.studioFlow !== "undefined") {
+  if (
+    cached &&
+    typeof cached.studioFlow !== "undefined" &&
+    typeof cached.blogPost !== "undefined"
+  ) {
     return cached;
   }
 

@@ -43,7 +43,7 @@ export function StudioTemplateSampleGallery({
       </div>
 
       <div>
-        <p className="text-sm font-medium text-zinc-900">{activeSample.nodeTitle}</p>
+        <p className="text-sm font-medium text-foreground">{activeSample.nodeTitle}</p>
         <p className="text-xs text-zinc-500">
           Sample {activeSample.type} from this template&apos;s generations
         </p>

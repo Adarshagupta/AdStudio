@@ -7,6 +7,8 @@ const NODE_CREDIT_COST: Record<StudioNode["type"], number> = {
   image: 1,
   audio: 1,
   video: 2,
+  schedule: 0,
+  social: 1,
 };
 
 export function estimateNodeCredits(node: StudioNode) {

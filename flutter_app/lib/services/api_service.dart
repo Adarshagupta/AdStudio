@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,34 +5,39 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/api_config.dart';
+
 class ApiService {
   late Dio _dio;
   late SharedPreferences _prefs;
   String? _sessionToken;
 
   static const String sessionCookieName = 'ugc_session';
-  static const String baseUrl = 'https://ugc-ad-platform.vercel.app';
-  static const String apiBaseUrl = 'https://ugc-ad-platform.vercel.app/api';
+  static const String _cachedUserKey = 'cached_user';
+  static const String _cachedOnboardingKey = 'cached_onboarding_complete';
+
+  static String get baseUrl => ApiConfig.appOrigin;
+
+  static String get apiBaseUrl => ApiConfig.apiBaseUrl;
 
   static String messageFromDioException(DioException error) {
     final data = error.response?.data;
     if (data is Map) {
-      final message = data['error'];
+      final message = data['error'] ?? data['errorMessage'];
       if (message is String && message.trim().isNotEmpty) {
         return message;
       }
     }
 
     final status = error.response?.statusCode;
-    if (status == 401) {
-      return 'Invalid email or password.';
+    if (status == 401) return 'Invalid email or password.';
+    if (status == 403) return 'You do not have permission for this action.';
+    if (status == 402) {
+      return data is Map && data['error'] is String
+          ? data['error'] as String
+          : 'Insufficient credits. Upgrade your plan to continue.';
     }
-    if (status == 403) {
-      return 'Please verify your email before signing in.';
-    }
-    if (status == 400) {
-      return 'Invalid request. Check your email and password.';
-    }
+    if (status == 400) return 'Invalid request. Check your details.';
 
     return error.message ?? 'Request failed.';
   }
@@ -44,11 +48,11 @@ class ApiService {
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     _sessionToken = _prefs.getString('session_token');
-    
+
     _dio = Dio(BaseOptions(
       baseUrl: apiBaseUrl,
       connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 60),
+      receiveTimeout: const Duration(seconds: 90),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -58,23 +62,14 @@ class ApiService {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
         if (_sessionToken != null) {
-          options.headers['Cookie'] = '$sessionCookieName=$_sessionToken';
           options.headers['Authorization'] = 'Bearer $_sessionToken';
-        }
-        if (kDebugMode) {
-          print('API Request: ${options.method} ${options.path}');
+          options.headers['Cookie'] = '$sessionCookieName=$_sessionToken';
         }
         return handler.next(options);
       },
-      onResponse: (response, handler) {
-        if (kDebugMode) {
-          print('API Response: ${response.statusCode} ${response.requestOptions.path}');
-        }
-        return handler.next(response);
-      },
       onError: (DioException e, handler) {
         if (kDebugMode) {
-          print('API Error: ${e.response?.statusCode} ${e.message}');
+          print('API ${apiBaseUrl} ${e.response?.statusCode} ${e.requestOptions.path}');
         }
         return handler.next(e);
       },
@@ -91,213 +86,132 @@ class ApiService {
     await _prefs.remove('session_token');
   }
 
-  // Auth Endpoints
+  /// Persists a snapshot of the signed-in user so the app can restore after
+  /// restarts even when the backend is temporarily unreachable.
+  Future<void> saveAuthSnapshot(
+    Map<String, dynamic> userData,
+    bool onboardingComplete,
+  ) async {
+    await _prefs.setString(_cachedUserKey, jsonEncode(userData));
+    await _prefs.setBool(_cachedOnboardingKey, onboardingComplete);
+  }
+
+  ({Map<String, dynamic> user, bool onboardingComplete})? loadAuthSnapshot() {
+    final raw = _prefs.getString(_cachedUserKey);
+    if (raw == null || raw.isEmpty) return null;
+
+    try {
+      final user = jsonDecode(raw) as Map<String, dynamic>;
+      return (
+        user: user,
+        onboardingComplete: _prefs.getBool(_cachedOnboardingKey) ?? false,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> clearAuthSnapshot() async {
+    await _prefs.remove(_cachedUserKey);
+    await _prefs.remove(_cachedOnboardingKey);
+  }
+
+  /// True when the server explicitly rejected the session (not a network blip).
+  static bool isSessionInvalid(DioException error) {
+    return error.response?.statusCode == 401;
+  }
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
   Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await _dio.post('/auth/login', data: {
-      'email': email,
+      'email': email.trim().toLowerCase(),
       'password': password,
     });
 
     final data = response.data as Map<String, dynamic>;
-    final token = data['token'] as String? ?? _extractSessionToken(response.headers['set-cookie']);
+    final token = data['token'] as String?;
     if (token != null && token.isNotEmpty) {
       await setSessionToken(token);
     }
-
     return data;
   }
 
-  String? _extractSessionToken(List<String>? setCookieHeaders) {
-    if (setCookieHeaders == null) return null;
-
-    for (final header in setCookieHeaders) {
-      final prefix = '$sessionCookieName=';
-      if (!header.contains(prefix)) continue;
-      final start = header.indexOf(prefix) + prefix.length;
-      final end = header.indexOf(';', start);
-      return end == -1 ? header.substring(start) : header.substring(start, end);
-    }
-
-    return null;
-  }
-
-  Future<Map<String, dynamic>> signup(String email, String password, String? name) async {
-    final displayName =
-        (name != null && name.trim().length >= 2) ? name.trim() : email.split('@').first;
-    final workspaceName =
-        displayName.length >= 2 ? '$displayName Workspace' : 'My Workspace';
-
+  Future<Map<String, dynamic>> signup({
+    required String email,
+    required String password,
+    required String name,
+    required String workspaceName,
+  }) async {
     final response = await _dio.post('/auth/signup', data: {
-      'email': email.trim(),
+      'email': email.trim().toLowerCase(),
       'password': password,
-      'name': displayName,
-      'workspaceName': workspaceName,
+      'name': name.trim(),
+      'workspaceName': workspaceName.trim(),
     });
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> logout() async {
-    final response = await _dio.post('/auth/logout');
-    await clearSessionToken();
-    return response.data as Map<String, dynamic>;
+  Future<void> logout() async {
+    try {
+      await _dio.post('/auth/logout');
+    } finally {
+      await clearSessionToken();
+    }
   }
 
   Future<Map<String, dynamic>> forgotPassword(String email) async {
     final response = await _dio.post('/auth/forgot-password', data: {
-      'email': email,
+      'email': email.trim().toLowerCase(),
     });
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> resendVerification(String email) async {
-    final response = await _dio.post('/auth/resend-verification', data: {
-      'email': email,
-    });
-    return response.data as Map<String, dynamic>;
-  }
-
-  // User Endpoints
   Future<Map<String, dynamic>> getCurrentUser() async {
     final response = await _dio.get('/auth/me');
     return response.data as Map<String, dynamic>;
   }
 
-  // Workspace Endpoints
-  Future<Map<String, dynamic>> getWorkspace() async {
-    final response = await _dio.get('/workspaces');
+  Future<Map<String, dynamic>> consumeQrLogin({
+    required String sessionId,
+    required String secret,
+    required String signature,
+  }) async {
+    final response = await _dio.post('/auth/qr/consume', data: {
+      'sessionId': sessionId,
+      'secret': secret,
+      'signature': signature,
+    });
     final data = response.data as Map<String, dynamic>;
-    final workspaces = data['workspaces'] as List<dynamic>? ?? [];
-    final activeWorkspaceId = data['activeWorkspaceId'] as String?;
-
-    final active = workspaces.cast<Map<String, dynamic>>().firstWhere(
-      (workspace) => workspace['id'] == activeWorkspaceId,
-      orElse: () => workspaces.isNotEmpty
-          ? workspaces.first as Map<String, dynamic>
-          : <String, dynamic>{},
-    );
-
-    final now = DateTime.now().toIso8601String();
-    return {
-      'id': active['id'] ?? '',
-      'name': active['name'] ?? 'Workspace',
-      'slug': active['slug'] ?? '',
-      'plan': active['plan'] ?? 'free',
-      'creditsRemaining': active['creditsRemaining'] ?? 0,
-      'avatarUrl': active['avatarUrl'],
-      'createdAt': active['createdAt'] ?? now,
-      'updatedAt': active['updatedAt'] ?? now,
-    };
+    final token = data['token'] as String?;
+    if (token != null && token.isNotEmpty) {
+      await setSessionToken(token);
+    }
+    return data;
   }
 
-  Future<Map<String, dynamic>> updateWorkspace(Map<String, dynamic> data) async {
-    final response = await _dio.patch('/workspace', data: data);
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<List<dynamic>> getWorkspaceMembers() async {
-    final response = await _dio.get('/workspace/members');
-    return response.data as List<dynamic>;
-  }
-
-  // Generation Endpoints
-  Future<Map<String, dynamic>> startGeneration(Map<String, dynamic> data) async {
-    final response = await _dio.post('/generate', data: data);
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> getGenerationStatus(String jobId) async {
-    final response = await _dio.get('/generate/$jobId/status');
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<List<dynamic>> getGenerations() async {
-    final response = await _dio.get('/generations');
-    return response.data as List<dynamic>;
-  }
-
-  Future<Map<String, dynamic>> getGeneration(String id) async {
-    final response = await _dio.get('/generations/$id');
-    return response.data as Map<String, dynamic>;
-  }
-
-  // Chat Endpoints
-  Future<Map<String, dynamic>> createChatSession() async {
-    final response = await _dio.post('/chat/sessions');
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<List<dynamic>> getChatSessions() async {
-    final response = await _dio.get('/chat/sessions');
-    return response.data as List<dynamic>;
-  }
-
-  Future<Map<String, dynamic>> getChatSession(String sessionId) async {
-    final response = await _dio.get('/chat/sessions/$sessionId');
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> sendChatMessage(String sessionId, Map<String, dynamic> data) async {
-    final response = await _dio.post('/chat/sessions/$sessionId/messages', data: data);
-    return response.data as Map<String, dynamic>;
-  }
-
-  // Studio Endpoints
-  Future<Map<String, dynamic>> createStudioFlow(Map<String, dynamic> data) async {
-    final response = await _dio.post('/studio/flows', data: data);
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<List<dynamic>> getStudioFlows() async {
-    final response = await _dio.get('/studio/flows');
-    return response.data as List<dynamic>;
-  }
-
-  Future<Map<String, dynamic>> getStudioFlow(String id) async {
-    final response = await _dio.get('/studio/flows/$id');
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> updateStudioFlow(String id, Map<String, dynamic> data) async {
-    final response = await _dio.patch('/studio/flows/$id', data: data);
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> deleteStudioFlow(String id) async {
-    final response = await _dio.delete('/studio/flows/$id');
-    return response.data as Map<String, dynamic>;
-  }
-
-  // Asset Endpoints
-  Future<Map<String, dynamic>> getAssets() async {
-    final response = await _dio.get('/assets');
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> getAvatars() async {
-    final response = await _dio.get('/avatars');
-    return response.data as Map<String, dynamic>;
-  }
-
-  // Upload
-  Future<Map<String, dynamic>> uploadAsset(File file, String kind) async {
-    final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
-      'kind': kind,
+  Future<Map<String, dynamic>> approveQrLogin({
+    required String sessionId,
+    required String secret,
+    required String signature,
+  }) async {
+    final response = await _dio.post('/auth/qr/approve', data: {
+      'sessionId': sessionId,
+      'secret': secret,
+      'signature': signature,
     });
-    final response = await _dio.post('/studio/upload', data: formData);
     return response.data as Map<String, dynamic>;
   }
 
-  // Billing
-  Future<Map<String, dynamic>> getBillingPlans() async {
-    final response = await _dio.get('/workspace/billing/plans');
+  // ── Onboarding ───────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getOnboarding() async {
+    final response = await _dio.get('/onboarding');
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> subscribeToPlan(String planId) async {
-    final response = await _dio.post('/workspace/billing/subscribe', data: {
-      'planId': planId,
-    });
+  Future<Map<String, dynamic>> saveOnboarding(Map<String, dynamic> data) async {
+    final response = await _dio.post('/onboarding', data: data);
     return response.data as Map<String, dynamic>;
   }
 
@@ -306,60 +220,47 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
-  // Notifications
-  Future<List<dynamic>> getNotifications() async {
-    final response = await _dio.get('/notifications');
-    return response.data as List<dynamic>;
-  }
+  // ── Generations ──────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> markNotificationRead(String id) async {
-    final response = await _dio.patch('/notifications/$id/read');
+  Future<Map<String, dynamic>> startGeneration(Map<String, dynamic> data) async {
+    final response = await _dio.post('/generate', data: data);
     return response.data as Map<String, dynamic>;
   }
 
-  // Integrations
-  Future<List<dynamic>> getSocialConnections() async {
-    final response = await _dio.get('/integrations/connections');
-    return response.data as List<dynamic>;
-  }
-
-  Future<Map<String, dynamic>> publishToSocial(Map<String, dynamic> data) async {
-    final response = await _dio.post('/integrations/publish', data: data);
+  Future<Map<String, dynamic>> getGenerationStatus(String jobId) async {
+    final response = await _dio.get(
+      '/generate/$jobId/status',
+      options: Options(
+        receiveTimeout: const Duration(seconds: 120),
+        headers: {'Cache-Control': 'no-store'},
+      ),
+    );
     return response.data as Map<String, dynamic>;
   }
 
-  // AI Studio Endpoints
-  Future<Map<String, dynamic>> generateImage(Map<String, dynamic> data) async {
-    final response = await _dio.post('/studio/image', data: data);
+  Future<Map<String, dynamic>> getGenerations({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final response = await _dio.get('/generations', queryParameters: {
+      'page': page,
+      'pageSize': pageSize,
+    });
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> generateVideo(Map<String, dynamic> data) async {
-    final response = await _dio.post('/studio/video', data: data);
+  Future<Map<String, dynamic>> uploadAsset(
+    File file, {
+    String kind = 'image',
+  }) async {
+    final formData = FormData.fromMap({
+      'kind': kind,
+      'file': await MultipartFile.fromFile(
+        file.path,
+        filename: file.path.split(Platform.pathSeparator).last,
+      ),
+    });
+    final response = await _dio.post('/studio/upload', data: formData);
     return response.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> generateAudio(Map<String, dynamic> data) async {
-    final response = await _dio.post('/studio/audio', data: data);
-    return response.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> generateText(Map<String, dynamic> data) async {
-    final response = await _dio.post('/studio/text', data: data);
-    return response.data as Map<String, dynamic>;
-  }
-
-  // WebSocket connection for real-time
-  Future<WebSocket>? connectRealtime(String flowId) {
-    try {
-      final wsUrl = baseUrl.replaceFirst('https', 'wss');
-      final ws = WebSocket.connect('$wsUrl/api/studio/flows/$flowId/realtime');
-      return ws;
-    } catch (e) {
-      if (kDebugMode) {
-        print('WebSocket connection error: $e');
-      }
-      return null;
-    }
   }
 }

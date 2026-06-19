@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { LiteMoovWordmark } from "@/components/brand/LiteMoovWordmark";
 import { cn } from "@/lib/utils";
 
 /** Full-page auth background: soft violet (left) → lavender (mid) → white (right). */
@@ -24,11 +25,8 @@ export function authLinkClassName(className?: string) {
 
 export function AuthBrandHeader() {
   return (
-    <Link
-      href="/"
-      className="font-display text-xl font-bold tracking-tight text-zinc-900 transition hover:text-violet-700 lg:text-[1.35rem]"
-    >
-      Ad Studio
+    <Link href="/" className="inline-block transition hover:opacity-90">
+      <LiteMoovWordmark size="lg" />
     </Link>
   );
 }

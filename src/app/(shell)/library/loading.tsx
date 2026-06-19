@@ -1,5 +1,5 @@
-import { PageContentSkeleton } from "@/components/layout/PageContentSkeleton";
+import { LiteMoovPreloader } from "@/components/brand/LiteMoovPreloader";
 
 export default function LibraryLoading() {
-  return <PageContentSkeleton rows={6} />;
+  return <LiteMoovPreloader variant="shell" />;
 }

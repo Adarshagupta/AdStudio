@@ -25,7 +25,7 @@ export function SocialConnectCard({
   const accountLabel = status.connection?.username || status.connection?.displayName;
 
   return (
-    <Card className="overflow-hidden bg-white p-0">
+    <Card className="overflow-hidden p-0">
       <div className={cn("h-1.5 bg-gradient-to-r", meta.accentClass)} />
       <div className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3">
@@ -41,7 +41,7 @@ export function SocialConnectCard({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-zinc-900">{meta.label}</h3>
+                <h3 className="text-sm font-medium text-foreground">{meta.label}</h3>
                 {status.connected ? (
                   <Badge className="rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-50">Connected</Badge>
                 ) : status.configured ? (
@@ -60,17 +60,17 @@ export function SocialConnectCard({
         </div>
 
         {status.connected && status.connection ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/80 px-3 py-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/40 px-3 py-3">
             <Avatar className="h-10 w-10">
               {status.connection.avatarUrl ? (
                 <AvatarImage src={status.connection.avatarUrl} alt={accountLabel ?? meta.label} />
               ) : null}
-              <AvatarFallback className="bg-white text-xs text-zinc-700">
+              <AvatarFallback className=" text-xs text-foreground">
                 {(accountLabel ?? meta.label).slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-zinc-900">
+              <p className="truncate text-sm font-medium text-foreground">
                 {status.connection.displayName || accountLabel || "Connected account"}
               </p>
               <p className="truncate text-xs text-muted-foreground">

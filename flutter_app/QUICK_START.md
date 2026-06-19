@@ -259,7 +259,7 @@ Once running, the app provides:
 
 The app connects to your production API:
 ```
-Base URL: https://ugc-ad-platform.vercel.app/api
+Base URL: https://litemoov.com/api
 ```
 
 Authentication uses session cookies stored in SharedPreferences.

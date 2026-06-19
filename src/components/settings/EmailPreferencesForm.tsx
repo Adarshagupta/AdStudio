@@ -70,9 +70,9 @@ export function EmailPreferencesForm({ initialPreference }: { initialPreference:
   }
 
   return (
-    <Card className="max-w-2xl space-y-5 bg-white p-5">
+    <Card className="max-w-2xl space-y-5 p-5">
       <div>
-        <h2 className="text-sm font-medium text-zinc-900">Your email preferences</h2>
+        <h2 className="text-sm font-medium text-foreground">Your email preferences</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           Verification, password reset, and invite emails are always sent for account security.
         </p>
@@ -89,12 +89,12 @@ export function EmailPreferencesForm({ initialPreference }: { initialPreference:
               onClick={() => setPreference((value) => ({ ...value, [item.key]: !value[item.key] }))}
               className={cn(
                 "w-full rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-purple-100",
-                enabled ? "border-purple-200 bg-purple-50" : "border-zinc-200 bg-white hover:bg-zinc-50",
+                enabled ? "border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/40" : "border-border bg-card hover:bg-muted/50",
               )}
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-zinc-900">{item.label}</p>
+                  <p className="text-sm font-medium text-foreground">{item.label}</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.description}</p>
                 </div>
                 <span
@@ -105,7 +105,7 @@ export function EmailPreferencesForm({ initialPreference }: { initialPreference:
                 >
                   <span
                     className={cn(
-                      "block h-4 w-4 rounded-full bg-white transition",
+                      "block h-4 w-4 rounded-full bg-background transition",
                       enabled && "translate-x-4",
                     )}
                   />

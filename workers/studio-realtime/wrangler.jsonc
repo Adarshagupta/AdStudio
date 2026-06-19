@@ -5,7 +5,7 @@
   "compatibility_date": "2026-01-01",
   "account_id": "f943d5f656be301e2c766ac590d8910b",
   "vars": {
-    "ALLOWED_ORIGINS": "https://ugc-ad-platform.vercel.app,http://localhost:3000"
+    "ALLOWED_ORIGINS": "https://litemoov.com,https://www.litemoov.com,https://studio.sylicaai.com,https://ugc-ad-platform.vercel.app,http://localhost:3000"
   },
   "durable_objects": {
     "bindings": [

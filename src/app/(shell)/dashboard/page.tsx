@@ -1,35 +1,38 @@
 import { Suspense } from "react";
 
+import { cn } from "@/lib/utils";
+
+import { CursorGlow } from "@/components/dashboard/CursorGlow";
 import { DashboardStudioProPromo } from "@/components/dashboard/DashboardStudioProPromo";
-import { DashboardWelcomeCredits } from "@/components/dashboard/DashboardWelcomeCredits";
+import { ProFreeTrialPopup } from "@/components/billing/ProFreeTrialPopup";
+import { FloatingInspirationWidget } from "@/components/dashboard/FloatingInspirationWidget";
 import { RecentGenerations } from "@/components/dashboard/RecentGenerations";
 import { RecentGridSkeleton } from "@/components/dashboard/RecentGridSkeleton";
-import { FormatCard } from "@/components/dashboard/FormatCard";
-import { HeroInput } from "@/components/dashboard/HeroInput";
+import { DashboardInspirationLayout } from "@/components/dashboard/DashboardInspirationLayout";
+import { HeroInput, DASHBOARD_FLOATING_PROMPT_PADDING } from "@/components/dashboard/HeroInput";
 import { currentUserCan, getShellUser } from "@/lib/auth";
-import { getWorkspaceWelcomeStatus } from "@/lib/billing/welcome-credits";
-import { formatCards } from "@/lib/formats";
+import { isPaidCheckoutEnabled, requiresPaidCheckout } from "@/lib/billing/payment-provider";
 
 export default async function DashboardPage() {
   const currentUser = await getShellUser();
-  const welcomeStatus = await getWorkspaceWelcomeStatus(currentUser.workspace.id);
 
   return (
-    <div className="space-y-12">
+    <div className={cn("relative space-y-10", DASHBOARD_FLOATING_PROMPT_PADDING)}>
+      <CursorGlow />
+      <FloatingInspirationWidget />
       <HeroInput canCreate={currentUserCan(currentUser, "createContent")} />
-      <section className="space-y-4">
-        <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {formatCards.map((format) => (
-            <FormatCard key={format.slug} format={format} />
-          ))}
-        </div>
-      </section>
+      <DashboardInspirationLayout />
       <Suspense fallback={<RecentGridSkeleton />}>
         <RecentGenerations workspaceId={currentUser.workspace.id} />
       </Suspense>
-      <DashboardWelcomeCredits
-        initialStatus={welcomeStatus}
+      <ProFreeTrialPopup
+        plan={currentUser.workspace.plan}
         isAdmin={currentUser.user.role === "ADMIN"}
+        hasPaidSubscription={Boolean(
+          currentUser.workspace.stripeSubscriptionId || currentUser.workspace.dodoSubscriptionId,
+        )}
+        checkoutEnabled={isPaidCheckoutEnabled()}
+        paidCheckoutRequired={requiresPaidCheckout()}
       />
       <DashboardStudioProPromo />
     </div>

@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, revalidateCurrentSessionCache } from "@/lib/auth";
 import { completeWorkspaceSubscriptionCheckout } from "@/lib/billing/workspace-subscription";
 import { parseRequestJson } from "@/lib/http/json";
 
 const completeSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
+  paymentId: z.string().min(1).optional(),
+}).refine((value) => Boolean(value.sessionId || value.paymentId), {
+  message: "sessionId or paymentId is required.",
 });
 
 export async function POST(request: Request) {
@@ -36,12 +39,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const workspace = await completeWorkspaceSubscriptionCheckout({
+    const { workspace, purchase } = await completeWorkspaceSubscriptionCheckout({
       sessionId: result.data.sessionId,
+      paymentId: result.data.paymentId,
       workspaceId: currentUser.workspace.id,
     });
 
-    return NextResponse.json({ ok: true, workspace });
+    revalidateCurrentSessionCache();
+
+    return NextResponse.json({ ok: true, workspace, purchase });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete checkout.";
     return NextResponse.json({ error: message }, { status: 500 });

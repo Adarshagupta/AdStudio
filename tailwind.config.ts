@@ -53,6 +53,7 @@ const config: Config = {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
         serif: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
+        wordmark: ["var(--font-wordmark)", "var(--font-display)", "sans-serif"],
       },
     },
   },

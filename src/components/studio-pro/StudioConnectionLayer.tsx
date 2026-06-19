@@ -44,6 +44,14 @@ export function StudioConnectionLayer({
           <stop offset="0%" stopColor="rgba(236,72,153,0.35)" />
           <stop offset="100%" stopColor="rgba(236,72,153,0.9)" />
         </linearGradient>
+        <linearGradient id="studio-edge-schedule" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(244,63,94,0.35)" />
+          <stop offset="100%" stopColor="rgba(244,63,94,0.9)" />
+        </linearGradient>
+        <linearGradient id="studio-edge-social" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(249,115,22,0.35)" />
+          <stop offset="100%" stopColor="rgba(249,115,22,0.9)" />
+        </linearGradient>
         <linearGradient id="studio-edge-default" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="rgba(113,113,122,0.35)" />
           <stop offset="100%" stopColor="rgba(113,113,122,0.85)" />
@@ -136,5 +144,7 @@ function edgeGradientForSource(type: StudioNode["type"]) {
   if (type === "image") return "url(#studio-edge-image)";
   if (type === "video") return "url(#studio-edge-video)";
   if (type === "audio") return "url(#studio-edge-audio)";
+  if (type === "schedule") return "url(#studio-edge-schedule)";
+  if (type === "social") return "url(#studio-edge-social)";
   return "url(#studio-edge-default)";
 }

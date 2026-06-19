@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { currentUserCan, getCurrentUser } from "@/lib/auth";
+import { deductCredits, isBillingCreditsError } from "@/lib/billing/credits";
 import { listConnectedSocialAccounts } from "@/lib/integrations/connection-access";
 import { buildPublishPlan, publishToSocialProviders, resolvePublishProviders } from "@/lib/integrations/publish";
 import { isSocialProviderId, SOCIAL_PROVIDER_IDS } from "@/lib/integrations/types";
@@ -67,6 +68,8 @@ export async function POST(request: Request) {
     });
   }
 
+  const cost = 1;
+
   const outcomes = await publishToSocialProviders({
     workspaceId: currentUser.workspace.id,
     providers: resolved,
@@ -78,6 +81,17 @@ export async function POST(request: Request) {
 
   const succeeded = outcomes.filter((outcome) => outcome.ok);
   const failed = outcomes.filter((outcome) => !outcome.ok);
+
+  if (succeeded.length > 0) {
+    try {
+      await deductCredits(currentUser.workspace.id, cost);
+    } catch (error) {
+      if (isBillingCreditsError(error)) {
+        return NextResponse.json({ error: error.message }, { status: 402 });
+      }
+      throw error;
+    }
+  }
 
   return NextResponse.json({
     ok: failed.length === 0,

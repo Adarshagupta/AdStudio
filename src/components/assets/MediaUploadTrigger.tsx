@@ -33,6 +33,7 @@ export function MediaUploadTrigger({
   showLibrary = true,
   dialogTitle,
   dialogSubtitle,
+  presentation = "modal",
   trigger,
   onTriggerClick,
 }: {
@@ -44,6 +45,7 @@ export function MediaUploadTrigger({
   showLibrary?: boolean;
   dialogTitle?: string;
   dialogSubtitle?: string;
+  presentation?: "modal" | "fullscreen";
   trigger: (props: { open: () => void; disabled: boolean; uploading: boolean }) => ReactNode;
   onTriggerClick?: () => void;
 }) {
@@ -96,6 +98,7 @@ export function MediaUploadTrigger({
         title={title}
         subtitle={subtitle}
         showLibrary={showLibrary}
+        presentation={presentation}
         onChooseLibrary={() => {
           setPickerKind(primaryKind);
           setPickerOpen(true);
@@ -111,6 +114,7 @@ export function MediaUploadTrigger({
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={onAsset}
+        presentation={presentation}
       />
     </>
   );

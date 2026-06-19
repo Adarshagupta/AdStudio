@@ -52,13 +52,13 @@ export function StudioProInspector({
       : [];
 
   const isGeneratingMedia =
-    node.data.status === "running" && (node.type === "image" || node.type === "video");
+    node.data.status === "running" && (node.type === "image" || node.type === "video" || node.type === "social");
 
   return (
-    <aside className="flex h-full w-full min-w-0 flex-col bg-white dark:bg-zinc-900">
+    <aside className="flex h-full w-full min-w-0 flex-col bg-card">
       <div className="flex shrink-0 items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
         <div>
-          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{node.title}</p>
+          <p className="text-sm font-medium text-foreground">{node.title}</p>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
             {isGeneratingMedia
               ? node.type === "image"
@@ -240,6 +240,65 @@ export function StudioProInspector({
                 <option value="webp">webp</option>
               </select>
             </Field>
+            {node.data.model?.startsWith("sylicaai/") && (
+              <>
+                <Field label="Steps">
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={node.data.steps ?? 8}
+                    onChange={(event) =>
+                      onChange(node.id, { steps: Number.parseInt(event.target.value, 10) })
+                    }
+                    className="studio-input"
+                    placeholder="8"
+                  />
+                </Field>
+                <Field label="Width">
+                  <input
+                    type="number"
+                    min={256}
+                    max={2048}
+                    step={64}
+                    value={node.data.width ?? 1024}
+                    onChange={(event) =>
+                      onChange(node.id, { width: Number.parseInt(event.target.value, 10) })
+                    }
+                    className="studio-input"
+                    placeholder="1024"
+                  />
+                </Field>
+                <Field label="Height">
+                  <input
+                    type="number"
+                    min={256}
+                    max={2048}
+                    step={64}
+                    value={node.data.height ?? 1024}
+                    onChange={(event) =>
+                      onChange(node.id, { height: Number.parseInt(event.target.value, 10) })
+                    }
+                    className="studio-input"
+                    placeholder="1024"
+                  />
+                </Field>
+                <Field label="Seed">
+                  <input
+                    type="number"
+                    min={0}
+                    value={node.data.seed ?? ""}
+                    onChange={(event) =>
+                      onChange(node.id, {
+                        seed: event.target.value ? Number.parseInt(event.target.value, 10) : undefined,
+                      })
+                    }
+                    className="studio-input"
+                    placeholder="Random"
+                  />
+                </Field>
+              </>
+            )}
           </>
         )}
 
@@ -270,6 +329,85 @@ export function StudioProInspector({
           </Field>
         ) : null}
 
+        {node.type === "schedule" && (
+          <>
+            <Field label="Interval (minutes)">
+              <input
+                type="number"
+                min={1}
+                value={node.data.scheduleInterval ?? 60}
+                onChange={(event) =>
+                  onChange(node.id, { scheduleInterval: Number.parseInt(event.target.value, 10) })
+                }
+                className="studio-input"
+                placeholder="60"
+              />
+            </Field>
+            <Field label="Status">
+              <select
+                value={node.data.scheduleEnabled ? "enabled" : "paused"}
+                onChange={(event) =>
+                  onChange(node.id, { scheduleEnabled: event.target.value === "enabled" })
+                }
+                className="studio-input"
+              >
+                <option value="enabled">Enabled</option>
+                <option value="paused">Paused</option>
+              </select>
+            </Field>
+            {node.data.scheduleNextRun && (
+              <p className="text-[11px] leading-5 text-zinc-500">
+                Next run: {new Date(node.data.scheduleNextRun).toLocaleString()}
+              </p>
+            )}
+          </>
+        )}
+
+        {node.type === "social" && (
+          <>
+            <Field label="Provider">
+              <select
+                value={node.data.socialProvider ?? "instagram"}
+                onChange={(event) =>
+                  onChange(node.id, { socialProvider: event.target.value })
+                }
+                className="studio-input"
+              >
+                <option value="instagram">Instagram</option>
+                <option value="tiktok">TikTok</option>
+                <option value="facebook">Facebook</option>
+                <option value="reddit">Reddit</option>
+              </select>
+            </Field>
+            <Field label="Caption">
+              <textarea
+                value={node.data.socialCaption ?? ""}
+                onChange={(event) =>
+                  onChange(node.id, { socialCaption: event.target.value })
+                }
+                className="studio-input min-h-[80px] resize-none"
+                placeholder="Post caption or connect a Text node for auto-generated copy"
+                rows={3}
+              />
+            </Field>
+            <Field label="Media URL (optional)">
+              <input
+                value={node.data.socialMediaUrl ?? ""}
+                onChange={(event) =>
+                  onChange(node.id, { socialMediaUrl: event.target.value })
+                }
+                className="studio-input"
+                placeholder="https://..."
+              />
+            </Field>
+            {node.data.socialPostUrl && (
+              <p className="text-[11px] leading-5 text-zinc-500">
+                Posted: <a href={node.data.socialPostUrl} target="_blank" rel="noreferrer" className="text-violet-600 underline">{node.data.socialPostUrl}</a>
+              </p>
+            )}
+          </>
+        )}
+
         {node.data.error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600">{node.data.error}</div>
         ) : null}
@@ -292,10 +430,15 @@ function getModelOptions(type: StudioNode["type"], videoChoices: ReturnType<type
     return cloudflareModels.text.options.map((value) => ({ value, label: value }));
   }
   if (type === "image") {
-    return cloudflareModels.image.options.map((value) => ({
-      value,
-      label: isOpenAIImageModel(value) ? `${imageModelLabel(value)} (Premium)` : value,
-    }));
+    return cloudflareModels.image.options.map((value) => {
+      if (isOpenAIImageModel(value)) {
+        return { value, label: `${imageModelLabel(value)} (Premium)` };
+      }
+      if (value === "sylicaai/flux-schnell") {
+        return { value, label: "Flux Schnell" };
+      }
+      return { value, label: value };
+    });
   }
   if (type === "video") {
     return [
@@ -308,6 +451,12 @@ function getModelOptions(type: StudioNode["type"], videoChoices: ReturnType<type
   }
   if (type === "audio") {
     return cloudflareModels.audio.options.map((value) => ({ value, label: value }));
+  }
+  if (type === "schedule") {
+    return [{ value: "schedule", label: "Schedule trigger" }];
+  }
+  if (type === "social") {
+    return [{ value: "social", label: "Social post" }];
   }
   return [{ value: "custom-avatar", label: "custom-avatar" }];
 }
