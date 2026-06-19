@@ -1,187 +1,146 @@
+import 'generation_style.dart';
+
 class Generation {
   final String id;
+  final String title;
   final String? format;
+  final String? outputType;
   final String? status;
   final String? prompt;
-  final String? scriptText;
   final String? videoUrl;
   final String? imageUrl;
   final String? thumbnailUrl;
-  final String? xaiRequestId;
-  final DateTime? startedAt;
-  final DateTime? completedAt;
-  final DateTime? failedAt;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String? timestamp;
+  final int? durationSec;
+  final String? errorMessage;
 
   Generation({
     required this.id,
+    required this.title,
     this.format,
+    this.outputType,
     this.status,
     this.prompt,
-    this.scriptText,
     this.videoUrl,
     this.imageUrl,
     this.thumbnailUrl,
-    this.xaiRequestId,
-    this.startedAt,
-    this.completedAt,
-    this.failedAt,
-    required this.createdAt,
-    required this.updatedAt,
+    this.timestamp,
+    this.durationSec,
+    this.errorMessage,
   });
 
-  factory Generation.fromJson(Map<String, dynamic> json) => Generation(
-    id: json['id'] as String,
-    format: json['format'] as String?,
-    status: json['status'] as String?,
-    prompt: json['prompt'] as String?,
-    scriptText: json['scriptText'] as String?,
-    videoUrl: json['videoUrl'] as String?,
-    imageUrl: json['imageUrl'] as String?,
-    thumbnailUrl: json['thumbnailUrl'] as String?,
-    xaiRequestId: json['xaiRequestId'] as String?,
-    startedAt: json['startedAt'] != null ? DateTime.parse(json['startedAt'] as String) : null,
-    completedAt: json['completedAt'] != null ? DateTime.parse(json['completedAt'] as String) : null,
-    failedAt: json['failedAt'] != null ? DateTime.parse(json['failedAt'] as String) : null,
-    createdAt: DateTime.parse(json['createdAt'] as String),
-    updatedAt: DateTime.parse(json['updatedAt'] as String),
-  );
+  factory Generation.fromJson(Map<String, dynamic> json) {
+    final style = json['style'];
+    final styleMap = style is Map<String, dynamic> ? style : null;
+
+    final title = json['title'] as String? ??
+        json['prompt'] as String? ??
+        'Untitled';
+
+    final outputType = json['outputType'] as String? ??
+        styleMap?['outputType'] as String?;
+
+    return Generation(
+      id: json['id'] as String? ?? json['jobId'] as String? ?? json['generationId'] as String? ?? '',
+      title: title,
+      format: json['format'] as String? ?? json['type'] as String?,
+      outputType: outputType,
+      status: json['status'] as String?,
+      prompt: json['prompt'] as String? ?? title,
+      videoUrl: json['videoUrl'] as String?,
+      imageUrl: json['imageUrl'] as String?,
+      thumbnailUrl: json['thumbnailUrl'] as String?,
+      timestamp: json['timestamp'] as String? ?? json['createdAt'] as String?,
+      durationSec: json['durationSec'] as int?,
+      errorMessage: json['errorMessage'] as String? ?? json['error'] as String?,
+    );
+  }
+
+  Generation copyWith({
+    String? status,
+    String? videoUrl,
+    String? thumbnailUrl,
+    String? imageUrl,
+    String? errorMessage,
+  }) {
+    return Generation(
+      id: id,
+      title: title,
+      format: format,
+      outputType: outputType,
+      status: status ?? this.status,
+      prompt: prompt,
+      videoUrl: videoUrl ?? this.videoUrl,
+      imageUrl: imageUrl ?? this.imageUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      timestamp: timestamp,
+      durationSec: durationSec,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
 
   bool get isCompleted => status == 'COMPLETED';
   bool get isFailed => status == 'FAILED';
-  bool get isProcessing => status == 'PROCESSING' || status == 'PENDING';
-  bool get hasVideo => videoUrl != null && videoUrl!.isNotEmpty;
-  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
-}
+  bool get isProcessing =>
+      status == 'PROCESSING' || status == 'QUEUED' || status == 'PENDING';
+  bool get isVideo =>
+      outputType == 'video' || (videoUrl != null && videoUrl!.isNotEmpty);
+  bool get hasPlayableVideo => videoUrl != null && videoUrl!.isNotEmpty;
 
-class ChatMessage {
-  final String id;
-  final String role;
-  final String? text;
-  final String? status;
-  final String? error;
-  final String? imageUrl;
-  final String? videoUrl;
-  final String? scriptText;
-  final String? generationId;
-  final String? toolMode;
-  final List<ChatAttachment>? attachments;
-  final DateTime createdAt;
+  String? get previewImage {
+    if (thumbnailUrl != null && thumbnailUrl!.isNotEmpty) return thumbnailUrl;
+    if (imageUrl != null && imageUrl!.isNotEmpty) return imageUrl;
+    return null;
+  }
 
-  ChatMessage({
-    required this.id,
-    required this.role,
-    this.text,
-    this.status,
-    this.error,
-    this.imageUrl,
-    this.videoUrl,
-    this.scriptText,
-    this.generationId,
-    this.toolMode,
-    this.attachments,
-    required this.createdAt,
-  });
+  String get statusLabel {
+    switch (status) {
+      case 'COMPLETED':
+        return 'Ready';
+      case 'FAILED':
+        return 'Failed';
+      case 'PROCESSING':
+        return 'Processing';
+      case 'QUEUED':
+        return 'Queued';
+      case 'PENDING':
+        return 'Pending';
+      default:
+        return status ?? 'Draft';
+    }
+  }
 
-  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
-    id: json['id'] as String,
-    role: json['role'] as String,
-    text: json['text'] as String?,
-    status: json['status'] as String?,
-    error: json['error'] as String?,
-    imageUrl: json['imageUrl'] as String?,
-    videoUrl: json['videoUrl'] as String?,
-    scriptText: json['scriptText'] as String?,
-    generationId: json['generationId'] as String?,
-    toolMode: json['toolMode'] as String?,
-    attachments: json['attachments'] != null
-        ? (json['attachments'] as List).map((e) => ChatAttachment.fromJson(e as Map<String, dynamic>)).toList()
-        : null,
-    createdAt: DateTime.parse(json['createdAt'] as String),
-  );
+  String get relativeTime {
+    final raw = timestamp;
+    if (raw == null || raw.isEmpty) return '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'role': role,
-    'text': text,
-    'status': status,
-    'error': error,
-    'imageUrl': imageUrl,
-    'videoUrl': videoUrl,
-    'scriptText': scriptText,
-    'generationId': generationId,
-    'toolMode': toolMode,
-    'attachments': attachments?.map((e) => e.toJson()).toList(),
-    'createdAt': createdAt.toIso8601String(),
-  };
+    final diff = DateTime.now().difference(parsed);
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
+    return '${(diff.inDays / 365).floor()}y ago';
+  }
 
-  bool get isUser => role == 'user';
-  bool get isAssistant => role == 'assistant';
-  bool get isProcessing => status == 'processing';
-  bool get isFailed => status == 'failed';
-  bool get isCompleted => status == 'completed';
-}
-
-class ChatAttachment {
-  final String id;
-  final String kind;
-  final String url;
-  final String? previewUrl;
-  final String? name;
-
-  ChatAttachment({
-    required this.id,
-    required this.kind,
-    required this.url,
-    this.previewUrl,
-    this.name,
-  });
-
-  factory ChatAttachment.fromJson(Map<String, dynamic> json) => ChatAttachment(
-    id: json['id'] as String,
-    kind: json['kind'] as String,
-    url: json['url'] as String,
-    previewUrl: json['previewUrl'] as String?,
-    name: json['name'] as String?,
-  );
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'kind': kind,
-    'url': url,
-    'previewUrl': previewUrl,
-    'name': name,
-  };
-
-  bool get isImage => kind == 'image';
-  bool get isVideo => kind == 'video';
-}
-
-class ChatSession {
-  final String id;
-  final String? name;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  ChatSession({
-    required this.id,
-    this.name,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  factory ChatSession.fromJson(Map<String, dynamic> json) => ChatSession(
-    id: json['id'] as String,
-    name: json['name'] as String?,
-    createdAt: DateTime.parse(json['createdAt'] as String),
-    updatedAt: DateTime.parse(json['updatedAt'] as String),
-  );
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'createdAt': createdAt.toIso8601String(),
-    'updatedAt': updatedAt.toIso8601String(),
-  };
+  /// Web-compatible POST /api/generate body for UGC video.
+  Map<String, dynamic> toGeneratePayload({
+    required String prompt,
+    String? productUrl,
+    String aspectRatio = '9:16',
+  }) =>
+      {
+        'outputType': 'video',
+        'format': 'UGC',
+        'prompt': prompt.trim(),
+        'productUrl': productUrl?.trim() ?? '',
+        'avatarId': null,
+        'scriptText': '',
+        'adhereToScript': false,
+        'shotNotes': '',
+        'style': GenerationStyle.defaults(aspectRatio: aspectRatio),
+      };
 }

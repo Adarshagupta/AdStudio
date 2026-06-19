@@ -28,25 +28,36 @@ android {
     ndkVersion flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
+    // Skip native-lib stripping in debug to avoid the stripDebugSymbols task
+    // churning .so files (which OneDrive/antivirus can lock on Windows).
+    packagingOptions {
+        doNotStrip "**/*.so"
+    }
+
     defaultConfig {
         applicationId "com.adstudio.app"
-        minSdkVersion 21
+        minSdkVersion flutter.minSdkVersion
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
+        // One ABI for dev — cuts APK from ~600MB to ~180MB (much faster wireless install).
+        // For Play Store release use: flutter build apk --split-per-abi
+        ndk {
+            abiFilters "arm64-v8a"
+        }
     }
 
     buildTypes {
@@ -67,6 +78,5 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0"
     implementation 'androidx.multidex:multidex:2.0.1'
 }

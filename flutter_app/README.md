@@ -1,112 +1,79 @@
-# LiteMoov Flutter App
+# LiteMoov Mobile (Flutter)
 
-A Flutter mobile application for LiteMoov — AI-powered ad and short-video generation for marketing teams.
+TikTok-style mobile app for browsing and creating UGC ads. Uses the same LiteMoov backend as the website.
 
 ## Features
 
-- **Authentication**: Login, Signup, Forgot Password, Session Management
-- **Dashboard**: AI Chat Interface with generation history
-- **Studio Pro**: Visual node editor (coming in next update)
-- **Generations**: View all generated images/videos with status tracking
-- **Settings**: Profile management, workspace settings, billing
-- **Real-time**: WebSocket support for live collaboration
-- **Media**: Image/Video upload, playback, download
-
-## Architecture
-
-```
-lib/
-├── core/              # Theme, Router, Constants
-├── features/          # Feature folders
-│   ├── auth/
-│   ├── dashboard/
-│   ├── studio/
-│   ├── generations/
-│   └── settings/
-├── models/            # Data models
-├── providers/         # State management (Provider)
-├── screens/           # UI screens
-├── services/          # API services
-├── utils/             # Utilities
-└── widgets/           # Reusable widgets
-```
-
-## Tech Stack
-
-- **Framework**: Flutter 3.x
-- **State Management**: Provider
-- **Navigation**: Go Router
-- **HTTP Client**: Dio
-- **WebSocket**: web_socket_channel
-- **Image/Video**: image_picker, video_player
-- **Storage**: shared_preferences
+- **Vertical video feed** — swipe through your generated ads fullscreen
+- **Floating create dock** — describe an ad and generate UGC video from the bottom bar
+- **Auth** — sign in / sign up with your existing LiteMoov account (Bearer token)
+- **Onboarding** — same 4-step workspace onboarding as the web app
 
 ## Setup
 
-1. Install Flutter dependencies:
+1. Install [Flutter](https://docs.flutter.dev/get-started/install) (SDK 3.0+)
+2. From this folder:
+
 ```bash
+cd flutter_app
 flutter pub get
 ```
 
-2. Run the app:
+3. Copy `env.example` to `.env` and adjust for local dev (optional):
+
+```bash
+cp env.example .env
+```
+
+```env
+# Local dev (phone on same Wi‑Fi; run web with: npm run dev -- -H 0.0.0.0)
+API_ENV=development
+API_BASE_URL=http://YOUR_PC_IP:3000/api
+
+# Force production API while debugging:
+# API_ENV=production
+```
+
+**Production API** (used automatically on release builds and when `.env` is absent):
+
+```
+https://www.litemoov.com/api
+```
+
+## Run
+
 ```bash
 flutter run
 ```
 
-## API Configuration
+## App flow
 
-The app connects to the production API at:
 ```
-https://litemoov.com/api
-```
-
-Authentication is handled via session cookies stored in SharedPreferences.
-
-## Key Endpoints
-
-### Auth
-- `POST /api/auth/login` - Login
-- `POST /api/auth/signup` - Signup
-- `POST /api/auth/logout` - Logout
-- `POST /api/auth/forgot-password` - Password reset
-- `GET /api/auth/me` - Current user
-
-### Generations
-- `POST /api/generate` - Start generation
-- `GET /api/generate/:jobId/status` - Poll status
-- `GET /api/generations` - List generations
-- `GET /api/generations/:id` - Get generation
-
-### Chat
-- `POST /api/chat/sessions` - Create session
-- `GET /api/chat/sessions` - List sessions
-- `GET /api/chat/sessions/:id` - Get messages
-- `POST /api/chat/sessions/:id/messages` - Send message
-
-### Studio
-- `POST /api/studio/flows` - Create flow
-- `GET /api/studio/flows` - List flows
-- `GET /api/studio/flows/:id` - Get flow
-- `PATCH /api/studio/flows/:id` - Update flow
-
-### Assets
-- `POST /api/studio/upload` - Upload asset
-- `GET /api/assets` - List assets
-- `GET /api/avatars` - List avatars
-
-## Environment Variables
-
-Create a `.env` file:
-```
-API_BASE_URL=https://litemoov.com/api
+Splash → Login/Signup → Onboarding (if new) → Feed
+                              ↑
+                    Floating prompt → POST /api/generate → poll status → refresh feed
 ```
 
-## Platform Support
+## API endpoints used
 
-- iOS 12+
-- Android API 21+
-- Web (Chrome, Safari, Firefox)
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/auth/login` | Sign in, store session token |
+| `POST /api/auth/signup` | Create account |
+| `GET /api/auth/me` | Restore session |
+| `GET/POST /api/onboarding` | Onboarding wizard |
+| `GET /api/generations` | Video feed (paginated) |
+| `POST /api/generate` | Create UGC video |
+| `GET /api/generate/:jobId/status` | Poll until complete |
 
-## License
+## Project structure
 
-Proprietary - LiteMoov Platform
+```
+lib/
+  core/          theme, router
+  models/        generation, onboarding, user
+  providers/     auth, onboarding, generation state
+  screens/       feed, auth, onboarding
+  services/      api_service.dart
+  widgets/       video_feed_item, floating_create_dock
+```

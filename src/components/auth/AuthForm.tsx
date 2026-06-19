@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { AuthPasswordInput } from "@/components/auth/AuthPasswordInput";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { QrLoginPanel } from "@/components/auth/QrLoginPanel";
 import { LoginPasswordForm } from "@/components/auth/LoginPasswordForm";
 import { RememberedAccountsPicker } from "@/components/auth/RememberedAccountsPicker";
 import {
@@ -45,6 +46,7 @@ function postAuthPath(onboardingComplete?: boolean) {
 }
 
 type LoginStep = "picker" | "password" | "form";
+type LoginMethod = "email" | "qr";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
@@ -56,6 +58,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [rememberMe, setRememberMe] = useState(true);
   const [rememberedAccounts, setRememberedAccounts] = useState<RememberedAccount[]>([]);
   const [loginStep, setLoginStep] = useState<LoginStep>("form");
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>("email");
   const [selectedAccount, setSelectedAccount] = useState<RememberedAccount | null>(null);
   const isSignup = mode === "signup";
 
@@ -286,6 +289,37 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             ← Back to saved accounts
           </button>
         ) : null}
+
+        {!isSignup ? (
+          <div className="grid grid-cols-2 gap-2 rounded-full bg-zinc-100 p-1">
+            <button
+              type="button"
+              onClick={() => setLoginMethod("email")}
+              className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                loginMethod === "email"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              }`}
+            >
+              Email
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginMethod("qr")}
+              className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                loginMethod === "qr"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              }`}
+            >
+              QR code
+            </button>
+          </div>
+        ) : null}
+
+        {!isSignup && loginMethod === "qr" ? (
+          <QrLoginPanel />
+        ) : (
         <form className="space-y-3.5 sm:space-y-4" onSubmit={onSubmit}>
           {isSignup ? (
             <>
@@ -355,7 +389,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             {isSubmitting ? "Working…" : isSignup ? "Create account" : "Log in"}
           </Button>
         </form>
+        )}
 
+        {!isSignup && loginMethod === "qr" ? null : (
+        <>
         {!isSignup && lastEmail && showVerificationActions ? (
           <p className="text-center text-sm text-zinc-500">
             <button
@@ -386,6 +423,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <AuthDivider label={isSignup ? "or sign up with" : "or continue with"} />
           <GoogleAuthButton intent={isSignup ? "signup" : "login"} disabled={isSubmitting} />
         </div>
+        </>
+        )}
 
         <p className="text-center text-xs leading-relaxed text-zinc-400">
           By continuing, you agree to our terms of service and privacy policy.

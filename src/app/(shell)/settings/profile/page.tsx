@@ -1,4 +1,5 @@
 import { ProfileSettingsForm } from "@/components/settings/ProfileSettingsForm";
+import { MobileLoginQrCard } from "@/components/settings/MobileLoginQrCard";
 import { requireCurrentUser } from "@/lib/auth";
 
 export default async function ProfileSettingsPage() {
@@ -16,6 +17,8 @@ export default async function ProfileSettingsPage() {
           email={currentUser.user.email}
           role={currentUser.user.role}
         />
+
+        <MobileLoginQrCard />
       </div>
     );
 }
