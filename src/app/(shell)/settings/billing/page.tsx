@@ -5,7 +5,7 @@ import { CurrentSubscriptionPanel } from "@/components/settings/CurrentSubscript
 import { SubscriptionPlans } from "@/components/settings/SubscriptionPlans";
 import type { SubscriptionPlanId } from "@/lib/billing/plans";
 import { getWorkspaceBillingSummary } from "@/lib/billing/workspace-billing-summary";
-import { isPaidCheckoutEnabled, requiresPaidCheckout } from "@/lib/billing/payment-provider";
+import { getPrimaryBillingProvider, isPaidCheckoutEnabled, requiresPaidCheckout } from "@/lib/billing/payment-provider";
 import { requireCurrentUser } from "@/lib/auth";
 
 export default async function BillingSettingsPage() {
@@ -30,7 +30,7 @@ export default async function BillingSettingsPage() {
         summary={billingSummary}
         isAdmin={user.role === "ADMIN"}
         checkoutEnabled={isPaidCheckoutEnabled()}
-        paidCheckoutRequired={requiresPaidCheckout()}
+        billingProvider={getPrimaryBillingProvider()}
       />
 
       <div>
