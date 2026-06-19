@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { Plan } from "@prisma/client";
+import type { CheckoutSessionStatus } from "dodopayments/resources/checkout-sessions.js";
 import type { Subscription } from "dodopayments/resources/subscriptions.js";
 
 import {
@@ -24,6 +26,12 @@ import { prisma } from "@/lib/db";
 import { getOAuthAppUrl } from "@/lib/integrations/app-url";
 
 const WORKSPACE_SUBSCRIPTION_TYPE = "workspace_subscription";
+
+/** SDK retrieve types omit metadata/subscription_id returned by the API. */
+type DodoCheckoutSessionStatus = CheckoutSessionStatus & {
+  metadata?: Record<string, string>;
+  subscription_id?: string;
+};
 
 export async function createDodoWorkspaceSubscriptionCheckout(input: {
   workspaceId: string;
@@ -277,7 +285,9 @@ async function verifyDodoCheckoutPayment(input: {
   const dodo = getDodo();
 
   if (input.sessionId) {
-    const session = await dodo.checkoutSessions.retrieve(input.sessionId);
+    const session = (await dodo.checkoutSessions.retrieve(
+      input.sessionId,
+    )) as DodoCheckoutSessionStatus;
     const sessionMetadata = session.metadata ?? {};
 
     if (sessionMetadata.type !== WORKSPACE_SUBSCRIPTION_TYPE) {
@@ -351,7 +361,7 @@ export async function waitForDodoWorkspaceSubscriptionActivation(input: {
 }): Promise<{
   workspace: {
     id: string;
-    plan: string;
+    plan: Plan;
     creditsRemaining: number;
     billingInterval: string | null;
     subscriptionStatus: string | null;
