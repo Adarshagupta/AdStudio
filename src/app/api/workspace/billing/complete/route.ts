@@ -6,7 +6,10 @@ import { completeWorkspaceSubscriptionCheckout } from "@/lib/billing/workspace-s
 import { parseRequestJson } from "@/lib/http/json";
 
 const completeSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
+  paymentId: z.string().min(1).optional(),
+}).refine((value) => Boolean(value.sessionId || value.paymentId), {
+  message: "sessionId or paymentId is required.",
 });
 
 export async function POST(request: Request) {
@@ -38,6 +41,7 @@ export async function POST(request: Request) {
   try {
     const { workspace, purchase } = await completeWorkspaceSubscriptionCheckout({
       sessionId: result.data.sessionId,
+      paymentId: result.data.paymentId,
       workspaceId: currentUser.workspace.id,
     });
 

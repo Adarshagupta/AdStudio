@@ -1,11 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ImagePlus, Link2, Loader2, Send, Video, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 import { DashboardChatHistoryDropdown } from "@/components/dashboard/DashboardChatSessionList";
+import {
+  PromptCreateIcon,
+  PromptDockIconButton,
+  PromptImageIcon,
+  PromptProductIcon,
+  PromptReferenceIcon,
+  PromptVideoIcon,
+  type PromptDockTone,
+} from "@/components/dashboard/PromptDockIcons";
 
 import { MediaUploadTrigger } from "@/components/assets/MediaUploadTrigger";
 import { ImageWithEdit } from "@/components/shared/ImageWithEdit";
@@ -22,9 +31,14 @@ import { notify } from "@/lib/notify";
 import { uploadStudioAsset } from "@/lib/studio-asset-upload";
 import { cn } from "@/lib/utils";
 
-const outputModes: { id: DashboardOutputType; label: string; icon: typeof Video }[] = [
-  { id: "video", label: "Video", icon: Video },
-  { id: "image", label: "Image", icon: ImagePlus },
+const outputModes: {
+  id: DashboardOutputType;
+  label: string;
+  tone: PromptDockTone;
+  icon: typeof PromptVideoIcon;
+}[] = [
+  { id: "video", label: "Video", tone: "video", icon: PromptVideoIcon },
+  { id: "image", label: "Image", tone: "image", icon: PromptImageIcon },
 ];
 
 const imageAspectRatios = [
@@ -33,31 +47,9 @@ const imageAspectRatios = [
   { label: "16:9", value: "16:9" },
 ] as const;
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.95 },
-  show: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      type: "spring" as const,
-      stiffness: 300,
-      damping: 15,
-      mass: 0.8,
-    },
-  },
-};
+/** Reserve space at the bottom of dashboard scroll areas for the floating prompt dock. */
+export const DASHBOARD_FLOATING_PROMPT_PADDING =
+  "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:pb-24";
 
 export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
   const router = useRouter();
@@ -72,6 +64,39 @@ export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
   const [isStarting, setIsStarting] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
   const [chatSessions, setChatSessions] = useState<ChatSessionMeta[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const dockRef = useRef<HTMLDivElement>(null);
+
+  const canCollapse =
+    !referencePreview && !showProductUrl && !inputError && prompt.trim().length === 0;
+
+  function maybeCollapse() {
+    if (canCollapse) setExpanded(false);
+  }
+
+  /** Keep the dock open when clicking toolbar buttons (otherwise textarea blur collapses it). */
+  function handleDockMouseDown(event: React.MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, [role='menuitem']") && !target.closest("textarea")) {
+      event.preventDefault();
+    }
+  }
+
+  useEffect(() => {
+    if (!expanded || !canCollapse) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+      if (dockRef.current?.contains(target)) return;
+      if (target.closest("[role='dialog'], [role='menu'], [data-radix-popper-content-wrapper]")) {
+        return;
+      }
+      maybeCollapse();
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [expanded, canCollapse]);
 
   const refreshChatSessions = useCallback(() => {
     setChatSessions(loadChatSessionIndex());
@@ -158,224 +183,248 @@ export function HeroInput({ canCreate = true }: { canCreate?: boolean }) {
     openChat(outputType === "image" ? "image" : "video");
   }
 
-  return (
-    <motion.section
-      className="mx-auto flex max-w-3xl flex-col items-center gap-4 py-4 text-center md:py-6"
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-    >
-      <motion.div className="space-y-4" variants={itemVariants}>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-zinc-900 md:text-4xl md:leading-tight">
-          Hi, what will we create today?
-        </h1>
-        <p className="text-sm text-zinc-500">
-          Pick video or image, describe your idea, then send to open the chat workspace.
-        </p>
-        {!canCreate ? (
-          <p className="text-sm text-amber-700">Content creation is disabled for your account.</p>
-        ) : null}
-      </motion.div>
-
-      <motion.div
-        className="w-full rounded-[1.75rem] bg-white p-4 text-left shadow-[0_8px_30px_rgba(15,23,42,0.06)] transition-shadow focus-within:shadow-[0_12px_40px_rgba(124,58,237,0.08)]"
-        variants={itemVariants}
-      >
-        <Textarea
-          value={prompt}
-          onChange={(event) => {
-            setPrompt(event.target.value);
-            if (inputError) setInputError(null);
+  function renderDockActions() {
+    return (
+      <>
+        <MediaUploadTrigger
+          kinds="image"
+          disabled={isStarting || !canCreate}
+          uploading={isUploadingReference}
+          presentation="fullscreen"
+          onFile={handleReferenceFile}
+          onAsset={handleReferenceAsset}
+          dialogTitle="Add reference image"
+          onTriggerClick={() => setExpanded(true)}
+          trigger={({ open, disabled, uploading }) => (
+            <PromptDockIconButton
+              tone="reference"
+              active={Boolean(referencePreview)}
+              aria-label="Add reference image"
+              disabled={disabled}
+              onClick={open}
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <PromptReferenceIcon />
+              )}
+            </PromptDockIconButton>
+          )}
+        />
+        <PromptDockIconButton
+          tone="product"
+          active={showProductUrl}
+          aria-label="Add product link"
+          disabled={isStarting}
+          onClick={() => {
+            setExpanded(true);
+            setShowProductUrl((value) => !value);
           }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              handleGenerate();
+        >
+          <PromptProductIcon />
+        </PromptDockIconButton>
+        <DashboardChatHistoryDropdown
+          sessions={chatSessions}
+          onSessionsChange={refreshChatSessions}
+          trigger="dock"
+          disabled={isStarting}
+          onOpenChange={(open) => {
+            if (open) {
+              setExpanded(true);
+              refreshChatSessions();
             }
           }}
-          disabled={isStarting}
-          className="min-h-[88px] resize-none border-0 bg-transparent p-1 text-base leading-6 text-zinc-800 placeholder:text-zinc-400 focus-visible:ring-0 focus-visible:ring-offset-0"
-          placeholder={
-            outputType === "video"
-              ? "Describe the ad — hook, product, audience. Short prompts work with a reference image."
-              : "Describe the image you want — style, product, mood, background."
-          }
         />
+      </>
+    );
+  }
 
-        {inputError ? (
-          <p className="mt-2 px-1 text-left text-sm text-red-600">{inputError}</p>
-        ) : null}
+  const dockExpanded =
+    expanded ||
+    Boolean(referencePreview) ||
+    showProductUrl ||
+    Boolean(inputError) ||
+    (outputType === "image" && expanded);
 
-        {referencePreview ? (
-          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-zinc-50 p-2">
-            <ImageWithEdit
-              src={referencePreview}
-              alt="Reference"
-              className="h-14 w-14 rounded-xl"
-              imgClassName="h-14 w-14 rounded-xl object-cover"
-              size="sm"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-zinc-700">Reference image</p>
-              <p className="truncate text-[11px] text-zinc-500">
-                {outputType === "video" ? "Used for image-to-video generation" : "Used for style guidance"}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              disabled={isStarting}
-              onClick={clearReference}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : null}
-
-        {showProductUrl ? (
-          <div className="mt-3">
-            <Input
-              value={productUrl}
-              onChange={(event) => setProductUrl(event.target.value)}
-              disabled={isStarting}
-              type="url"
-              placeholder="https://your-product.com"
-              className="h-10 bg-zinc-50"
-            />
-          </div>
-        ) : null}
-
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            <MediaUploadTrigger
-              kinds="image"
-              disabled={isStarting || !canCreate}
-              uploading={isUploadingReference}
-              onFile={handleReferenceFile}
-              onAsset={handleReferenceAsset}
-              dialogTitle="Add reference image"
-              trigger={({ open, disabled, uploading }) => (
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <Button
-                    type="button"
-                    variant="icon"
-                    size="icon"
-                    className="h-10 w-10 bg-zinc-50"
-                    aria-label="Add reference image"
-                    disabled={disabled}
-                    onClick={open}
-                  >
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ImagePlus className="h-4 w-4" />
-                    )}
-                  </Button>
-                </motion.div>
-              )}
-            />
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-              <Button
-                type="button"
-                variant="icon"
-                size="icon"
-                className={cn("h-10 w-10 bg-zinc-50", showProductUrl && "bg-purple-50 text-purple-700")}
-                aria-label="Add product link"
-                disabled={isStarting}
-                onClick={() => setShowProductUrl((value) => !value)}
-              >
-                <Link2 className="h-4 w-4" />
-              </Button>
-            </motion.div>
-            <DashboardChatHistoryDropdown
-              sessions={chatSessions}
-              onSessionsChange={refreshChatSessions}
-              trigger="icon"
-              disabled={isStarting}
-              onOpenChange={(open) => {
-                if (open) refreshChatSessions();
-              }}
-            />
-          </div>
-          <motion.div
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Button
-              type="button"
-              size="icon"
-              className="h-11 w-11 shrink-0 rounded-full"
-              aria-label={outputType === "video" ? "Generate video" : "Generate image"}
-              disabled={isStarting || !canCreate}
-              onClick={handleGenerate}
-            >
-              {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </motion.div>
-        </div>
-      </motion.div>
-
-      <motion.div
-        className="flex w-full justify-center gap-2"
-        variants={itemVariants}
-      >
-        {outputModes.map((mode) => {
-          const Icon = mode.icon;
-          const active = outputType === mode.id;
-          return (
-            <motion.div
-              key={mode.id}
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button
-                type="button"
-                variant={active ? "default" : "outline"}
-                size="sm"
-                className={cn("gap-2 rounded-full px-5", !active && "bg-white")}
-                disabled={isStarting}
-                onClick={() => setOutputType(mode.id)}
-              >
-                <Icon className="h-4 w-4" />
-                {mode.label}
-              </Button>
-            </motion.div>
-          );
-        })}
-      </motion.div>
-
-      {outputType === "image" ? (
+  return (
+    <>
+      <section className="mx-auto max-w-3xl px-1 pt-2 text-center md:pt-4">
         <motion.div
-          className="flex w-full flex-wrap justify-center gap-2"
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          transition={{ type: "spring", stiffness: 300, damping: 24 }}
+          className="space-y-2"
         >
-          {imageAspectRatios.map((ratio) => (
-            <motion.div
-              key={ratio.value}
-              whileHover={{ scale: 1.1, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "bg-white px-4",
-                  aspectRatio === ratio.value && "border-purple-200 bg-purple-50 text-purple-700",
-                )}
-                disabled={isStarting}
-                onClick={() => setAspectRatio(ratio.value)}
-              >
-                {ratio.label}
-              </Button>
-            </motion.div>
-          ))}
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl md:leading-tight">
+            Hi, what will we create today?
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Browse inspiration below, then describe your idea in the prompt bar.
+          </p>
+          {!canCreate ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              Content creation is disabled for your account.
+            </p>
+          ) : null}
         </motion.div>
-      ) : null}
-    </motion.section>
+      </section>
+
+      <div
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-50 flex justify-center px-3 md:bottom-4"
+        aria-label="Create prompt"
+      >
+        <motion.div
+          className="pointer-events-auto w-full max-w-xl"
+          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 380, damping: 30, delay: 0.05 }}
+        >
+          <div
+            ref={dockRef}
+            onMouseDown={handleDockMouseDown}
+            className={cn(
+              "border border-border/50 bg-background/80 text-left shadow-[0_8px_32px_rgba(15,23,42,0.08),0_2px_8px_rgba(15,23,42,0.04)] backdrop-blur-md transition-[border-radius,box-shadow] focus-within:border-border/80 focus-within:shadow-[0_12px_40px_rgba(124,58,237,0.1)] dark:bg-background/70 dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] dark:focus-within:shadow-[0_12px_40px_rgba(124,58,237,0.14)]",
+              dockExpanded ? "rounded-2xl p-2.5" : "rounded-full px-2 py-1.5",
+            )}
+          >
+            {outputType === "image" && dockExpanded ? (
+              <div className="mb-1.5 flex flex-wrap items-center gap-1 px-1">
+                {imageAspectRatios.map((ratio) => (
+                  <button
+                    key={ratio.value}
+                    type="button"
+                    disabled={isStarting}
+                    onClick={() => setAspectRatio(ratio.value)}
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:text-foreground",
+                      aspectRatio === ratio.value &&
+                        "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300",
+                    )}
+                  >
+                    {ratio.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1 rounded-full bg-muted/30 p-1">
+                {outputModes.map((mode) => {
+                  const Icon = mode.icon;
+                  const active = outputType === mode.id;
+                  return (
+                    <PromptDockIconButton
+                      key={mode.id}
+                      tone={mode.tone}
+                      active={active}
+                      title={mode.label}
+                      disabled={isStarting}
+                      onClick={() => {
+                        setOutputType(mode.id);
+                        setExpanded(true);
+                      }}
+                    >
+                      <Icon />
+                    </PromptDockIconButton>
+                  );
+                })}
+              </div>
+
+              <Textarea
+                value={prompt}
+                onChange={(event) => {
+                  setPrompt(event.target.value);
+                  if (inputError) setInputError(null);
+                }}
+                onFocus={() => setExpanded(true)}
+                onBlur={(event) => {
+                  const next = event.relatedTarget as Node | null;
+                  if (next && dockRef.current?.contains(next)) return;
+                  maybeCollapse();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleGenerate();
+                  }
+                }}
+                disabled={isStarting}
+                rows={dockExpanded ? 2 : 1}
+                className={cn(
+                  "min-h-0 flex-1 resize-none border-0 bg-transparent py-1.5 text-sm leading-5 text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0",
+                  dockExpanded ? "min-h-[52px] px-1" : "min-h-[2rem] px-0.5",
+                )}
+                placeholder={
+                  outputType === "video" ? "Describe your video ad…" : "Describe your image…"
+                }
+              />
+
+              <PromptDockIconButton
+                tone="create"
+                aria-label={outputType === "video" ? "Generate video" : "Generate image"}
+                disabled={isStarting || !canCreate}
+                onClick={handleGenerate}
+              >
+                {isStarting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <PromptCreateIcon />
+                )}
+              </PromptDockIconButton>
+            </div>
+
+            {inputError ? (
+              <p className="mt-1 px-2 text-xs text-red-600">{inputError}</p>
+            ) : null}
+
+            {dockExpanded ? (
+              <>
+                {referencePreview ? (
+                  <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-muted/40 px-2 py-1.5">
+                    <ImageWithEdit
+                      src={referencePreview}
+                      alt="Reference"
+                      className="h-9 w-9 rounded-md"
+                      imgClassName="h-9 w-9 rounded-md object-cover"
+                      size="sm"
+                    />
+                    <p className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+                      Reference attached
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      disabled={isStarting}
+                      onClick={clearReference}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : null}
+
+                {showProductUrl ? (
+                  <div className="mt-1.5 px-1">
+                    <Input
+                      value={productUrl}
+                      onChange={(event) => setProductUrl(event.target.value)}
+                      disabled={isStarting}
+                      type="url"
+                      placeholder="https://your-product.com"
+                      className="h-8 border-border/60 bg-muted/30 text-sm"
+                    />
+                  </div>
+                ) : null}
+
+                <div className="mt-2 flex items-center gap-1 border-t border-border/50 pt-2">
+                  {renderDockActions()}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </motion.div>
+      </div>
+    </>
   );
 }

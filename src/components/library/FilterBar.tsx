@@ -25,7 +25,7 @@ export function FilterBar({
   to: string;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-white p-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap gap-1">
         {filters.map((filter) => (
           <Link
@@ -46,7 +46,7 @@ export function FilterBar({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-9" name="q" defaultValue={query} placeholder="Search generations" />
         </div>
-        <div className="flex items-center gap-2 rounded-md border bg-white px-3">
+        <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3">
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
           <Input
             type="date"

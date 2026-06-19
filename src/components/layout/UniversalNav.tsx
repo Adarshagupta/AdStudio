@@ -52,8 +52,8 @@ function NavSideActionButton({
           "flex shrink-0 items-center justify-center rounded-md transition-colors duration-150",
           compact ? "h-9 w-9" : "mr-1 h-7 w-7",
           isSideActive
-            ? "bg-purple-100 text-purple-700"
-            : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700",
+            ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300"
+            : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200",
         )}
       >
         <SideIcon className={compact ? "h-4 w-4" : "h-3.5 w-3.5"} />
@@ -102,8 +102,8 @@ export function UniversalNav({
                   className={cn(
                     "flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-150",
                     isActive
-                      ? "bg-zinc-100 text-zinc-900"
-                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                      ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100",
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -135,7 +135,7 @@ export function UniversalNav({
 
         return (
           <div key={group.label}>
-            <p className="mb-2 px-2 text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-400">
+            <p className="mb-2 px-2 text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
               {group.label}
             </p>
             <div className="space-y-0.5">
@@ -151,7 +151,7 @@ export function UniversalNav({
                       whileTap={{ scale: 0.98 }}
                       className={cn(
                         "group flex items-center rounded-lg transition-colors duration-150",
-                        isActive ? "bg-zinc-100" : "hover:bg-zinc-50",
+                        isActive ? "bg-zinc-100 dark:bg-zinc-800" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/80",
                       )}
                     >
                       <Link
@@ -161,16 +161,16 @@ export function UniversalNav({
                         className={cn(
                           "flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2 text-sm",
                           isActive
-                            ? "font-medium text-zinc-900"
-                            : "text-zinc-600 group-hover:text-zinc-900",
+                            ? "font-medium text-zinc-900 dark:text-zinc-100"
+                            : "text-zinc-600 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-100",
                         )}
                       >
                         <Icon
                           className={cn(
                             "h-4 w-4 shrink-0",
                             isActive
-                              ? "text-zinc-900"
-                              : "text-zinc-600 group-hover:text-zinc-800",
+                              ? "text-zinc-900 dark:text-zinc-100"
+                              : "text-zinc-600 group-hover:text-zinc-800 dark:text-zinc-400 dark:group-hover:text-zinc-200",
                           )}
                         />
                         <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -197,16 +197,16 @@ export function UniversalNav({
                       className={cn(
                         "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150",
                         isActive
-                          ? "bg-zinc-100 font-medium text-zinc-900"
-                          : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                          ? "bg-zinc-100 font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                          : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100",
                       )}
                     >
                       <Icon
                         className={cn(
                           "h-4 w-4 shrink-0",
                           isActive
-                            ? "text-zinc-900"
-                            : "text-zinc-600 group-hover:text-zinc-800",
+                            ? "text-zinc-900 dark:text-zinc-100"
+                            : "text-zinc-600 group-hover:text-zinc-800 dark:text-zinc-400 dark:group-hover:text-zinc-200",
                         )}
                       />
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>

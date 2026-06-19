@@ -145,6 +145,9 @@ model Workspace {
   plan             Plan          @default(FREE)
   stripeCustomerId          String?       @unique
   stripeSubscriptionId      String?       @unique
+  dodoCustomerId            String?       @unique
+  dodoSubscriptionId        String?       @unique
+  billingProvider           String?
   billingInterval           String?
   subscriptionStatus        String?
   creditsRemaining          Int           @default(0)

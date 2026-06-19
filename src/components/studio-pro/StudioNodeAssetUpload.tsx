@@ -179,7 +179,7 @@ export function StudioNodeAssetUpload({
               type="button"
               disabled={disabled || busy}
               onClick={open}
-              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition hover:border-purple-200 hover:text-purple-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition hover:border-purple-200 hover:text-purple-700 disabled:opacity-60"
             >
               {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
               {busy ? "Uploading…" : `Add ${kind}`}
@@ -191,7 +191,7 @@ export function StudioNodeAssetUpload({
           <button
             type="button"
             onClick={clearAsset}
-            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800"
+            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-zinc-100 hover:text-foreground"
           >
             <X className="h-3 w-3" />
             Remove

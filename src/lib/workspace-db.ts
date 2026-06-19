@@ -24,6 +24,9 @@ type WorkspaceRow = {
   plan: string;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  dodoCustomerId: string | null;
+  dodoSubscriptionId: string | null;
+  billingProvider: string | null;
   billingInterval: string | null;
   subscriptionStatus: string | null;
   creditsRemaining: number;
@@ -53,6 +56,9 @@ export async function findWorkspaceById(id: string): Promise<Workspace | null> {
         plan::text AS plan,
         "stripeCustomerId",
         "stripeSubscriptionId",
+        "dodoCustomerId",
+        "dodoSubscriptionId",
+        "billingProvider",
         "billingInterval",
         "subscriptionStatus",
         "creditsRemaining",
@@ -80,6 +86,9 @@ export async function findWorkspaceById(id: string): Promise<Workspace | null> {
       plan: normalizePlanValue(row.plan),
       stripeCustomerId: row.stripeCustomerId,
       stripeSubscriptionId: row.stripeSubscriptionId,
+      dodoCustomerId: row.dodoCustomerId,
+      dodoSubscriptionId: row.dodoSubscriptionId,
+      billingProvider: row.billingProvider,
       billingInterval: row.billingInterval,
       subscriptionStatus: row.subscriptionStatus,
       creditsRemaining: row.creditsRemaining,

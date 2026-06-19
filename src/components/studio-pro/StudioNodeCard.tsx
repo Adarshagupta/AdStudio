@@ -142,7 +142,7 @@ export function StudioNodeCard({
         title={hasIncomingConnection ? "Click to disconnect incoming" : "Input port"}
         className={cn(
           "studio-port absolute left-0 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all touch-none",
-          "h-4 w-4 border-2 bg-white dark:bg-zinc-900",
+          "h-4 w-4 border-2 bg-card",
           hasIncomingConnection && !canReceiveConnection && !isSnapTarget
             ? "border-purple-400 bg-purple-50 dark:bg-purple-950/50"
             : null,
@@ -167,7 +167,7 @@ export function StudioNodeCard({
         title="Drag to an input port"
         className={cn(
           "studio-port absolute right-0 top-1/2 z-30 -translate-y-1/2 translate-x-1/2 rounded-full transition-all touch-none",
-          "h-4 w-4 border-2 bg-white dark:bg-zinc-900",
+          "h-4 w-4 border-2 bg-card",
           connectingFrom === node.id
             ? "scale-125 border-purple-500 bg-purple-500 shadow-[0_0_0_6px_rgba(124,58,237,0.15)]"
             : "border-zinc-300 hover:scale-110 hover:border-purple-400 dark:border-zinc-600",
@@ -191,7 +191,7 @@ export function StudioNodeCard({
       >
         <div
           className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900",
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border/80 bg-card shadow-sm",
             typeAccent[node.type],
           )}
           title={node.title}
@@ -214,7 +214,7 @@ export function StudioNodeCard({
 
       <div
         className={cn(
-          "flex h-full flex-col overflow-hidden rounded-2xl border bg-white shadow-[0_10px_36px_rgba(15,23,42,0.1)] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-[0_10px_36px_rgba(0,0,0,0.35)]",
+          "flex h-full flex-col overflow-hidden rounded-2xl border bg-card shadow-[0_10px_36px_rgba(15,23,42,0.1)] dark:shadow-[0_10px_36px_rgba(0,0,0,0.35)]",
           selected && "border-zinc-400 ring-2 ring-zinc-200 dark:border-zinc-500 dark:ring-zinc-800",
           !selected && "border-zinc-200/90 hover:border-zinc-300 dark:hover:border-zinc-600",
           isRunning && "studio-node-running",
@@ -300,12 +300,12 @@ function renderNodePreview(
 
     return (
       <div className="space-y-2">
-        <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50/80 p-2.5">
+        <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-muted/40 p-2.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-50 text-sm font-semibold text-purple-700">
             {name.slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium leading-tight text-zinc-900">{name}</p>
+            <p className="text-sm font-medium leading-tight text-foreground">{name}</p>
             {brief ? (
               <p className="mt-0.5 max-h-24 overflow-y-auto whitespace-pre-wrap text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
                 {brief}
@@ -333,12 +333,12 @@ function renderNodePreview(
 
     return (
       <div className="space-y-2.5">
-        <div className="flex items-center gap-2.5 rounded-xl border border-zinc-100 bg-zinc-50/80 p-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-zinc-100 bg-muted/40 p-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-600 text-white">
             <Play className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm text-zinc-900">{title}</p>
+            <p className="truncate text-sm text-foreground">{title}</p>
             <p className="truncate text-[11px] text-zinc-500">{voice}</p>
           </div>
         </div>
@@ -365,12 +365,12 @@ function renderNodePreview(
 
     return (
       <div className="space-y-2">
-        <div className="flex items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50/80 p-2.5">
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-100 bg-muted/40 p-2.5">
           <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", enabled ? "bg-rose-100 text-rose-600" : "bg-zinc-100 text-zinc-500")}>
             <CalendarClock className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-zinc-900">{enabled ? "Active" : "Paused"}</p>
+            <p className="text-sm font-medium text-foreground">{enabled ? "Active" : "Paused"}</p>
             <p className="text-[11px] text-zinc-500">Every {interval} min</p>
           </div>
         </div>
@@ -386,12 +386,12 @@ function renderNodePreview(
 
     return (
       <div className="space-y-2">
-        <div className="flex items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50/80 p-2.5">
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-100 bg-muted/40 p-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
             <Share2 className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-zinc-900 capitalize">{provider}</p>
+            <p className="text-sm font-medium text-foreground capitalize">{provider}</p>
             <p className="text-[11px] text-zinc-500">{postUrl ? "Posted" : "Ready to post"}</p>
           </div>
         </div>
@@ -420,7 +420,7 @@ function PreviewPanel({
   emptyLabel: string;
 }) {
   return (
-    <div className="min-h-[56px] rounded-xl border border-zinc-100 bg-zinc-50/80 p-3">
+    <div className="min-h-[56px] rounded-xl border border-zinc-100 bg-muted/40 p-3">
       {empty ? <p className="text-xs italic text-zinc-400">{emptyLabel}</p> : children}
     </div>
   );

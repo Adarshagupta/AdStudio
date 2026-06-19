@@ -45,9 +45,13 @@ export function BillingReturnFlow({ continueHref, continueLabel }: BillingReturn
       return;
     }
 
-    const sessionId = searchParams.get("session_id");
+    const sessionId =
+      searchParams.get("session_id") ??
+      searchParams.get("session") ??
+      searchParams.get("checkout_session_id");
+    const paymentId = searchParams.get("payment_id");
 
-    if (!sessionId) {
+    if (!sessionId && !paymentId) {
       setState({
         status: "error",
         message: "Payment received but the session could not be verified.",
@@ -62,7 +66,10 @@ export function BillingReturnFlow({ continueHref, continueLabel }: BillingReturn
         const response = await fetch("/api/workspace/billing/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({
+            ...(sessionId ? { sessionId } : {}),
+            ...(paymentId ? { paymentId } : {}),
+          }),
         });
 
         const data = await readJsonResponse<{
@@ -104,9 +111,9 @@ export function BillingReturnFlow({ continueHref, continueLabel }: BillingReturn
     return (
       <div className="w-full max-w-md space-y-4 rounded-2xl border border-[#e4e2de] bg-white p-8 text-center shadow-sm">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#5b3cf5]" />
-        <h1 className="font-display text-xl font-semibold text-[#111110]">Activating your plan…</h1>
+        <h1 className="font-display text-xl font-semibold text-[#111110]">Confirming your plan…</h1>
         <p className="text-sm leading-relaxed text-[#6b6965]">
-          Confirming your subscription with Stripe.
+          Waiting for Dodo Payments to confirm your subscription.
         </p>
       </div>
     );

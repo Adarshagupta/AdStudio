@@ -295,7 +295,7 @@ export function WorkspaceSwitcher({
 
       <div
         className={cn(
-          isSidebar && "shrink-0 border-b border-zinc-100",
+          isSidebar && "shrink-0 border-b border-border",
           isSidebar && (collapsed ? "flex justify-center px-1 py-2" : "px-3 py-3"),
         )}
       >
@@ -315,26 +315,26 @@ export function WorkspaceSwitcher({
               aria-label={isSidebar && collapsed ? `Workspace: ${activeWorkspaceName}` : undefined}
               className={cn(
                 isSidebar && collapsed
-                  ? "h-9 w-9 rounded-lg p-0 hover:bg-zinc-100"
+                  ? "h-9 w-9 rounded-lg p-0"
                   : isSidebar
-                    ? "h-auto w-full justify-between gap-2 rounded-lg px-2.5 py-2 hover:bg-zinc-100"
+                    ? "h-auto w-full justify-between gap-2 rounded-lg px-2.5 py-2"
                     : "hidden h-9 max-w-[200px] justify-between gap-2 px-3 sm:inline-flex",
               )}
             >
               {isSidebar && collapsed ? (
-                <Layers className="h-4 w-4 shrink-0 text-zinc-600" />
+                <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />
               ) : isSidebar ? (
                 <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                  <Layers className="h-4 w-4 shrink-0 text-zinc-600" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900">
+                  <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                     {activeWorkspaceName}
                   </span>
                 </span>
               ) : (
-                <span className="truncate text-sm text-zinc-600">{activeWorkspaceName}</span>
+                <span className="truncate text-sm text-muted-foreground">{activeWorkspaceName}</span>
               )}
               {isSidebar && collapsed ? null : (
-                <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500" />
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
             </Button>
           </DropdownMenuTrigger>
@@ -379,9 +379,9 @@ export function WorkspaceSwitcher({
                 setMenuOpen(false);
                 setCreateOpen(true);
               }}
-              className="gap-2 text-zinc-700"
+              className="gap-2 text-foreground"
             >
-              <Plus className="h-4 w-4 shrink-0 text-zinc-600" />
+              <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
               Create new workspace
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -397,7 +397,7 @@ export function WorkspaceSwitcher({
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold text-zinc-900">
+            <DialogTitle className="text-base font-semibold text-foreground">
               Create new workspace
             </DialogTitle>
             <DialogDescription>
@@ -406,7 +406,7 @@ export function WorkspaceSwitcher({
           </DialogHeader>
           <form className="space-y-4" onSubmit={onCreateWorkspace}>
             <div className="space-y-2">
-              <label htmlFor="workspace-name" className="text-sm font-medium text-zinc-700">
+              <label htmlFor="workspace-name" className="text-sm font-medium text-foreground">
                 Workspace name
               </label>
               <Input
@@ -420,11 +420,11 @@ export function WorkspaceSwitcher({
               />
             </div>
 
-            <div className="rounded-xl border border-zinc-200/80">
+            <div className="rounded-xl border border-border/80">
               <button
                 type="button"
                 onClick={() => setShowInvites((value) => !value)}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-zinc-800"
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-foreground"
               >
                 <span>Add team members</span>
                 <ChevronRight
@@ -436,8 +436,8 @@ export function WorkspaceSwitcher({
               </button>
 
               {showInvites ? (
-                <div className="space-y-3 border-t border-zinc-100 px-3 py-3">
-                  <p className="text-xs text-zinc-500">
+                <div className="space-y-3 border-t border-border px-3 py-3">
+                  <p className="text-xs text-muted-foreground">
                     Optional — invite teammates by email. You can add more later from Members.
                   </p>
                   {invites.map((row, index) => (

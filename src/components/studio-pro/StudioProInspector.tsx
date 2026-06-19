@@ -55,10 +55,10 @@ export function StudioProInspector({
     node.data.status === "running" && (node.type === "image" || node.type === "video" || node.type === "social");
 
   return (
-    <aside className="flex h-full w-full min-w-0 flex-col bg-white dark:bg-zinc-900">
+    <aside className="flex h-full w-full min-w-0 flex-col bg-card">
       <div className="flex shrink-0 items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
         <div>
-          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{node.title}</p>
+          <p className="text-sm font-medium text-foreground">{node.title}</p>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
             {isGeneratingMedia
               ? node.type === "image"

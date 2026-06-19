@@ -211,7 +211,7 @@ export function PublishTemplateDialog({
             ) : null}
 
             <div className="grid gap-2">
-              <label htmlFor="template-title" className="text-sm font-medium text-zinc-900">
+              <label htmlFor="template-title" className="text-sm font-medium text-foreground">
                 Title
               </label>
               <Input
@@ -223,7 +223,7 @@ export function PublishTemplateDialog({
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="template-description" className="text-sm font-medium text-zinc-900">
+              <label htmlFor="template-description" className="text-sm font-medium text-foreground">
                 Description
               </label>
               <Textarea
@@ -243,7 +243,7 @@ export function PublishTemplateDialog({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <label htmlFor="template-price" className="text-sm font-medium text-zinc-900">
+                <label htmlFor="template-price" className="text-sm font-medium text-foreground">
                   Price (USD)
                 </label>
                 <Input
@@ -256,7 +256,7 @@ export function PublishTemplateDialog({
                 />
               </div>
               <div className="grid gap-2">
-                <label htmlFor="template-category" className="text-sm font-medium text-zinc-900">
+                <label htmlFor="template-category" className="text-sm font-medium text-foreground">
                   Category
                 </label>
                 <Input
@@ -269,7 +269,7 @@ export function PublishTemplateDialog({
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="template-tags" className="text-sm font-medium text-zinc-900">
+              <label htmlFor="template-tags" className="text-sm font-medium text-foreground">
                 Tags (comma-separated)
               </label>
               <Input

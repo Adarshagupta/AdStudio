@@ -32,7 +32,7 @@ export default async function StudioTemplateMarketplacePage() {
               Template marketplace
             </div>
             <div>
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-zinc-900 md:text-[2.75rem] md:leading-tight">
+              <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground md:text-[2.75rem] md:leading-tight">
                 Studio Pro templates
               </h1>
               <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
@@ -42,7 +42,7 @@ export default async function StudioTemplateMarketplacePage() {
           </div>
           <Link
             href="/studio-pro/marketplace/mine"
-            className="inline-flex h-10 items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+            className="inline-flex h-10 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-muted/50"
           >
             My templates
           </Link>
@@ -50,7 +50,7 @@ export default async function StudioTemplateMarketplacePage() {
 
         {listings.length === 0 ? (
           <section className="rounded-3xl bg-zinc-100/70 px-8 py-16 text-center">
-            <h2 className="font-display text-2xl font-semibold text-zinc-900">No templates yet</h2>
+            <h2 className="font-display text-2xl font-semibold text-foreground">No templates yet</h2>
             <p className="mt-2 text-sm text-zinc-500">
               Publish a flow from Studio Pro to list it here.
             </p>
@@ -67,7 +67,7 @@ export default async function StudioTemplateMarketplacePage() {
               <Link
                 key={listing.id}
                 href={`/studio-pro/marketplace/${listing.slug}`}
-                className="group rounded-2xl border border-zinc-200 bg-white p-4 transition hover:border-purple-200 hover:shadow-md"
+                className="group rounded-2xl border border-border bg-card p-4 transition hover:border-purple-200 hover:shadow-md"
               >
                 <TemplateListingCover
                   previewImageUrl={listing.previewImageUrl}
@@ -76,8 +76,8 @@ export default async function StudioTemplateMarketplacePage() {
                 />
                 <div className="space-y-1">
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="font-medium text-zinc-900 group-hover:text-purple-700">{listing.title}</h2>
-                    <span className="shrink-0 text-sm font-semibold text-zinc-900">
+                    <h2 className="font-medium text-foreground group-hover:text-purple-700">{listing.title}</h2>
+                    <span className="shrink-0 text-sm font-semibold text-foreground">
                       {formatPriceCents(listing.priceCents, listing.currency)}
                     </span>
                   </div>

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { ProFreeTrialPopup } from "@/components/billing/ProFreeTrialPopup";
 import { getCurrentUser } from "@/lib/auth";
-import { isStripeConfigured } from "@/lib/billing/stripe";
+import { isPaidCheckoutEnabled, requiresPaidCheckout } from "@/lib/billing/payment-provider";
 import { isDatabaseConfigured } from "@/lib/database-url";
 import { getWorkspaceOnboarding, serializeOnboarding } from "@/lib/onboarding";
 import { noIndexMetadata } from "@/lib/seo";
@@ -57,8 +57,9 @@ export default async function OnboardingPage() {
       <ProFreeTrialPopup
         plan={currentUser.workspace.plan}
         isAdmin={currentUser.user.role === "ADMIN"}
-        hasStripeSubscription={Boolean(currentUser.workspace.stripeSubscriptionId)}
-        stripeEnabled={isStripeConfigured()}
+        hasPaidSubscription={Boolean(currentUser.workspace.stripeSubscriptionId || currentUser.workspace.dodoSubscriptionId)}
+        checkoutEnabled={isPaidCheckoutEnabled()}
+        paidCheckoutRequired={requiresPaidCheckout()}
         showDelayMs={900}
         surface="onboarding"
       />

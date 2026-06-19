@@ -61,7 +61,7 @@ function FilterLink({ label, href, active }: { label: string; href: string; acti
       className={
         active
           ? "rounded-full bg-purple-100 px-3 py-1.5 text-xs font-medium text-purple-800"
-          : "rounded-full border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 transition hover:border-purple-200"
+          : "rounded-full border border-border px-3 py-1.5 text-xs text-zinc-600 transition hover:border-purple-200"
       }
     >
       {label}

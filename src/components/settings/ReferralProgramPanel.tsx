@@ -79,23 +79,23 @@ export function ReferralProgramPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-[#e4e2de] bg-gradient-to-br from-[#5b3cf5]/8 via-white to-[#f7f6f3] p-6">
+      <div className="rounded-2xl border border-border bg-gradient-to-br from-violet-600/10 via-card to-muted/40 p-6">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#5b3cf5]/10">
-            <Gift className="h-6 w-6 text-[#5b3cf5]" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600/10">
+            <Gift className="h-6 w-6 text-violet-600 dark:text-violet-400" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-lg font-semibold text-[#111110]">Invite friends, earn credits</h2>
-            <p className="mt-1 text-sm leading-relaxed text-[#6b6965]">
+            <h2 className="font-display text-lg font-semibold text-foreground">Invite friends, earn credits</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               Share your link. When someone signs up and buys a paid plan, you get{" "}
-              <strong className="font-semibold text-[#111110]">{summary.creditsPerReferral} credits</strong>{" "}
+              <strong className="font-semibold text-foreground">{summary.creditsPerReferral} credits</strong>{" "}
               automatically — once per referral.
             </p>
           </div>
         </div>
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <div className="min-w-0 flex-1 rounded-xl border border-[#e4e2de] bg-white px-3 py-2.5 text-sm text-[#3d3c39]">
+          <div className="min-w-0 flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground">
             <span className="block truncate">{summary.referralUrl}</span>
           </div>
           <Button
@@ -117,8 +117,8 @@ export function ReferralProgramPanel() {
           </Button>
         </div>
 
-        <p className="mt-3 text-xs text-[#a8a49f]">
-          Your code: <span className="font-mono font-medium text-[#6b6965]">{summary.referralCode}</span>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Your code: <span className="font-mono font-medium text-foreground/80">{summary.referralCode}</span>
         </p>
       </div>
 
@@ -129,18 +129,18 @@ export function ReferralProgramPanel() {
       </div>
 
       {summary.rewards.length > 0 ? (
-        <div className="rounded-2xl border border-[#e4e2de] bg-white">
-          <div className="border-b border-[#e4e2de] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[#111110]">Recent rewards</h3>
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="border-b border-border px-5 py-4">
+            <h3 className="text-sm font-semibold text-foreground">Recent rewards</h3>
           </div>
-          <ul className="divide-y divide-[#e4e2de]">
+          <ul className="divide-y divide-border">
             {summary.rewards.map((reward) => (
               <li key={reward.id} className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
                 <div className="min-w-0">
-                  <p className="font-medium text-[#111110]">
+                  <p className="font-medium text-foreground">
                     {reward.referredName ?? reward.referredEmail}
                   </p>
-                  <p className="text-xs text-[#a8a49f]">
+                  <p className="text-xs text-muted-foreground">
                     Subscribed to {reward.plan} · {new Date(reward.createdAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -164,12 +164,12 @@ function StatCard({
   icon: typeof Gift;
 }) {
   return (
-    <div className="rounded-2xl border border-[#e4e2de] bg-white p-4">
-      <div className="flex items-center gap-2 text-[#a8a49f]">
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-4 w-4" />
         <p className="text-xs font-medium uppercase tracking-[0.08em]">{label}</p>
       </div>
-      <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#111110]">{value}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-foreground">{value}</p>
     </div>
   );
 }

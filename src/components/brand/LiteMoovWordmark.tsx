@@ -1,27 +1,5 @@
 import { cn } from "@/lib/utils";
 
-const WORDMARK_LIGHT = [
-  { char: "L", color: "#0B1220" },
-  { char: "i", color: "#0B1220" },
-  { char: "t", color: "#0B1220" },
-  { char: "e", color: "#0B1220" },
-  { char: "m", color: "#9333EA" },
-  { char: "o", color: "#6366F1" },
-  { char: "o", color: "#3B82F6" },
-  { char: "v", color: "#38BDF8" },
-] as const;
-
-const WORDMARK_ON_DARK = [
-  { char: "L", color: "#F8FAFC" },
-  { char: "i", color: "#F8FAFC" },
-  { char: "t", color: "#F8FAFC" },
-  { char: "e", color: "#F8FAFC" },
-  { char: "m", color: "#C4B5FD" },
-  { char: "o", color: "#A5B4FC" },
-  { char: "o", color: "#93C5FD" },
-  { char: "v", color: "#67E8F9" },
-] as const;
-
 const sizeClasses = {
   sm: "text-sm leading-none",
   md: "text-base leading-none",
@@ -32,17 +10,48 @@ const sizeClasses = {
 type LiteMoovWordmarkProps = {
   className?: string;
   size?: keyof typeof sizeClasses;
-  /** Use on dark / gradient backgrounds so “Lite” stays readable. */
-  tone?: "light" | "dark";
+  /** `auto` uses CSS dark mode (works on preloaders before hydration). `dark` = light letters on dark bg. */
+  tone?: "light" | "dark" | "auto";
 };
+
+const letterTone = {
+  lite: {
+    light: "text-[#0B1220]",
+    dark: "text-slate-50",
+    auto: "text-[#0B1220] dark:text-slate-50",
+  },
+  m: {
+    light: "text-purple-600",
+    dark: "text-violet-300",
+    auto: "text-purple-600 dark:text-violet-300",
+  },
+  o1: {
+    light: "text-indigo-600",
+    dark: "text-indigo-300",
+    auto: "text-indigo-600 dark:text-indigo-300",
+  },
+  o2: {
+    light: "text-blue-500",
+    dark: "text-blue-300",
+    auto: "text-blue-500 dark:text-blue-300",
+  },
+  v: {
+    light: "text-sky-400",
+    dark: "text-cyan-300",
+    auto: "text-sky-400 dark:text-cyan-300",
+  },
+} as const;
+
+function toneClass(slot: keyof typeof letterTone, tone: "light" | "dark" | "auto") {
+  if (tone === "auto") return letterTone[slot].auto;
+  return tone === "dark" ? letterTone[slot].dark : letterTone[slot].light;
+}
 
 export function LiteMoovWordmark({
   className,
   size = "md",
-  tone = "light",
+  tone = "auto",
 }: LiteMoovWordmarkProps) {
-  const letters = tone === "dark" ? WORDMARK_ON_DARK : WORDMARK_LIGHT;
-
   return (
     <span
       className={cn(
@@ -52,11 +61,11 @@ export function LiteMoovWordmark({
       )}
       aria-label="LiteMoov"
     >
-      {letters.map((letter, index) => (
-        <span key={`${letter.char}-${index}`} style={{ color: letter.color }}>
-          {letter.char}
-        </span>
-      ))}
+      <span className={toneClass("lite", tone)}>Lite</span>
+      <span className={toneClass("m", tone)}>m</span>
+      <span className={toneClass("o1", tone)}>o</span>
+      <span className={toneClass("o2", tone)}>o</span>
+      <span className={toneClass("v", tone)}>v</span>
     </span>
   );
 }

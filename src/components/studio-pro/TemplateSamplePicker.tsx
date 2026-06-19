@@ -60,7 +60,7 @@ export function TemplateSamplePicker({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-4 text-sm text-zinc-500">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-4 text-sm text-zinc-500">
         <Loader2 className="h-4 w-4 animate-spin" />
         Loading outputs from this session…
       </div>
@@ -85,7 +85,7 @@ export function TemplateSamplePicker({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-zinc-900">Sample outputs</p>
+      <p className="text-sm font-medium text-foreground">Sample outputs</p>
       <p className="text-xs text-zinc-500">
         Choose which images or videos from this session appear on the marketplace listing.
       </p>
@@ -122,7 +122,7 @@ export function TemplateSamplePicker({
                 </span>
               </div>
               <div className="min-w-0 pt-0.5">
-                <p className="truncate text-xs font-medium text-zinc-900">{sample.nodeTitle}</p>
+                <p className="truncate text-xs font-medium text-foreground">{sample.nodeTitle}</p>
                 <p className="text-[11px] capitalize text-zinc-500">{sample.type}</p>
                 <p className="mt-1 text-[11px] text-purple-600">{selected ? "Shown on listing" : "Tap to show"}</p>
               </div>

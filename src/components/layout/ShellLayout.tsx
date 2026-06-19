@@ -78,7 +78,7 @@ export function ShellLayout({
 
   return (
     <NotificationProvider>
-      <div className="min-h-screen bg-[#fafafa]">
+      <div className="min-h-screen bg-background">
         <Sidebar
           user={user}
           workspace={workspace}

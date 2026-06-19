@@ -36,7 +36,7 @@ function PromoThumb({
   previewImage?: string;
 }) {
   return (
-    <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md bg-zinc-100">
+    <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md bg-muted">
       {previewVideo ? (
         <video
           src={previewVideo}
@@ -100,7 +100,7 @@ export function SidebarModelPromoBanner({
           />
           <div className="min-w-0">
             <div className="flex items-center gap-1">
-              <span className="truncate text-[11px] font-medium text-zinc-800 group-hover:text-zinc-950">
+              <span className="truncate text-[11px] font-medium text-foreground/90 group-hover:text-foreground">
                 {promo.label}
               </span>
               <span
@@ -112,7 +112,7 @@ export function SidebarModelPromoBanner({
                 {promo.tag}
               </span>
             </div>
-            <p className="truncate text-[10px] text-zinc-500">{promo.description}</p>
+            <p className="truncate text-[10px] text-muted-foreground">{promo.description}</p>
           </div>
         </Link>
       ))}

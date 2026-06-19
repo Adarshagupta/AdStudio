@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useState } from "react";
 import { FolderOpen, Loader2, Music2, Video, X } from "lucide-react";
 
@@ -14,12 +15,14 @@ export function AssetPicker({
   open,
   onClose,
   onSelect,
+  presentation = "modal",
 }: {
   kind?: StudioUploadKind;
   kinds?: StudioUploadKind[];
   open: boolean;
   onClose: () => void;
   onSelect: (asset: UserMediaAssetDto) => void;
+  presentation?: "modal" | "fullscreen";
 }) {
   const allowedKinds = kindsProp?.length ? kindsProp : kindProp ? [kindProp] : (["image"] as StudioUploadKind[]);
   const [activeKind, setActiveKind] = useState<StudioUploadKind>(allowedKinds[0]);
@@ -27,6 +30,20 @@ export function AssetPicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "uploaded" | "generated">("all");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!allowedKinds.includes(activeKind)) {
@@ -57,46 +74,56 @@ export function AssetPicker({
     void load();
   }, [load, open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  const fullscreen = presentation === "fullscreen";
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className={cn(
+        "fixed inset-0 z-[200] flex bg-black/50 backdrop-blur-sm",
+        fullscreen ? "flex-col" : "items-center justify-center p-4",
+      )}
       onPointerDown={onClose}
     >
       <div
-        className="flex max-h-[min(85vh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl"
+        className={cn(
+          "flex flex-col overflow-hidden bg-background shadow-2xl",
+          fullscreen
+            ? "h-full w-full"
+            : "max-h-[min(85vh,720px)] w-full max-w-2xl rounded-2xl border border-border",
+        )}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <FolderOpen className="h-4 w-4 text-purple-700" />
-            <p className="text-sm font-medium text-zinc-900">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <FolderOpen className="h-5 w-5 text-primary" />
+            <p className="text-base font-semibold text-foreground">
               {allowedKinds.length === 1 ? `Your ${activeKind} library` : "Your assets"}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-500 transition hover:bg-zinc-100"
+            className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
             aria-label="Close"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {allowedKinds.length > 1 ? (
-          <div className="flex gap-2 border-b border-zinc-100 px-4 py-2">
+          <div className="flex gap-2 border-b border-border px-5 py-2.5">
             {allowedKinds.map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setActiveKind(value)}
                 className={cn(
-                  "rounded-full px-3 py-1 text-[11px] font-medium capitalize transition",
+                  "rounded-full px-3 py-1 text-xs font-medium capitalize transition",
                   activeKind === value
-                    ? "bg-purple-100 text-purple-800"
-                    : "text-zinc-500 hover:bg-zinc-100",
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:bg-muted",
                 )}
               >
                 {value}
@@ -105,17 +132,17 @@ export function AssetPicker({
           </div>
         ) : null}
 
-        <div className="flex gap-2 border-b border-zinc-100 px-4 py-2">
+        <div className="flex gap-2 border-b border-border px-5 py-2.5">
           {(["all", "uploaded", "generated"] as const).map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setFilter(value)}
               className={cn(
-                "rounded-full px-3 py-1 text-[11px] font-medium capitalize transition",
+                "rounded-full px-3 py-1 text-xs font-medium capitalize transition",
                 filter === value
-                  ? "bg-purple-100 text-purple-800"
-                  : "text-zinc-500 hover:bg-zinc-100",
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:bg-muted",
               )}
             >
               {value}
@@ -123,19 +150,19 @@ export function AssetPicker({
           ))}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-zinc-500">
-              <Loader2 className="h-5 w-5 animate-spin" />
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : error ? (
             <p className="py-8 text-center text-sm text-red-600">{error}</p>
           ) : items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-zinc-500">
+            <p className="py-8 text-center text-sm text-muted-foreground">
               No saved {activeKind}s yet. Upload or generate in Studio Pro — they appear here automatically.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {items.map((asset) => (
                 <button
                   key={asset.id}
@@ -144,14 +171,14 @@ export function AssetPicker({
                     onSelect(asset);
                     onClose();
                   }}
-                  className="group overflow-hidden rounded-xl border border-zinc-200 text-left transition hover:border-purple-300 hover:ring-2 hover:ring-purple-100"
+                  className="group overflow-hidden rounded-xl border border-border bg-card text-left transition hover:border-primary/40 hover:ring-2 hover:ring-primary/20"
                 >
                   <AssetThumb asset={asset} />
-                  <div className="border-t border-zinc-100 px-2 py-1.5">
-                    <p className="truncate text-[10px] font-medium text-zinc-800">
+                  <div className="border-t border-border px-2 py-1.5">
+                    <p className="truncate text-xs font-medium text-foreground">
                       {asset.name || labelForAsset(asset)}
                     </p>
-                    <p className="text-[9px] capitalize text-zinc-400">{asset.source}</p>
+                    <p className="text-[10px] capitalize text-muted-foreground">{asset.source}</p>
                   </div>
                 </button>
               ))}
@@ -159,7 +186,8 @@ export function AssetPicker({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -49,8 +49,9 @@ const itemVariants = {
 type ProFreeTrialPopupProps = {
   plan: string;
   isAdmin: boolean;
-  hasStripeSubscription?: boolean;
-  stripeEnabled?: boolean;
+  hasPaidSubscription?: boolean;
+  checkoutEnabled?: boolean;
+  paidCheckoutRequired?: boolean;
   showDelayMs?: number;
   surface?: "default" | "onboarding";
 };
@@ -58,8 +59,9 @@ type ProFreeTrialPopupProps = {
 export function ProFreeTrialPopup({
   plan,
   isAdmin,
-  hasStripeSubscription = false,
-  stripeEnabled = false,
+  hasPaidSubscription = false,
+  checkoutEnabled = false,
+  paidCheckoutRequired = false,
   showDelayMs = 700,
   surface = "default",
 }: ProFreeTrialPopupProps) {
@@ -67,18 +69,21 @@ export function ProFreeTrialPopup({
   const [busy, setBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  const canStartPaidCheckout = !paidCheckoutRequired || checkoutEnabled;
+  const showPaidCheckoutCopy = paidCheckoutRequired || checkoutEnabled;
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!shouldOfferProTrial(plan, hasStripeSubscription) || isProTrialPopupDismissed({ surface })) {
+    if (!shouldOfferProTrial(plan, hasPaidSubscription) || isProTrialPopupDismissed({ surface })) {
       return;
     }
 
     const timer = window.setTimeout(() => setOpen(true), showDelayMs);
     return () => window.clearTimeout(timer);
-  }, [hasStripeSubscription, plan, showDelayMs, surface]);
+  }, [hasPaidSubscription, plan, showDelayMs, surface]);
 
   function close(dismiss: false | "session" | "persist" = false) {
     if (dismiss === "session") dismissProTrialPopupSession();
@@ -92,9 +97,16 @@ export function ProFreeTrialPopup({
       return;
     }
 
+    const useCheckout = paidCheckoutRequired || checkoutEnabled;
+
+    if (useCheckout && !checkoutEnabled) {
+      notify.error("Paid checkout is not available yet. Complete payment checkout to start a trial.");
+      return;
+    }
+
     setBusy(true);
     try {
-      const endpoint = stripeEnabled
+      const endpoint = useCheckout
         ? "/api/workspace/billing/checkout"
         : "/api/workspace/billing/subscribe";
 
@@ -104,7 +116,7 @@ export function ProFreeTrialPopup({
         body: JSON.stringify({
           plan: PRO_TRIAL_PLAN,
           interval: "monthly",
-          ...(stripeEnabled ? { trial: true } : {}),
+          ...(useCheckout ? { trial: true } : {}),
         }),
       });
 
@@ -114,7 +126,7 @@ export function ProFreeTrialPopup({
         throw new Error(responseErrorMessage(response, data, "Could not start trial."));
       }
 
-      if (stripeEnabled && data.url) {
+      if (useCheckout && data.url) {
         window.location.href = data.url;
         return;
       }
@@ -194,7 +206,7 @@ export function ProFreeTrialPopup({
               <div className="pr-6">
                 <div className="inline-flex items-center gap-2">
                   <span className="rounded-full border border-[#5b3cf5]/25 bg-[#5b3cf5]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#5b3cf5]">
-                    {stripeEnabled ? `${PRO_TRIAL_DAYS}-day trial` : "Pro plan"}
+                    {showPaidCheckoutCopy ? `${PRO_TRIAL_DAYS}-day trial` : "Pro plan"}
                   </span>
                   <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#a8a49f]">
                     Most popular
@@ -216,13 +228,13 @@ export function ProFreeTrialPopup({
                     ${PRO_PLAN.monthlyPrice}
                   </span>
                   <span className="text-sm text-[#6b6965]">/ month</span>
-                  {stripeEnabled ? (
+                  {showPaidCheckoutCopy ? (
                     <span className="ml-1 text-xs text-[#a8a49f]">· then billed monthly</span>
                   ) : null}
                 </div>
 
                 <p className="mt-2 text-[13px] leading-relaxed text-[#6b6965]">
-                  {stripeEnabled
+                  {showPaidCheckoutCopy
                     ? `Full Pro video and image quota for ${PRO_TRIAL_DAYS} days. Premium model credits unlock when your trial converts to a paid plan. Cancel before the trial ends — no charge.`
                     : `Unlock Pro with $${PRO_PLAN.creditsLabel} credits included every month.`}
                 </p>
@@ -252,7 +264,7 @@ export function ProFreeTrialPopup({
                 {isAdmin ? (
                   <Button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || !canStartPaidCheckout}
                     onClick={() => void startTrial()}
                     className="relative h-10 flex-1 overflow-hidden rounded-xl border-0 bg-[#5b3cf5] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(91,60,245,0.28)] hover:bg-[#4f32e0] hover:text-white"
                   >
@@ -268,7 +280,7 @@ export function ProFreeTrialPopup({
                         </>
                       ) : (
                         <>
-                          {stripeEnabled ? "Start free trial" : "Upgrade to Pro"}
+                          {showPaidCheckoutCopy ? "Start free trial" : "Upgrade to Pro"}
                           <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                         </>
                       )}

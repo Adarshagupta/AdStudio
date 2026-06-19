@@ -5,7 +5,7 @@ import { CurrentSubscriptionPanel } from "@/components/settings/CurrentSubscript
 import { SubscriptionPlans } from "@/components/settings/SubscriptionPlans";
 import type { SubscriptionPlanId } from "@/lib/billing/plans";
 import { getWorkspaceBillingSummary } from "@/lib/billing/workspace-billing-summary";
-import { isStripeConfigured } from "@/lib/billing/stripe";
+import { getPrimaryBillingProvider, isPaidCheckoutEnabled, requiresPaidCheckout } from "@/lib/billing/payment-provider";
 import { requireCurrentUser } from "@/lib/auth";
 
 export default async function BillingSettingsPage() {
@@ -29,11 +29,12 @@ export default async function BillingSettingsPage() {
       <CurrentSubscriptionPanel
         summary={billingSummary}
         isAdmin={user.role === "ADMIN"}
-        stripeEnabled={isStripeConfigured()}
+        checkoutEnabled={isPaidCheckoutEnabled()}
+        paidCheckoutRequired={requiresPaidCheckout()}
       />
 
       <div>
-        <h2 className="text-lg font-semibold text-zinc-900">Change plan</h2>
+        <h2 className="text-lg font-semibold text-foreground">Change plan</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Compare plans and upgrade or downgrade your workspace subscription.
         </p>
@@ -42,7 +43,8 @@ export default async function BillingSettingsPage() {
       <SubscriptionPlans
         currentPlan={workspace.plan as SubscriptionPlanId}
         isAdmin={user.role === "ADMIN"}
-        stripeEnabled={isStripeConfigured()}
+        checkoutEnabled={isPaidCheckoutEnabled()}
+        paidCheckoutRequired={requiresPaidCheckout()}
       />
     </div>
   );

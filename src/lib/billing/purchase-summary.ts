@@ -1,4 +1,6 @@
 import type Stripe from "stripe";
+import type { Payment } from "dodopayments/resources/payments.js";
+import type { Subscription } from "dodopayments/resources/subscriptions.js";
 
 import {
   creditsForSubscription,
@@ -7,6 +9,7 @@ import {
   type BillingInterval,
   type SubscriptionPlanId,
 } from "@/lib/billing/plans";
+import { mapDodoSubscriptionStatus } from "@/lib/billing/dodo-workspace-subscription";
 
 export type SubscriptionPurchaseDetails = {
   planId: SubscriptionPlanId;
@@ -119,4 +122,60 @@ export function purchaseDetailsFromCheckoutSession(
     session,
     subscription,
   });
+}
+
+function formatIsoBillingDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function purchaseDetailsFromDodoCheckout(input: {
+  planId: SubscriptionPlanId;
+  interval: BillingInterval;
+  creditsRemaining: number;
+  subscription: Subscription;
+  payment?: Payment | null;
+}): SubscriptionPurchaseDetails {
+  const plan = subscriptionPlans.find((entry) => entry.id === input.planId);
+
+  if (!plan) {
+    throw new Error("Unknown subscription plan.");
+  }
+
+  const pricing = getPlanPrice(plan, input.interval);
+  const status = mapDodoSubscriptionStatus(input.subscription);
+  const isTrial = status === "trialing";
+  const trialEndsAt =
+    isTrial && input.subscription.trial_period_days > 0
+      ? formatIsoBillingDate(
+          new Date(
+            new Date(input.subscription.created_at).getTime() +
+              input.subscription.trial_period_days * 86400000,
+          ).toISOString(),
+        )
+      : null;
+
+  return {
+    planId: input.planId,
+    planName: plan.name,
+    tagline: plan.tagline,
+    interval: input.interval,
+    intervalLabel: input.interval === "yearly" ? "Yearly" : "Monthly",
+    priceAmount: pricing?.amount ?? null,
+    priceSuffix: pricing?.suffix ?? "",
+    creditsIncluded: creditsForSubscription(input.planId, input.interval),
+    creditsRemaining: input.creditsRemaining,
+    features: plan.features,
+    isTrial,
+    trialDays: isTrial ? input.subscription.trial_period_days : null,
+    trialEndsAt,
+    amountDueTodayCents: input.payment?.total_amount ?? 0,
+    currency: (input.payment?.currency ?? "USD").toUpperCase(),
+    nextBillingDate: input.subscription.next_billing_date
+      ? formatIsoBillingDate(input.subscription.next_billing_date)
+      : null,
+  };
 }

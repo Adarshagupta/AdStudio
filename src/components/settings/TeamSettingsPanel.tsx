@@ -272,7 +272,7 @@ export function TeamSettingsPanel({
 
   return (
     <div className="space-y-3">
-      <Card className="overflow-hidden bg-white p-0">
+      <Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 sm:max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
@@ -306,7 +306,7 @@ export function TeamSettingsPanel({
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-medium text-zinc-900">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {member.name || member.email}
                       </p>
                       {isSelf ? <Badge variant="secondary">You</Badge> : null}
@@ -321,7 +321,7 @@ export function TeamSettingsPanel({
                       value={presetId}
                       disabled={disabled}
                       onChange={(event) => applyPresetToMember(member, event.target.value as AccessPresetId)}
-                      className="h-9 min-w-[8rem] rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100 disabled:opacity-50"
+                      className="h-9 min-w-[8rem] rounded-md border border-input px-3 text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100 disabled:opacity-50"
                       aria-label={`Access for ${member.email}`}
                     >
                       {accessPresets.map((preset) => (
@@ -365,8 +365,8 @@ export function TeamSettingsPanel({
       </Card>
 
       {invites.length > 0 ? (
-        <Card className="bg-white p-0">
-          <div className="border-b px-3 py-2 text-sm font-medium text-zinc-900">Pending invites</div>
+        <Card className="p-0">
+          <div className="border-b px-3 py-2 text-sm font-medium text-foreground">Pending invites</div>
           <div className="divide-y">
             {invites.map((invite) => (
               <div
@@ -374,7 +374,7 @@ export function TeamSettingsPanel({
                 className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-zinc-900">{invite.email}</p>
+                  <p className="truncate text-sm text-foreground">{invite.email}</p>
                   <p className="text-xs text-muted-foreground">
                     {getAccessLabel(invite.role, invite.permissions)}
                   </p>
@@ -414,7 +414,7 @@ export function TeamSettingsPanel({
       ) : null}
 
       {recentInviteUrl ? (
-        <p className="truncate rounded-lg border bg-zinc-50 px-3 py-2 text-xs text-muted-foreground">
+        <p className="truncate rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
           {recentInviteUrl}
         </p>
       ) : null}
@@ -442,7 +442,7 @@ export function TeamSettingsPanel({
                 id="invite-access"
                 value={invitePreset}
                 onChange={(event) => selectInvitePreset(event.target.value as AccessPresetId)}
-                className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                className="h-10 w-full rounded-md border border-input px-3 text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
               >
                 {accessPresets.map((preset) => (
                   <option key={preset.id} value={preset.id}>
@@ -553,7 +553,7 @@ function AccessDialog({
                 id="member-role"
                 value={role}
                 onChange={(event) => setRole(event.target.value as WorkspaceRole)}
-                className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                className="h-10 w-full rounded-md border border-input px-3 text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
               >
                 <option value="MEMBER">Member</option>
                 <option value="ADMIN">Admin</option>
@@ -567,7 +567,7 @@ function AccessDialog({
                     id="member-preset"
                     value={presetId}
                     onChange={(event) => applyPreset(event.target.value as AccessPresetId)}
-                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                    className="h-10 w-full rounded-md border border-input px-3 text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
                   >
                     {accessPresets
                       .filter((preset) => preset.role === "MEMBER")
@@ -620,15 +620,15 @@ function PermissionGrid({
             onClick={() => onToggle(key)}
             className={cn(
               "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition",
-              enabled ? "border-purple-200 bg-purple-50" : "border-zinc-200 hover:bg-zinc-50",
+              enabled ? "border-purple-200 bg-purple-50" : "border-border hover:bg-muted/50",
               role === "ADMIN" && "cursor-not-allowed opacity-60",
             )}
           >
-            <span className="text-zinc-900">{permissionLabels[key].label}</span>
+            <span className="text-foreground">{permissionLabels[key].label}</span>
             <span
               className={cn(
                 "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                enabled ? "border-purple-600 bg-purple-600 text-white" : "border-zinc-300 bg-white",
+                enabled ? "border-purple-600 bg-purple-600 text-white" : "border-border bg-background",
               )}
             >
               {enabled ? <Check className="h-3 w-3" /> : null}

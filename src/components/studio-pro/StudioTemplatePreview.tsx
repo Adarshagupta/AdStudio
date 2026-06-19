@@ -35,7 +35,7 @@ function PreviewNode({ node }: { node: StudioNode }) {
 
   return (
     <div
-      className="absolute rounded-xl border border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+      className="absolute rounded-xl border border-border/90 bg-card shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
       style={{
         left: node.x,
         top: node.y,
@@ -50,7 +50,7 @@ function PreviewNode({ node }: { node: StudioNode }) {
           <Icon className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">{node.title}</p>
+          <p className="truncate text-xs font-medium text-foreground">{node.title}</p>
           <p className="truncate text-[10px] text-zinc-500">{node.subtitle}</p>
         </div>
       </div>

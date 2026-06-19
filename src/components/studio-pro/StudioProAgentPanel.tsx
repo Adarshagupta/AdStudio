@@ -40,10 +40,10 @@ function AgentToolOutput({ message }: { message: StudioAgentToolMessage }) {
     message.toolName === "iterate_node";
 
   return (
-    <div className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300">
+    <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300">
       <div className="flex items-center gap-2">
         {message.pending ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-zinc-400" /> : null}
-        <span className="font-medium text-zinc-800 dark:text-zinc-200">{agentToolLabel(message.toolName)}</span>
+        <span className="font-medium text-foreground dark:text-zinc-200">{agentToolLabel(message.toolName)}</span>
         {message.nodeId ? (
           <span className="truncate text-[10px] text-zinc-400">{message.nodeId}</span>
         ) : null}
@@ -63,7 +63,7 @@ function AgentToolOutput({ message }: { message: StudioAgentToolMessage }) {
                       ? "Social"
                       : "Content"}
               </p>
-              <pre className="max-h-52 overflow-y-auto whitespace-pre-wrap font-sans text-[11px] leading-[1.5] text-zinc-800 dark:text-zinc-200">
+              <pre className="max-h-52 overflow-y-auto whitespace-pre-wrap font-sans text-[11px] leading-[1.5] text-foreground dark:text-zinc-200">
                 {outputText}
               </pre>
             </div>
@@ -78,7 +78,7 @@ function AgentToolOutput({ message }: { message: StudioAgentToolMessage }) {
               <img
                 src={imageUrl}
                 alt="Generated image"
-                className="max-h-40 w-full rounded-lg border border-zinc-200 object-contain bg-white dark:border-zinc-600 dark:bg-zinc-900"
+                className="max-h-40 w-full rounded-lg border border-border object-contain bg-background"
               />
             </div>
           ) : null}
@@ -109,7 +109,7 @@ function AgentMessage({ message }: { message: StudioAgentMessage }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[92%] rounded-2xl rounded-br-md bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
+        <div className="max-w-[92%] rounded-2xl rounded-br-md bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-foreground">
           {message.content}
         </div>
       </div>
@@ -125,7 +125,7 @@ function AgentMessage({ message }: { message: StudioAgentMessage }) {
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-zinc-100 bg-white px-3 py-2 text-sm leading-relaxed text-zinc-800 shadow-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:shadow-none">
+      <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-border bg-card px-3 py-2 text-sm leading-relaxed text-foreground shadow-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:shadow-none">
         {thinking ? (
           <span className="inline-flex items-center gap-1 py-0.5" aria-label="Thinking">
             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 [animation-delay:0ms]" />
@@ -288,14 +288,14 @@ export function StudioProAgentPanel({
   };
 
   return (
-    <aside className="studio-agent flex h-full w-full min-w-0 flex-col bg-white dark:bg-zinc-900">
+    <aside className="studio-agent flex h-full w-full min-w-0 flex-col bg-card">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-zinc-100 px-4 dark:border-zinc-800">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             <Bot className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Agent</p>
+            <p className="text-sm font-medium text-foreground">Agent</p>
             <p className="text-[10px] text-zinc-500 dark:text-zinc-400">Build & run flows for you</p>
           </div>
         </div>
@@ -328,7 +328,7 @@ export function StudioProAgentPanel({
 
       {pendingApproval ? (
         <div className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/80">
-          <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+          <p className="text-xs font-medium text-foreground">
             {pendingApproval.toolName === "publish_to_social"
               ? "Approve social publish"
               : "Approve pipeline run"}
@@ -359,11 +359,11 @@ export function StudioProAgentPanel({
         ) : messages.length === 0 ? (
           <div className="space-y-4">
             <div className="flex justify-start">
-              <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-zinc-100 bg-white px-3 py-2 text-sm leading-relaxed text-zinc-800 shadow-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:shadow-none">
+              <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-border bg-card px-3 py-2 text-sm leading-relaxed text-foreground shadow-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:shadow-none">
                 {STUDIO_AGENT_WELCOME}
               </div>
             </div>
-            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
+            <div className="rounded-xl border border-dashed border-zinc-200 bg-muted/40 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
               <div className="mb-2 flex items-center gap-2 text-zinc-700 dark:text-zinc-200">
                 <Sparkles className="h-4 w-4" />
                 <p className="text-sm font-medium">Try asking</p>
@@ -380,7 +380,7 @@ export function StudioProAgentPanel({
                   type="button"
                   disabled={isBusy}
                   onClick={() => void sendMessage(starter)}
-                  className="w-full rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-left text-xs leading-5 text-zinc-600 transition hover:border-zinc-200 hover:bg-white hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+                  className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-left text-xs leading-5 text-muted-foreground transition hover:border-border hover:bg-card hover:text-foreground disabled:opacity-50"
                 >
                   {starter}
                 </button>
@@ -394,7 +394,7 @@ export function StudioProAgentPanel({
 
       <div className="shrink-0 border-t border-zinc-100 p-3 dark:border-zinc-800">
         {workspaceId ? (
-          <div className="mb-2 rounded-lg border border-zinc-100 bg-zinc-50/80 dark:border-zinc-700 dark:bg-zinc-800/50">
+          <div className="mb-2 rounded-lg border border-zinc-100 bg-muted/40 dark:border-zinc-700 dark:bg-zinc-800/50">
             <button
               type="button"
               onClick={() => setBrandOpen((open) => !open)}
@@ -414,19 +414,19 @@ export function StudioProAgentPanel({
                   value={brandDraft.brandTone ?? ""}
                   onChange={(event) => scheduleBrandSave({ brandTone: event.target.value })}
                   placeholder="Tone (e.g. playful, premium)"
-                  className="w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
                 />
                 <input
                   value={brandDraft.targetAudience ?? ""}
                   onChange={(event) => scheduleBrandSave({ targetAudience: event.target.value })}
                   placeholder="Audience (e.g. Gen Z skincare)"
-                  className="w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
                 />
                 <input
                   value={brandDraft.defaultAspectRatio ?? ""}
                   onChange={(event) => scheduleBrandSave({ defaultAspectRatio: event.target.value })}
                   placeholder="Default ratio (e.g. 9:16)"
-                  className="w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
                 />
                 <p className="text-[10px] text-zinc-400">Saved to workspace for your whole team.</p>
               </div>

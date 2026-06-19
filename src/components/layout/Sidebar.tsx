@@ -112,25 +112,25 @@ function CreditsUsageDropup({
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 px-3 py-2.5 transition-colors hover:bg-zinc-100/60">
+        <div className="rounded-xl border border-border/80 bg-muted/30 px-3 py-2.5 transition-colors hover:bg-muted/50">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-zinc-900">Credits</p>
-            <span className="text-[11px] text-zinc-500">{formatPlanLabel(plan)}</span>
+            <p className="text-xs font-medium text-foreground">Credits</p>
+            <span className="text-[11px] text-muted-foreground">{formatPlanLabel(plan)}</span>
           </div>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200/80">
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-300",
-                creditsRemaining <= 5 ? "bg-amber-500" : "bg-zinc-900",
+                creditsRemaining <= 5 ? "bg-amber-500" : "bg-foreground/80",
               )}
               style={{ width: `${creditsBarPercent(creditsRemaining)}%` }}
             />
           </div>
           <div className="mt-1.5 flex items-center justify-between gap-2">
-            <p className="text-xs text-zinc-500">
-              <span className="font-medium text-zinc-700">{creditsRemaining}</span> left
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{creditsRemaining}</span> left
             </p>
-            <span className="text-[10px] font-medium text-zinc-400">Click for details</span>
+            <span className="text-[10px] font-medium text-muted-foreground/80">Click for details</span>
           </div>
         </div>
       </motion.button>
@@ -138,7 +138,7 @@ function CreditsUsageDropup({
       {open && (
         <>
           <motion.div
-            className="absolute inset-x-0 bottom-full mb-1 z-50 rounded-xl border border-zinc-200 bg-white p-3 shadow-lg"
+            className="absolute inset-x-0 bottom-full mb-1 z-50 rounded-xl border border-border bg-popover p-3 shadow-lg"
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -147,12 +147,12 @@ function CreditsUsageDropup({
               {/* Video Minutes */}
               <div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-600">Video time</span>
-                  <span className="text-zinc-900 font-medium">
+                  <span className="text-muted-foreground">Video time</span>
+                  <span className="font-medium text-foreground">
                     {usage?.videoMinutesUsed ?? 0} / {planLimits.videoMinutes === Infinity ? "∞" : `${planLimits.videoMinutes} min`}
                   </span>
                 </div>
-                <div className="mt-1 h-1.5 rounded-full bg-zinc-100">
+                <div className="mt-1 h-1.5 rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-violet-500"
                     style={{ width: `${videoPercent}%` }}
@@ -163,12 +163,12 @@ function CreditsUsageDropup({
               {/* Images */}
               <div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-600">Images</span>
-                  <span className="text-zinc-900 font-medium">
+                  <span className="text-muted-foreground">Images</span>
+                  <span className="font-medium text-foreground">
                     {usage?.imageCountUsed ?? 0} / {planLimits.imageCount === Infinity ? "∞" : `${planLimits.imageCount}`}
                   </span>
                 </div>
-                <div className="mt-1 h-1.5 rounded-full bg-zinc-100">
+                <div className="mt-1 h-1.5 rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-sky-500"
                     style={{ width: `${imagePercent}%` }}
@@ -179,10 +179,10 @@ function CreditsUsageDropup({
               {/* Premium Credits */}
               <div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-600">Premium credits</span>
-                  <span className="text-zinc-900 font-medium">{usage?.premiumCreditsUsed ?? 0} used</span>
+                  <span className="text-muted-foreground">Premium credits</span>
+                  <span className="font-medium text-foreground">{usage?.premiumCreditsUsed ?? 0} used</span>
                 </div>
-                <div className="mt-1 h-1.5 rounded-full bg-zinc-100">
+                <div className="mt-1 h-1.5 rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-amber-500"
                     style={{ width: `${Math.min(100, ((usage?.premiumCreditsUsed ?? 0) / Math.max(1, creditsRemaining + (usage?.premiumCreditsUsed ?? 0))) * 100)}%` }}
@@ -190,7 +190,7 @@ function CreditsUsageDropup({
                 </div>
               </div>
 
-              <div className="border-t border-zinc-100 pt-2">
+              <div className="border-t border-border pt-2">
                 <Link
                   href="/settings/billing"
                   className="block text-center text-xs font-medium text-violet-600 hover:text-violet-700 hover:underline"
@@ -241,14 +241,14 @@ function SidebarFooterLink({
             ? cn(
                 "flex h-9 w-9 items-center justify-center rounded-lg",
                 isActive
-                  ? "bg-zinc-100 text-zinc-900"
-                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                  ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100",
               )
             : cn(
                 "flex flex-1 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[10px] font-medium",
                 isActive
-                  ? "bg-zinc-100 text-zinc-900"
-                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                  ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100",
               ),
         )}
       >
@@ -302,7 +302,7 @@ function SidebarContent({
     <>
       <div
         className={cn(
-          "flex shrink-0 items-center border-b border-zinc-100 py-2",
+          "flex shrink-0 items-center border-b border-border py-2",
           collapsed ? "flex-col gap-1 px-1" : "justify-between gap-2 px-3",
         )}
       >
@@ -314,7 +314,7 @@ function SidebarContent({
           <motion.button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             aria-label="Close navigation"
             whileHover={{ scale: 1.1, rotate: 90 }}
             whileTap={{ scale: 0.9 }}
@@ -325,7 +325,7 @@ function SidebarContent({
           <motion.button
             type="button"
             onClick={toggleCollapsed}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -347,7 +347,7 @@ function SidebarContent({
         <UniversalNav user={user} collapsed={collapsed} onNavigate={onNavigate} />
       </div>
 
-      <div className={cn("shrink-0 space-y-1.5 border-t border-zinc-100", collapsed ? "p-2" : "p-3")}>
+      <div className={cn("shrink-0 space-y-1.5 border-t border-border", collapsed ? "p-2" : "p-3")}>
         <SidebarModelPromoBanner collapsed={collapsed} onNavigate={onNavigate} />
 
         {collapsed ? (
@@ -364,11 +364,11 @@ function SidebarContent({
                 "relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                 creditsLow
                   ? "text-amber-600 hover:bg-amber-50"
-                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                  : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100",
               )}
             >
               <Coins className="h-4 w-4 shrink-0" />
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-900 px-0.5 text-[9px] font-semibold text-white">
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-900 px-0.5 text-[9px] font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
                 {workspace.creditsRemaining > 99 ? "99+" : workspace.creditsRemaining}
               </span>
             </Link>
@@ -436,7 +436,7 @@ export function Sidebar({
         <motion.button
           type="button"
           aria-label="Close navigation"
-          className="fixed inset-0 z-40 bg-zinc-900/20 backdrop-blur-[2px] md:hidden"
+          className="fixed inset-0 z-40 bg-zinc-900/20 backdrop-blur-[2px] md:hidden dark:bg-black/50"
           onClick={onMobileClose}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -446,7 +446,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-full w-[min(288px,88vw)] flex-col overflow-hidden border-r border-zinc-200/80 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.16)] transition-transform duration-200 md:hidden",
+          "fixed left-0 top-0 z-50 flex h-full w-[min(288px,88vw)] flex-col overflow-hidden border-r border-border/80 bg-card shadow-[0_12px_40px_rgba(15,23,42,0.16)] transition-transform duration-200 dark:shadow-black/40 md:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -463,7 +463,7 @@ export function Sidebar({
 
       <motion.aside
         className={cn(
-          "fixed left-3 top-3 bottom-3 z-50 hidden flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/95 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md transition-[width] duration-200 md:flex",
+          "fixed left-3 top-3 bottom-3 z-50 hidden flex-col overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md transition-[width] duration-200 dark:shadow-black/30 md:flex",
           collapsed ? SIDEBAR_COLLAPSED_WIDTH_CLASS : SIDEBAR_WIDTH_CLASS,
         )}
         initial={{ x: -20, opacity: 0 }}

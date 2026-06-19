@@ -65,7 +65,7 @@ export function RecentGrid({
           type="button"
           className={cn(
             "text-sm transition-colors",
-            activeTab === "recent" ? "font-medium text-zinc-900" : "text-zinc-400 hover:text-zinc-600",
+            activeTab === "recent" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground/80",
           )}
           onClick={() => setActiveTab("recent")}
           whileHover={{ scale: 1.05 }}
@@ -78,8 +78,8 @@ export function RecentGrid({
           className={cn(
             "text-sm transition-colors",
             activeTab === "inspiration"
-              ? "font-medium text-zinc-900"
-              : "text-zinc-400 hover:text-zinc-600",
+              ? "font-medium text-foreground"
+              : "text-muted-foreground hover:text-foreground/80",
           )}
           onClick={() => setActiveTab("inspiration")}
           whileHover={{ scale: 1.05 }}
@@ -125,13 +125,13 @@ export function RecentGrid({
       )}
       {empty ? (
         <motion.div
-          className="rounded-3xl bg-zinc-100/70 px-8 py-16 text-center"
+          className="rounded-3xl border border-border bg-muted/40 px-8 py-16 text-center"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 260, damping: 20 }}
         >
-          <h3 className="font-display text-2xl font-semibold text-zinc-900">No generations yet</h3>
-          <p className="mt-2 text-sm text-zinc-500">
+          <h3 className="font-display text-2xl font-semibold text-foreground">No generations yet</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
             Create your first video and it will appear here.
           </p>
         </motion.div>
@@ -158,7 +158,7 @@ export function RecentGrid({
             >
               <Link
                 href={`/generations/${creation.id}`}
-                className="group block overflow-hidden rounded-3xl bg-white ring-1 ring-zinc-200/80 transition-all duration-200 hover:ring-zinc-300"
+                className="group block overflow-hidden rounded-3xl bg-card ring-1 ring-border transition-all duration-200 hover:ring-border/80"
               >
                 <div className="p-2">
                   <GenerationVideoPreview

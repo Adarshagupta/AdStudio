@@ -151,9 +151,9 @@ export function EmailSettingsPanel({
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <Card className="bg-white p-4">
+        <Card className="p-4">
           <form className="space-y-3" onSubmit={createCampaign}>
-            <p className="text-sm font-medium text-zinc-900">Campaign</p>
+            <p className="text-sm font-medium text-foreground">Campaign</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Name" htmlFor="campaign-name">
                 <Input id="campaign-name" name="name" required />
@@ -182,9 +182,9 @@ export function EmailSettingsPanel({
           </form>
         </Card>
 
-        <Card className="bg-white p-4">
+        <Card className="p-4">
           <form className="space-y-3" onSubmit={createReminder}>
-            <p className="text-sm font-medium text-zinc-900">Reminder</p>
+            <p className="text-sm font-medium text-foreground">Reminder</p>
             <Field label="Title" htmlFor="reminder-title">
               <Input id="reminder-title" name="title" required />
             </Field>
@@ -212,8 +212,8 @@ export function EmailSettingsPanel({
       </div>
 
       {events.length > 0 ? (
-        <Card className="overflow-hidden bg-white p-0">
-          <div className="border-b px-3 py-2 text-sm font-medium text-zinc-900">Delivery log</div>
+        <Card className="overflow-hidden p-0">
+          <div className="border-b px-3 py-2 text-sm font-medium text-foreground">Delivery log</div>
           <div className="divide-y">
             {events.map((event) => (
               <div
@@ -221,7 +221,7 @@ export function EmailSettingsPanel({
                 className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-zinc-900">{event.subject}</p>
+                  <p className="truncate text-sm text-foreground">{event.subject}</p>
                   <p className="truncate text-xs text-muted-foreground">{event.toEmail}</p>
                   {event.errorMessage ? (
                     <p className="text-xs text-red-600">{event.errorMessage}</p>

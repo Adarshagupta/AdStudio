@@ -26,7 +26,7 @@ import type { StudioCollaborator } from "@/hooks/useStudioCollaboration";
 import { cn } from "@/lib/utils";
 
 const islandClass =
-  "flex h-11 items-center gap-2 rounded-2xl border border-zinc-200/90 bg-white/95 px-3 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/95 md:px-3.5";
+  "flex h-11 items-center gap-2 rounded-2xl border border-border/90 bg-card/95 px-3 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md dark:shadow-[0_12px_40px_rgba(0,0,0,0.35)] md:px-3.5";
 
 function SaveIndicator({ state }: { state: "saved" | "saving" | "error" }) {
   if (state === "saved") {
@@ -104,7 +104,7 @@ export function StudioProHeader({
       <header className={cn(islandClass, "min-w-0 max-w-[min(100%,28rem)]")}>
         <Link
           href="/studio-pro"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-foreground dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
           aria-label="Back to sessions"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -115,7 +115,7 @@ export function StudioProHeader({
         <div className="flex min-w-0 items-center gap-2">
           <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
             <Workflow className="h-4 w-4 text-zinc-500" />
-            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Flows</span>
+            <span className="text-sm font-semibold text-foreground">Flows</span>
           </div>
           <div className="hidden h-4 w-px shrink-0 bg-zinc-200 dark:bg-zinc-700 sm:block" aria-hidden />
           <StudioSessionName flowId={sessionId} initialName={flowName} variant="header" />
@@ -124,7 +124,7 @@ export function StudioProHeader({
       </header>
 
       <header className={cn(islandClass, "shrink-0 gap-1 md:gap-1.5")}>
-        <div className="hidden items-center rounded-lg border border-zinc-200 bg-zinc-50/80 p-0.5 sm:flex dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="hidden items-center rounded-lg border border-zinc-200 bg-muted/40 p-0.5 sm:flex dark:border-zinc-700 dark:bg-zinc-900">
           <Button variant="ghost" size="icon" onClick={onZoomOut} className="h-7 w-7 rounded-md">
             <Minus className="h-3.5 w-3.5" />
           </Button>
@@ -170,7 +170,7 @@ export function StudioProHeader({
           onClick={onToggleAgent}
           className={cn(
             "h-8 w-8 rounded-lg text-zinc-500",
-            agentOpen && "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100",
+            agentOpen && "bg-zinc-100 text-foreground dark:bg-zinc-800 dark:text-zinc-100",
           )}
           aria-label={agentOpen ? "Close agent" : "Open agent"}
         >
@@ -185,7 +185,7 @@ export function StudioProHeader({
           variant="ghost"
           size="icon"
           asChild
-          className="h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="h-8 w-8 rounded-lg text-zinc-500 hover:text-foreground dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
         >
           <Link href="/studio-pro/marketplace" aria-label="Template marketplace" title="Template marketplace">
             <LayoutTemplate className="h-4 w-4" />
@@ -223,7 +223,7 @@ export function StudioProHeader({
           variant="ghost"
           size="icon"
           onClick={onCopyLink}
-          className="h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="h-8 w-8 rounded-lg text-zinc-500 hover:text-foreground dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
           title={copiedLink ? "Link copied" : "Copy share link"}
           aria-label={copiedLink ? "Link copied" : "Copy share link"}
         >

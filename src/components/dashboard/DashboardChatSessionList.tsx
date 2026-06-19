@@ -3,6 +3,11 @@
 import { ChevronDown, History, MessageSquarePlus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import {
+  PromptChatHistoryIcon,
+  PromptDockIconButton,
+} from "@/components/dashboard/PromptDockIcons";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -31,7 +36,7 @@ export function DashboardChatHistoryDropdown({
   sessions: ChatSessionMeta[];
   activeSessionId?: string;
   onSessionsChange: () => void;
-  trigger?: "header" | "icon";
+  trigger?: "header" | "icon" | "dock";
   disabled?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
@@ -69,7 +74,11 @@ export function DashboardChatHistoryDropdown({
   return (
     <DropdownMenu onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        {trigger === "icon" ? (
+        {trigger === "dock" ? (
+          <PromptDockIconButton tone="history" size="md" aria-label="Chat history" disabled={disabled}>
+            <PromptChatHistoryIcon />
+          </PromptDockIconButton>
+        ) : trigger === "icon" ? (
           <Button
             type="button"
             variant="icon"

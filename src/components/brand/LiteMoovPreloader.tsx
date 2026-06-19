@@ -25,7 +25,7 @@ export function LiteMoovPreloader({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center bg-[#fcfcfc]",
+        "flex flex-col items-center justify-center bg-background",
         resolvedVariant === "fullscreen" && "fixed inset-0 z-[100] h-dvh w-screen",
         resolvedVariant === "shell" && "min-h-[calc(100dvh-5rem)] w-full",
         resolvedVariant === "inline" && "min-h-[50vh] w-full",
@@ -38,15 +38,15 @@ export function LiteMoovPreloader({
       <div className="litemoov-preloader flex flex-col items-center gap-2.5">
         <LiteMoovWordmark size="xl" />
         {subtitle ? (
-          <p className="font-display text-[11px] font-semibold uppercase tracking-[0.42em] text-zinc-400">
+          <p className="font-display text-[11px] font-semibold uppercase tracking-[0.42em] text-muted-foreground">
             {subtitle}
           </p>
         ) : null}
-        <div className={cn("h-1 w-20 overflow-hidden rounded-full bg-zinc-200/90", subtitle ? "mt-5" : "mt-6")}>
+        <div className={cn("h-1 w-20 overflow-hidden rounded-full bg-muted", subtitle ? "mt-5" : "mt-6")}>
           <div className="litemoov-preloader-bar h-full w-full rounded-full bg-gradient-to-r from-violet-600 via-indigo-500 to-sky-400" />
         </div>
         {message ? (
-          <p className="mt-5 max-w-[240px] truncate text-center text-sm text-zinc-500">{message}</p>
+          <p className="mt-5 max-w-[240px] truncate text-center text-sm text-muted-foreground">{message}</p>
         ) : null}
       </div>
     </div>

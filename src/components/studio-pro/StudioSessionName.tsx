@@ -101,7 +101,7 @@ export function StudioSessionName({
         disabled={isSaving}
         placeholder="Session name"
         className={cn(
-          "rounded-lg border border-purple-200 bg-white px-2 py-1 text-zinc-900 outline-none ring-2 ring-purple-100 focus:border-purple-300 dark:border-purple-800 dark:bg-zinc-950 dark:text-zinc-100 dark:ring-purple-950",
+          "rounded-lg border border-purple-200 bg-background px-2 py-1 text-foreground outline-none ring-2 ring-purple-100 focus:border-purple-300 dark:border-purple-800 dark:ring-purple-950",
           variant === "header" ? "font-display text-sm font-semibold" : "text-sm font-medium",
           className,
         )}
@@ -124,8 +124,8 @@ export function StudioSessionName({
         className={cn(
           "truncate",
           variant === "header"
-            ? "font-display text-sm font-semibold text-zinc-900 dark:text-zinc-100"
-            : "font-medium text-zinc-900 dark:text-zinc-100",
+            ? "font-display text-sm font-semibold text-foreground"
+            : "font-medium text-foreground",
           looksUntitled && "text-zinc-500 dark:text-zinc-400",
         )}
       >

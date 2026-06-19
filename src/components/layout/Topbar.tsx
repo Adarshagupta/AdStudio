@@ -7,6 +7,7 @@ import { Gift, Menu } from "lucide-react";
 import { AppLogo } from "@/components/layout/AppLogo";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
 
 export function Topbar({
@@ -29,7 +30,7 @@ export function Topbar({
 }) {
   return (
     <motion.header
-      className="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b border-zinc-100/80 bg-[#fafafa]/90 px-4 backdrop-blur-md md:justify-end md:px-8"
+      className="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b border-border/80 bg-background/90 px-4 backdrop-blur-md md:justify-end md:px-8"
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
@@ -68,6 +69,7 @@ export function Topbar({
             </Link>
           </Button>
         </motion.div>
+        <ThemeToggle />
         <NotificationBell />
         <AccountMenu user={user} creditsRemaining={workspace.creditsRemaining} />
       </div>

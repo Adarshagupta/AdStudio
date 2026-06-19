@@ -113,10 +113,10 @@ export function StudioTemplatePicker({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
-      <div className="pointer-events-auto max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 shadow-lg">
+      <div className="pointer-events-auto max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-lg">
         <div className="flex items-center gap-2">
           <LayoutTemplate className="h-4 w-4 text-zinc-500" />
-          <p className="text-sm font-medium text-zinc-900">Choose a starting point</p>
+          <p className="text-sm font-medium text-foreground">Choose a starting point</p>
         </div>
         <p className="mt-1 text-xs text-zinc-500">
           {replacing
@@ -124,7 +124,7 @@ export function StudioTemplatePicker({
             : "Describe what you want, pick a template, or start blank."}
         </p>
 
-        <div className="mt-4 rounded-lg border border-zinc-100 bg-zinc-50/50 p-3">
+        <div className="mt-4 rounded-lg border border-zinc-100 bg-muted/40 p-3">
           <div className="flex items-center gap-2 text-zinc-700">
             <Bot className="h-3.5 w-3.5" />
             <p className="text-xs font-medium">Start with AI</p>
@@ -140,7 +140,7 @@ export function StudioTemplatePicker({
             }}
             placeholder="e.g. UGC skincare ad with testimonial and product image"
             rows={2}
-            className="mt-2 min-h-[60px] resize-none border-zinc-200 bg-white text-xs"
+            className="mt-2 min-h-[60px] resize-none border-border bg-card text-xs"
           />
           <Button
             type="button"
@@ -180,7 +180,7 @@ export function StudioTemplatePicker({
 
         {tab === "builtin" ? (
           <>
-            <div className="mt-4 rounded-lg border border-zinc-100 bg-zinc-50/50 p-3">
+            <div className="mt-4 rounded-lg border border-zinc-100 bg-muted/40 p-3">
               <StudioMultiClipWorkflow />
             </div>
 
@@ -191,10 +191,10 @@ export function StudioTemplatePicker({
                   key={template.id}
                   type="button"
                   onClick={() => onSelect(template)}
-                  className="rounded-lg border border-zinc-100 bg-white p-3 text-left transition hover:bg-zinc-50"
+                  className="rounded-lg border border-border bg-card p-3 text-left transition hover:bg-zinc-50"
                 >
                   <div className={cn("mb-2 h-1 rounded-full bg-gradient-to-r", template.accent)} />
-                  <p className="text-xs font-medium text-zinc-900">{template.name}</p>
+                  <p className="text-xs font-medium text-foreground">{template.name}</p>
                   <p className="mt-0.5 text-[11px] text-zinc-500">{template.description}</p>
                 </button>
               ))}
@@ -221,10 +221,10 @@ export function StudioTemplatePicker({
                   type="button"
                   disabled={usingListingId === listing.id}
                   onClick={() => void handleMarketplaceListing(listing)}
-                  className="flex w-full items-start justify-between gap-3 rounded-lg border border-zinc-100 bg-white p-3 text-left transition hover:bg-zinc-50"
+                  className="flex w-full items-start justify-between gap-3 rounded-lg border border-border bg-card p-3 text-left transition hover:bg-zinc-50"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-zinc-900">{listing.title}</p>
+                    <p className="text-xs font-medium text-foreground">{listing.title}</p>
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500">
                       {listing.description || listing.publisher.workspaceName}
                     </p>

@@ -22,16 +22,18 @@ import {
 import { cn } from "@/lib/utils";
 
 const accentStyles = {
-  violet: "from-violet-50 to-white border-violet-100 hover:border-violet-200",
-  sky: "from-sky-50 to-white border-sky-100 hover:border-sky-200",
-  amber: "from-amber-50 to-white border-amber-100 hover:border-amber-200",
+  violet:
+    "from-violet-50 to-white border-violet-100 hover:border-violet-200 dark:from-violet-950/30 dark:to-card dark:border-violet-900/40 dark:hover:border-violet-800/60",
+  sky: "from-sky-50 to-white border-sky-100 hover:border-sky-200 dark:from-sky-950/30 dark:to-card dark:border-sky-900/40 dark:hover:border-sky-800/60",
+  amber:
+    "from-amber-50 to-white border-amber-100 hover:border-amber-200 dark:from-amber-950/30 dark:to-card dark:border-amber-900/40 dark:hover:border-amber-800/60",
 } as const;
 
 const badgeStyles: Record<string, string> = {
-  Hot: "bg-orange-50 text-orange-700 ring-orange-100",
-  Free: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-  New: "bg-violet-50 text-violet-700 ring-violet-100",
-  Trending: "bg-sky-50 text-sky-700 ring-sky-100",
+  Hot: "bg-orange-50 text-orange-700 ring-orange-100 dark:bg-orange-950/50 dark:text-orange-300 dark:ring-orange-900/50",
+  Free: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-900/50",
+  New: "bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-950/50 dark:text-violet-300 dark:ring-violet-900/50",
+  Trending: "bg-sky-50 text-sky-700 ring-sky-100 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-900/50",
 };
 
 function FeatureSpotlightCard({ item }: { item: FeatureSpotlight }) {
@@ -44,10 +46,10 @@ function FeatureSpotlightCard({ item }: { item: FeatureSpotlight }) {
       )}
     >
       <div className="relative z-10 max-w-[58%] space-y-2">
-        <h3 className="font-display text-xl font-semibold tracking-tight text-zinc-900 group-hover:text-violet-700">
+        <h3 className="font-display text-xl font-semibold tracking-tight text-foreground group-hover:text-violet-700 dark:group-hover:text-violet-400">
           {item.title}
         </h3>
-        <p className="text-sm leading-6 text-zinc-500">{item.subtitle}</p>
+        <p className="text-sm leading-6 text-muted-foreground">{item.subtitle}</p>
       </div>
 
       <div className="pointer-events-none absolute inset-y-0 right-0 w-[46%] overflow-hidden">
@@ -68,7 +70,7 @@ function FeatureSpotlightCard({ item }: { item: FeatureSpotlight }) {
             className="h-full w-full object-cover opacity-90 transition group-hover:scale-105"
           />
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/80 to-transparent dark:from-card dark:via-card/70 dark:to-transparent" />
       </div>
     </Link>
   );
@@ -90,7 +92,7 @@ function CommunityCard({ item }: { item: CommunityInspiration }) {
     >
       <article
         className={cn(
-          "overflow-hidden rounded-[1.25rem] border border-zinc-100 bg-white shadow-sm transition hover:shadow-md",
+          "overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-sm transition hover:shadow-md",
           item.featured && "border-0",
         )}
       >
@@ -164,7 +166,7 @@ function PhonePreview({
   return (
     <div
       className={cn(
-        "relative shrink-0 overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-200/80",
+        "relative shrink-0 overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-200/80 dark:ring-zinc-700/80",
         className,
       )}
     >
@@ -179,7 +181,7 @@ function FeaturedHighlightCard({ item }: { item: CreativeHighlight }) {
       href={item.href}
       className="group block rounded-2xl bg-gradient-to-br from-violet-400/70 via-sky-300/70 to-emerald-300/70 p-[2px] transition hover:shadow-md"
     >
-      <article className="flex items-center gap-4 overflow-hidden rounded-[0.95rem] bg-white p-4">
+      <article className="flex items-center gap-4 overflow-hidden rounded-[0.95rem] bg-card p-4">
         <PhonePreview item={item} className="aspect-[9/16] w-[108px]" />
 
         <div className="min-w-0 flex-1 space-y-2.5">
@@ -189,10 +191,10 @@ function FeaturedHighlightCard({ item }: { item: CreativeHighlight }) {
             </span>
           ) : null}
           <div className="space-y-1">
-            <h3 className="font-display text-lg font-semibold tracking-tight text-zinc-900 group-hover:text-violet-700">
+            <h3 className="font-display text-lg font-semibold tracking-tight text-foreground group-hover:text-violet-700 dark:group-hover:text-violet-400">
               {item.title}
             </h3>
-            <p className="line-clamp-2 text-sm leading-6 text-zinc-500">{item.description}</p>
+            <p className="line-clamp-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{item.description}</p>
           </div>
           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 transition group-hover:gap-2">
             {item.ctaLabel ?? "Explore"}
@@ -208,21 +210,21 @@ function HighlightCard({ item }: { item: CreativeHighlight }) {
   return (
     <Link
       href={item.href}
-      className="group flex min-w-[260px] max-w-[320px] shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-zinc-100 bg-white p-3 transition hover:-translate-y-0.5 hover:border-zinc-200 hover:shadow-sm"
+      className="group flex min-w-[260px] max-w-[320px] shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 transition hover:-translate-y-0.5 hover:border-border/80 hover:shadow-sm"
     >
       <PhonePreview item={item} className="aspect-[9/16] w-[84px]" />
 
       <div className="min-w-0 flex-1 space-y-2">
         {item.tag ? (
-          <span className="inline-flex w-fit rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+          <span className="inline-flex w-fit rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
             {item.tag}
           </span>
         ) : null}
         <div className="space-y-1">
-          <h3 className="text-sm font-medium leading-snug text-zinc-900 group-hover:text-violet-700">
+          <h3 className="text-sm font-medium leading-snug text-foreground group-hover:text-violet-700 dark:group-hover:text-violet-400">
             {item.title}
           </h3>
-          <p className="line-clamp-2 text-xs leading-5 text-zinc-500">{item.description}</p>
+          <p className="line-clamp-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{item.description}</p>
         </div>
         <span className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 transition group-hover:text-violet-600">
           {item.ctaLabel ?? "Learn more"}
@@ -238,25 +240,25 @@ function CreativeHighlightsSection() {
   const rest = CREATIVE_HIGHLIGHTS.filter((item) => item.id !== featured.id);
 
   return (
-    <section className="rounded-2xl border border-zinc-100 bg-zinc-50/40 p-4 md:p-6">
+    <section className="rounded-2xl border border-border bg-muted/30 p-4 md:p-6">
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm ring-1 ring-amber-100">
+          <div className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-1 text-xs font-medium text-amber-700 shadow-sm ring-1 ring-amber-100 dark:text-amber-400 dark:ring-amber-900/50">
             <Trophy className="h-3.5 w-3.5" />
             Creative highlights
           </div>
           <div>
-            <h2 className="font-display text-xl font-semibold tracking-tight text-zinc-900">
+            <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
               Pick your next workflow
             </h2>
-            <p className="mt-1 max-w-xl text-sm leading-6 text-zinc-500">
+            <p className="mt-1 max-w-xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
               Jump into Studio Pro, inspiration, templates, or image editing with curated starting points.
             </p>
           </div>
         </div>
         <Link
           href="/inspiration"
-          className="inline-flex items-center gap-1 text-sm font-medium text-zinc-500 transition hover:text-violet-600"
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition hover:text-violet-600 dark:hover:text-violet-400"
         >
           View all inspiration
           <ArrowRight className="h-4 w-4" />
@@ -287,7 +289,7 @@ export function DashboardInspirationLayout() {
       <div className="space-y-5">
         <div className="flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-violet-600" />
-          <h2 className="text-sm font-medium text-zinc-900">All-in-One AI Creation Community</h2>
+          <h2 className="text-sm font-medium text-foreground">All-in-One AI Creation Community</h2>
         </div>
 
         <div className="flex gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -304,20 +306,20 @@ export function DashboardInspirationLayout() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-40px" }}
         transition={{ duration: 0.4 }}
-        className="rounded-3xl border border-zinc-100 bg-zinc-50/60 px-8 py-10 text-center"
+        className="rounded-3xl border border-border bg-muted/40 px-8 py-10 text-center"
       >
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-card shadow-sm">
           <Sparkles className="h-5 w-5 text-violet-600" />
         </div>
-        <h3 className="mt-4 font-display text-2xl font-semibold text-zinc-900">
-          Start with a prompt above
+        <h3 className="mt-4 font-display text-2xl font-semibold text-foreground">
+          Start with the prompt bar
         </h3>
-        <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-500">
-          Or explore featured formats, community examples, and Studio Pro templates below.
+        <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
+          Use the floating bar at the bottom to describe your idea, or explore formats and templates below.
         </p>
         <Link
           href="/inspiration"
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800"
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
         >
           <Eye className="h-4 w-4" />
           Open inspiration feed

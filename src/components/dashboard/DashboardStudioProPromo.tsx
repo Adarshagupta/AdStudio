@@ -69,12 +69,12 @@ export function DashboardStudioProPromo() {
       aria-labelledby="dashboard-studio-promo-title"
       aria-describedby="dashboard-studio-promo-desc"
     >
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.14)] ring-1 ring-zinc-100">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_16px_48px_rgba(15,23,42,0.14)] ring-1 ring-border/60 dark:shadow-black/40">
         <div className="relative p-3 pb-2">
           <button
             type="button"
             onClick={dismiss}
-            className="absolute right-2 top-2 rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
+            className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
             aria-label="Dismiss Studio Pro suggestion"
           >
             <X className="h-3.5 w-3.5" />
@@ -83,16 +83,16 @@ export function DashboardStudioProPromo() {
           <StudioProMiniIllustration />
 
           <div className="mt-3 pr-6">
-            <p id="dashboard-studio-promo-title" className="text-sm font-semibold text-zinc-900">
+            <p id="dashboard-studio-promo-title" className="text-sm font-semibold text-foreground">
               Try Studio Pro
             </p>
-            <p id="dashboard-studio-promo-desc" className="mt-1 text-xs leading-5 text-zinc-500">
+            <p id="dashboard-studio-promo-desc" className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               Build scripts, images, and video on a visual canvas — wire nodes together and run the full ad pipeline.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 border-t border-zinc-100 px-3 py-2.5">
+        <div className="flex items-center gap-2 border-t border-zinc-100 px-3 py-2.5 dark:border-zinc-800">
           <Button asChild size="sm" className="h-8 flex-1 text-xs">
             <Link href="/studio-pro" onClick={dismiss}>
               Open Studio Pro

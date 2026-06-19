@@ -11,6 +11,9 @@ import {
   type BillingInterval,
   type SubscriptionPlanId,
 } from "@/lib/billing/plans";
+import { getDodo, isDodoConfigured } from "@/lib/billing/dodo";
+import { mapDodoSubscriptionStatus } from "@/lib/billing/dodo-workspace-subscription";
+import type { BillingProviderId } from "@/lib/billing/payment-provider-shared";
 import { getStripe, isStripeConfigured } from "@/lib/billing/stripe";
 import { prisma } from "@/lib/db";
 
@@ -26,6 +29,9 @@ export type WorkspaceBillingSummary = {
   creditsIncluded: number;
   hasStripeCustomer: boolean;
   hasStripeSubscription: boolean;
+  hasBillingCustomer: boolean;
+  hasBillingSubscription: boolean;
+  billingProvider: BillingProviderId | null;
   subscriptionStatus:
     | "active"
     | "trialing"
@@ -104,6 +110,47 @@ function subscriptionDetailsFromStripe(subscription: Stripe.Subscription | null)
   };
 }
 
+function subscriptionDetailsFromDodo(
+  subscription: import("dodopayments/resources/subscriptions.js").Subscription | null,
+) {
+  if (!subscription) {
+    return {
+      subscriptionStatus: null as WorkspaceBillingSummary["subscriptionStatus"],
+      isTrial: false,
+      trialEndsAt: null as string | null,
+      nextBillingDate: null as string | null,
+      cancelAtPeriodEnd: false,
+    };
+  }
+
+  const status = mapDodoSubscriptionStatus(subscription) as WorkspaceBillingSummary["subscriptionStatus"];
+  const isTrial = status === "trialing";
+  const trialEndsAt =
+    isTrial && subscription.trial_period_days > 0
+      ? new Date(
+          new Date(subscription.created_at).getTime() + subscription.trial_period_days * 86400000,
+        ).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : null;
+
+  return {
+    subscriptionStatus: status,
+    isTrial,
+    trialEndsAt,
+    nextBillingDate: subscription.next_billing_date
+      ? new Date(subscription.next_billing_date).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : null,
+    cancelAtPeriodEnd: subscription.cancel_at_next_billing_date,
+  };
+}
+
 export async function getWorkspaceBillingSummary(
   workspaceId: string,
 ): Promise<WorkspaceBillingSummary> {
@@ -116,6 +163,9 @@ export async function getWorkspaceBillingSummary(
       subscriptionStatus: true,
       stripeCustomerId: true,
       stripeSubscriptionId: true,
+      dodoCustomerId: true,
+      dodoSubscriptionId: true,
+      billingProvider: true,
       videoMinutesUsed: true,
       imageCountUsed: true,
       premiumCreditsUsed: true,
@@ -133,6 +183,7 @@ export async function getWorkspaceBillingSummary(
   const limits = planGenerationLimits[planId];
 
   let stripeSubscription: Stripe.Subscription | null = null;
+  let dodoSubscription: import("dodopayments/resources/subscriptions.js").Subscription | null = null;
 
   if (isStripeConfigured() && workspace.stripeSubscriptionId) {
     try {
@@ -142,6 +193,18 @@ export async function getWorkspaceBillingSummary(
     }
   }
 
+  if (isDodoConfigured() && workspace.dodoSubscriptionId) {
+    try {
+      dodoSubscription = await getDodo().subscriptions.retrieve(workspace.dodoSubscriptionId);
+    } catch {
+      // Subscription id may be stale — summary still works from DB fields.
+    }
+  }
+
+  const providerDetails =
+    workspace.billingProvider === "dodo" || workspace.dodoSubscriptionId
+      ? subscriptionDetailsFromDodo(dodoSubscription)
+      : subscriptionDetailsFromStripe(stripeSubscription);
   if (stripeSubscription) {
     const status = stripeSubscription.status;
     const shouldZeroTrialCredits =
@@ -160,8 +223,25 @@ export async function getWorkspaceBillingSummary(
     }
   }
 
-  const stripeDetails = subscriptionDetailsFromStripe(stripeSubscription);
+  if (dodoSubscription) {
+    const status = mapDodoSubscriptionStatus(dodoSubscription);
+    const shouldZeroTrialCredits = status === "trialing" && workspace.creditsRemaining > 0;
+    if (workspace.subscriptionStatus !== status || shouldZeroTrialCredits) {
+      await prisma.workspace.update({
+        where: { id: workspaceId },
+        data: {
+          subscriptionStatus: status,
+          ...(shouldZeroTrialCredits ? { creditsRemaining: 0 } : {}),
+        },
+      });
+      if (shouldZeroTrialCredits) {
+        workspace.creditsRemaining = 0;
+      }
+    }
+  }
+
   const isFree = planId === "FREE";
+  const billingProvider = (workspace.billingProvider as BillingProviderId | null) ?? null;
 
   return {
     planId,
@@ -174,17 +254,20 @@ export async function getWorkspaceBillingSummary(
     creditsRemaining: workspace.creditsRemaining,
     creditsIncluded:
       interval && !isFree
-        ? stripeDetails.isTrial
+        ? providerDetails.isTrial
           ? 0
           : creditsForSubscription(planId, interval)
         : workspace.creditsRemaining,
     hasStripeCustomer: Boolean(workspace.stripeCustomerId),
     hasStripeSubscription: Boolean(workspace.stripeSubscriptionId),
-    subscriptionStatus: isFree ? "free" : stripeDetails.subscriptionStatus,
-    isTrial: stripeDetails.isTrial,
-    trialEndsAt: stripeDetails.trialEndsAt,
-    nextBillingDate: stripeDetails.nextBillingDate,
-    cancelAtPeriodEnd: stripeDetails.cancelAtPeriodEnd,
+    hasBillingCustomer: Boolean(workspace.stripeCustomerId || workspace.dodoCustomerId),
+    hasBillingSubscription: Boolean(workspace.stripeSubscriptionId || workspace.dodoSubscriptionId),
+    billingProvider,
+    subscriptionStatus: isFree ? "free" : providerDetails.subscriptionStatus,
+    isTrial: providerDetails.isTrial,
+    trialEndsAt: providerDetails.trialEndsAt,
+    nextBillingDate: providerDetails.nextBillingDate,
+    cancelAtPeriodEnd: providerDetails.cancelAtPeriodEnd,
     usage: {
       videoMinutesUsed: workspace.videoMinutesUsed,
       imageCountUsed: workspace.imageCountUsed,

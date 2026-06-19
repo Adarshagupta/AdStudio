@@ -6,6 +6,8 @@ import { Calendar, CreditCard, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import type { BillingProviderId } from "@/lib/billing/payment-provider-shared";
+import { getBillingProviderLabel } from "@/lib/billing/payment-provider-shared";
 import type { WorkspaceBillingSummary } from "@/lib/billing/workspace-billing-summary";
 import { readJsonResponse, responseErrorMessage } from "@/lib/http/json";
 import { notify } from "@/lib/notify";
@@ -13,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 function statusBadge(summary: WorkspaceBillingSummary) {
   if (summary.planId === "FREE") {
-    return { label: "Free", className: "bg-zinc-100 text-zinc-700" };
+    return { label: "Free", className: "bg-zinc-100 text-foreground" };
   }
   if (summary.isTrial) {
     return { label: "Trial", className: "bg-violet-100 text-violet-700" };
@@ -33,11 +35,13 @@ function statusBadge(summary: WorkspaceBillingSummary) {
 export function CurrentSubscriptionPanel({
   summary,
   isAdmin,
-  stripeEnabled,
+  checkoutEnabled,
+  billingProvider,
 }: {
   summary: WorkspaceBillingSummary;
   isAdmin: boolean;
-  stripeEnabled: boolean;
+  checkoutEnabled: boolean;
+  billingProvider: BillingProviderId;
 }) {
   const [busy, setBusy] = useState(false);
   const badge = statusBadge(summary);
@@ -72,12 +76,12 @@ export function CurrentSubscriptionPanel({
   const imageLimit = summary.limits.imageCount;
 
   return (
-    <Card className="overflow-hidden bg-white">
-      <div className="border-b border-zinc-100 bg-gradient-to-br from-violet-50/80 via-white to-zinc-50/50 p-6">
+    <Card className="overflow-hidden">
+      <div className="border-b border-border bg-gradient-to-br from-violet-50/80 via-white to-zinc-50/50 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-semibold text-zinc-900">{summary.planName}</h2>
+              <h2 className="text-xl font-semibold text-foreground">{summary.planName}</h2>
               <Badge className={cn("hover:bg-inherit", badge.className)}>{badge.label}</Badge>
             </div>
             {summary.tagline ? (
@@ -87,12 +91,12 @@ export function CurrentSubscriptionPanel({
 
           {summary.priceAmount != null && summary.planId !== "FREE" ? (
             <div className="text-left sm:text-right">
-              <p className="text-2xl font-semibold text-zinc-900">${summary.priceAmount}</p>
+              <p className="text-2xl font-semibold text-foreground">${summary.priceAmount}</p>
               <p className="text-sm text-zinc-500">{summary.priceSuffix}</p>
             </div>
           ) : summary.planId === "FREE" ? (
             <div className="text-left sm:text-right">
-              <p className="text-lg font-semibold text-zinc-900">$0</p>
+              <p className="text-lg font-semibold text-foreground">$0</p>
               <p className="text-sm text-zinc-500">No active subscription</p>
             </div>
           ) : null}
@@ -100,12 +104,12 @@ export function CurrentSubscriptionPanel({
       </div>
 
       <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-zinc-100 bg-zinc-50/50 p-4">
+        <div className="rounded-xl border border-border bg-muted/40 p-4">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
             <Sparkles className="h-3.5 w-3.5" />
             Credits
           </div>
-          <p className="mt-2 text-lg font-semibold text-zinc-900">
+          <p className="mt-2 text-lg font-semibold text-foreground">
             {summary.creditsRemaining.toLocaleString()}
           </p>
           <p className="mt-0.5 text-xs text-zinc-500">
@@ -118,12 +122,12 @@ export function CurrentSubscriptionPanel({
         </div>
 
         {summary.intervalLabel ? (
-          <div className="rounded-xl border border-zinc-100 bg-zinc-50/50 p-4">
+          <div className="rounded-xl border border-border bg-muted/40 p-4">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
               <Calendar className="h-3.5 w-3.5" />
               Billing
             </div>
-            <p className="mt-2 text-lg font-semibold text-zinc-900">{summary.intervalLabel}</p>
+            <p className="mt-2 text-lg font-semibold text-foreground">{summary.intervalLabel}</p>
             {summary.isTrial && summary.trialEndsAt ? (
               <p className="mt-0.5 text-xs text-zinc-500">Trial ends {summary.trialEndsAt}</p>
             ) : summary.nextBillingDate ? (
@@ -134,9 +138,9 @@ export function CurrentSubscriptionPanel({
           </div>
         ) : null}
 
-        <div className="rounded-xl border border-zinc-100 bg-zinc-50/50 p-4">
+        <div className="rounded-xl border border-border bg-muted/40 p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Video used</p>
-          <p className="mt-2 text-lg font-semibold text-zinc-900">
+          <p className="mt-2 text-lg font-semibold text-foreground">
             {summary.usage.videoMinutesUsed} min
           </p>
           <p className="mt-0.5 text-xs text-zinc-500">
@@ -144,9 +148,9 @@ export function CurrentSubscriptionPanel({
           </p>
         </div>
 
-        <div className="rounded-xl border border-zinc-100 bg-zinc-50/50 p-4">
+        <div className="rounded-xl border border-border bg-muted/40 p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Images used</p>
-          <p className="mt-2 text-lg font-semibold text-zinc-900">
+          <p className="mt-2 text-lg font-semibold text-foreground">
             {summary.usage.imageCountUsed.toLocaleString()}
           </p>
           <p className="mt-0.5 text-xs text-zinc-500">
@@ -164,10 +168,11 @@ export function CurrentSubscriptionPanel({
         </div>
       ) : null}
 
-      {stripeEnabled && summary.hasStripeCustomer && summary.planId !== "FREE" ? (
-        <div className="flex flex-col gap-3 border-t border-zinc-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      {checkoutEnabled && summary.hasBillingCustomer && summary.planId !== "FREE" ? (
+        <div className="flex flex-col gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-zinc-600">
-            View invoices, update your payment method, or cancel your subscription in Stripe.
+            View invoices, update your payment method, or cancel your subscription in{" "}
+            {getBillingProviderLabel(summary.billingProvider ?? billingProvider)}.
           </p>
           <Button
             variant="outline"
@@ -189,7 +194,7 @@ export function CurrentSubscriptionPanel({
           </Button>
         </div>
       ) : summary.planId === "FREE" ? (
-        <div className="border-t border-zinc-100 px-6 py-4">
+        <div className="border-t border-border px-6 py-4">
           <p className="text-sm text-zinc-600">
             Choose a plan below to subscribe and unlock more credits, storage, and premium models.
           </p>

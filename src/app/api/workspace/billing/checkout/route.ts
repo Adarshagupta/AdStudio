@@ -3,6 +3,11 @@ import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
 import type { BillingInterval, SubscriptionPlanId } from "@/lib/billing/plans";
+import {
+  getPaidCheckoutUnavailableMessage,
+  isPaidCheckoutEnabled,
+  requiresPaidCheckout,
+} from "@/lib/billing/payment-provider";
 import { createWorkspaceSubscriptionCheckout } from "@/lib/billing/workspace-subscription";
 import { parseRequestJson } from "@/lib/http/json";
 
@@ -36,6 +41,10 @@ export async function POST(request: Request) {
 
   if (!result.success) {
     return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
+  }
+
+  if (requiresPaidCheckout() && !isPaidCheckoutEnabled()) {
+    return NextResponse.json({ error: getPaidCheckoutUnavailableMessage() }, { status: 503 });
   }
 
   try {

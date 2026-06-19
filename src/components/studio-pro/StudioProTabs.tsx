@@ -51,7 +51,7 @@ export function StudioProTabs({
             Visual flow builder
           </div>
           <div>
-            <h1 className="font-display text-4xl font-semibold tracking-tight text-zinc-900 md:text-[2.75rem] md:leading-tight">
+            <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground md:text-[2.75rem] md:leading-tight">
               Studio Pro
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
@@ -75,7 +75,7 @@ export function StudioProTabs({
           className={cn(
             "flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
             tab === "sessions"
-              ? "border-b-2 border-zinc-900 text-zinc-900"
+              ? "border-b-2 border-zinc-900 text-foreground"
               : "text-zinc-500 hover:text-zinc-700"
           )}
         >
@@ -91,7 +91,7 @@ export function StudioProTabs({
           className={cn(
             "flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
             tab === "marketplace"
-              ? "border-b-2 border-zinc-900 text-zinc-900"
+              ? "border-b-2 border-zinc-900 text-foreground"
               : "text-zinc-500 hover:text-zinc-700"
           )}
         >
@@ -108,10 +108,10 @@ export function StudioProTabs({
         <div className="space-y-6">
           {flows.length === 0 ? (
             <section className="rounded-3xl bg-zinc-100/70 px-8 py-16 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-card shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
                 <Workflow className="h-6 w-6 text-purple-600" />
               </div>
-              <h2 className="mt-5 font-display text-2xl font-semibold text-zinc-900">
+              <h2 className="mt-5 font-display text-2xl font-semibold text-foreground">
                 No sessions yet
               </h2>
               <p className="mt-2 text-sm text-zinc-500">
@@ -124,7 +124,7 @@ export function StudioProTabs({
           ) : (
             <section className="space-y-4">
               <div className="flex items-center gap-6">
-                <p className="text-sm font-medium text-zinc-900">Recent sessions</p>
+                <p className="text-sm font-medium text-foreground">Recent sessions</p>
                 <p className="text-sm text-zinc-400">{flows.length} saved</p>
               </div>
               <StudioFlowList
@@ -143,7 +143,7 @@ export function StudioProTabs({
       {tab === "marketplace" && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-zinc-900">
+            <p className="text-sm font-medium text-foreground">
               Community templates
             </p>
             <Link
@@ -156,7 +156,7 @@ export function StudioProTabs({
 
           {listings.length === 0 ? (
             <section className="rounded-3xl bg-zinc-100/70 px-8 py-16 text-center">
-              <h2 className="font-display text-2xl font-semibold text-zinc-900">
+              <h2 className="font-display text-2xl font-semibold text-foreground">
                 No templates yet
               </h2>
               <p className="mt-2 text-sm text-zinc-500">
@@ -175,7 +175,7 @@ export function StudioProTabs({
                 <Link
                   key={listing.id}
                   href={`/studio-pro/marketplace/${listing.slug}`}
-                  className="group rounded-2xl border border-zinc-200 bg-white p-4 transition hover:border-purple-200 hover:shadow-md"
+                  className="group rounded-2xl border border-border bg-card p-4 transition hover:border-purple-200 hover:shadow-md"
                 >
                   <TemplateListingCover
                     previewImageUrl={listing.previewImageUrl}
@@ -184,10 +184,10 @@ export function StudioProTabs({
                   />
                   <div className="space-y-1">
                     <div className="flex items-start justify-between gap-2">
-                      <h2 className="font-medium text-zinc-900 group-hover:text-purple-700">
+                      <h2 className="font-medium text-foreground group-hover:text-purple-700">
                         {listing.title}
                       </h2>
-                      <span className="shrink-0 text-sm font-semibold text-zinc-900">
+                      <span className="shrink-0 text-sm font-semibold text-foreground">
                         {listing.priceCents === 0
                           ? "Free"
                           : `$${(listing.priceCents / 100).toFixed(2)}`}

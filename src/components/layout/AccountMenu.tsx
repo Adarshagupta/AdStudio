@@ -43,15 +43,15 @@ export function AccountMenu({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="h-9 gap-2 rounded-full px-1.5 hover:bg-zinc-100"
+          className="h-9 gap-2 rounded-full px-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
           aria-label="Account menu"
         >
-          <Avatar className="h-8 w-8 bg-zinc-100">
-            <AvatarFallback className="bg-zinc-100 text-xs text-zinc-700">
+          <Avatar className="h-8 w-8 bg-zinc-100 dark:bg-zinc-800">
+            <AvatarFallback className="bg-zinc-100 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
               {getInitials(user.name, user.email)}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden max-w-[140px] truncate text-sm font-medium text-zinc-700 md:inline">
+          <span className="hidden max-w-[140px] truncate text-sm font-medium text-zinc-700 dark:text-zinc-200 md:inline">
             {displayName}
           </span>
           <ChevronDown className="hidden h-4 w-4 shrink-0 text-zinc-400 md:block" />
@@ -59,12 +59,12 @@ export function AccountMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-56 rounded-2xl border-0 p-1 shadow-[0_8px_30px_rgba(15,23,42,0.08)]"
+        className="w-56 rounded-2xl border border-border/80 p-1 shadow-[0_8px_30px_rgba(15,23,42,0.08)] dark:shadow-black/40"
       >
         <div className="px-2.5 py-2">
-          <p className="truncate text-sm font-medium text-zinc-900">{displayName}</p>
-          <p className="truncate text-xs text-zinc-500">{user.email}</p>
-          <p className="mt-1 text-xs text-zinc-400">{creditsRemaining} credits</p>
+          <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{displayName}</p>
+          <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{user.email}</p>
+          <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">{creditsRemaining} credits</p>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>

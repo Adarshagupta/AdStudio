@@ -39,7 +39,7 @@ export function StudioNodePromptBar({
 
   return (
     <div
-      className="flex shrink-0 items-end gap-1.5 border-t border-zinc-100 bg-zinc-50/60 p-2 dark:border-zinc-800 dark:bg-zinc-900/60"
+      className="flex shrink-0 items-end gap-1.5 border-t border-zinc-100 bg-muted/40 p-2 dark:border-zinc-800 dark:bg-zinc-900/60"
       data-studio-no-drag
       onPointerDown={(event) => event.stopPropagation()}
     >
@@ -49,7 +49,7 @@ export function StudioNodePromptBar({
         onKeyDown={handleKeyDown}
         rows={2}
         placeholder={promptPlaceholders[node.type]}
-        className="min-h-[2.5rem] flex-1 resize-none rounded-lg border border-zinc-200/90 bg-white px-2 py-1.5 text-[11px] leading-4 text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-500"
+        className="min-h-[2.5rem] flex-1 resize-none rounded-lg border border-border/90 bg-card px-2 py-1.5 text-[11px] leading-4 text-foreground outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-500"
       />
       <button
         type="button"
@@ -59,7 +59,7 @@ export function StudioNodePromptBar({
           onRun();
         }}
         className={cn(
-          "flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg bg-zinc-900 px-2.5 text-[11px] font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white",
+          "flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg bg-zinc-900 px-2.5 text-[11px] font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 dark:bg-zinc-100 dark:text-foreground dark:hover:bg-white",
         )}
         aria-label={`Run ${node.title}`}
         title="Run (⌘↵)"

@@ -4,6 +4,7 @@ import { Fredoka, Nunito_Sans, Quicksand } from "next/font/google";
 import { Analytics } from "@/components/seo/Analytics";
 import { GoogleTagManagerBody, GoogleTagManagerHead } from "@/components/seo/GoogleTagManager";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AppToaster } from "@/components/ui/sonner";
 
 import "./globals.css";
@@ -43,16 +44,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <GoogleTagManagerHead />
       </head>
       <body className={`${nunitoSans.variable} ${quicksand.variable} ${fredoka.variable} font-sans antialiased`}>
-        <GoogleTagManagerBody />
-        {children}
-        <Analytics />
-        <AppToaster />
-        <ServiceWorkerRegister />
+        <ThemeProvider>
+          <GoogleTagManagerBody />
+          {children}
+          <Analytics />
+          <AppToaster />
+          <ServiceWorkerRegister />
+        </ThemeProvider>
       </body>
     </html>
   );

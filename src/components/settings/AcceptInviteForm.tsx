@@ -89,7 +89,7 @@ export function AcceptInviteForm({
     return (
       <InviteCard workspaceName={workspaceName}>
         <p className="text-sm text-muted-foreground">
-          Join <span className="font-medium text-zinc-900">{workspaceName}</span> with your signed-in account.
+          Join <span className="font-medium text-foreground">{workspaceName}</span> with your signed-in account.
         </p>
         <Button className="w-full" disabled={isSubmitting} onClick={joinWhileSignedIn}>
           {isSubmitting ? "Joining…" : "Join workspace"}
@@ -151,7 +151,7 @@ function InviteCard({
 }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <Card className="w-full max-w-md space-y-6 bg-white p-6">
+      <Card className="w-full max-w-md space-y-6 p-6">
         <div className="space-y-4">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
             <CheckCircle2 className="h-5 w-5" />

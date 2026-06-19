@@ -1692,7 +1692,7 @@ export function StudioProWorkspace({
   return (
     <div
       className={cn(
-        "studio-pro relative h-full min-h-0 w-full overflow-hidden bg-[#fcfcfc] text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100",
+        "studio-pro relative h-full min-h-0 w-full overflow-hidden bg-background text-foreground",
         theme === "dark" && "dark",
       )}
     >
@@ -1714,7 +1714,7 @@ export function StudioProWorkspace({
           <StudioRemoteCursors peers={peers} zoom={zoom} pan={pan} />
           <div
             data-studio-canvas-bg
-            className="studio-canvas-grid absolute inset-0 bg-zinc-50/80 dark:bg-zinc-900/90"
+            className="studio-canvas-grid absolute inset-0 bg-muted/40"
             style={{
               backgroundImage: "radial-gradient(circle, rgba(161,161,170,0.35) 1px, transparent 1px)",
               backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
@@ -1834,12 +1834,12 @@ export function StudioProWorkspace({
 
           {!showPicker && nodes.length === 0 ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="max-w-md rounded-3xl bg-white px-8 py-10 text-center shadow-[0_8px_30px_rgba(15,23,42,0.06)] dark:border dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
-                <p className="font-display text-lg font-semibold text-zinc-900 dark:text-zinc-100">Blank canvas</p>
+              <div className="max-w-md rounded-3xl bg-card px-8 py-10 text-center shadow-[0_8px_30px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
+                <p className="font-display text-lg font-semibold text-foreground">Blank canvas</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
                   Use the toolbar below to add nodes, describe your flow, and connect cards left-to-right.
                 </p>
-                <div className="mt-5 rounded-2xl border border-zinc-100 bg-zinc-50/80 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-800/50">
+                <div className="mt-5 rounded-2xl border border-zinc-100 bg-muted/40 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-800/50">
                   <StudioMultiClipWorkflow />
                 </div>
               </div>
@@ -1868,7 +1868,7 @@ export function StudioProWorkspace({
           {!showPicker ? (
             <div
               className={cn(
-                "studio-agent pointer-events-auto group absolute bottom-24 top-16 z-20 overflow-hidden border-r border-zinc-200/90 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.14)] transition-all duration-300 ease-out dark:border-zinc-700 dark:bg-zinc-900",
+                "studio-agent pointer-events-auto group absolute bottom-24 top-16 z-20 overflow-hidden border-r border-border/90 bg-card shadow-[0_16px_48px_rgba(15,23,42,0.14)] transition-all duration-300 ease-out dark:shadow-[0_16px_48px_rgba(0,0,0,0.35)]",
                 agentOpen
                   ? "left-0 w-[min(360px,calc(100%-2rem))] rounded-r-2xl"
                   : "-left-0 w-12 rounded-r-2xl hover:w-[min(360px,calc(100%-2rem))]",
@@ -1913,7 +1913,7 @@ export function StudioProWorkspace({
 
           {inspectorOpen && selectedNode ? (
             <div
-              className="studio-inspector pointer-events-auto absolute bottom-24 right-4 top-16 z-20 w-[min(300px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.14)] dark:border-zinc-700 dark:bg-zinc-900"
+              className="studio-inspector pointer-events-auto absolute bottom-24 right-4 top-16 z-20 w-[min(300px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-border/90 bg-card shadow-[0_16px_48px_rgba(15,23,42,0.14)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.35)]"
               data-studio-overlay
               onPointerDown={stopCanvasPointer}
               onWheel={stopCanvasWheel}

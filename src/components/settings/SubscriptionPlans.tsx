@@ -20,11 +20,13 @@ import { cn } from "@/lib/utils";
 export function SubscriptionPlans({
   currentPlan,
   isAdmin,
-  stripeEnabled = false,
+  checkoutEnabled = false,
+  paidCheckoutRequired = false,
 }: {
   currentPlan: SubscriptionPlanId;
   isAdmin: boolean;
-  stripeEnabled?: boolean;
+  checkoutEnabled?: boolean;
+  paidCheckoutRequired?: boolean;
 }) {
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [busyPlan, setBusyPlan] = useState<SubscriptionPlanId | null>(null);
@@ -34,24 +36,34 @@ export function SubscriptionPlans({
     [interval],
   );
 
-  async function subscribe(planId: SubscriptionPlanId) {
+  async function subscribe(planId: SubscriptionPlanId, options?: { trial?: boolean }) {
     if (!isAdmin) {
       notify.error("Ask a workspace admin to change the subscription.");
+      return;
+    }
+
+    const useCheckout = (paidCheckoutRequired || checkoutEnabled) && planId !== "FREE";
+
+    if (useCheckout && !checkoutEnabled) {
+      notify.error("Paid checkout is not available yet. Payment must be completed before a plan is applied.");
       return;
     }
 
     setBusyPlan(planId);
 
     try {
-      const useStripeCheckout = stripeEnabled && planId !== "FREE";
-      const endpoint = useStripeCheckout
+      const endpoint = useCheckout
         ? "/api/workspace/billing/checkout"
         : "/api/workspace/billing/subscribe";
 
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planId, interval }),
+        body: JSON.stringify({
+          plan: planId,
+          interval,
+          ...(useCheckout && options?.trial ? { trial: true } : {}),
+        }),
       });
       const data = await readJsonResponse<{
         ok?: boolean;
@@ -65,7 +77,7 @@ export function SubscriptionPlans({
         throw new Error(responseErrorMessage(response, data, "Could not update subscription."));
       }
 
-      if (useStripeCheckout && data.url) {
+      if (useCheckout && data.url) {
         window.location.href = data.url;
         return;
       }
@@ -85,6 +97,12 @@ export function SubscriptionPlans({
 
   return (
     <div className="space-y-6">
+      {paidCheckoutRequired && !checkoutEnabled ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Paid checkout is not configured yet. Upgrades are disabled until payment is ready.
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
         <div className="inline-flex rounded-full bg-zinc-100 p-1">
           <button
@@ -92,7 +110,7 @@ export function SubscriptionPlans({
             onClick={() => setInterval("monthly")}
             className={cn(
               "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-              interval === "monthly" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600",
+              interval === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
             )}
           >
             Monthly
@@ -102,7 +120,7 @@ export function SubscriptionPlans({
             onClick={() => setInterval("yearly")}
             className={cn(
               "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-              interval === "yearly" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600",
+              interval === "yearly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
             )}
           >
             Yearly
@@ -115,19 +133,20 @@ export function SubscriptionPlans({
           const pricing = getPlanPrice(plan, interval);
           const isCurrent = currentPlan === plan.id;
           const isFree = plan.id === "FREE";
+          const paidUpgradeBlocked = !isFree && paidCheckoutRequired && !checkoutEnabled;
 
           return (
             <Card
               key={plan.id}
               className={cn(
-                "flex h-full flex-col bg-white p-5",
+                "flex h-full flex-col p-5",
                 plan.id === "PRO" && "ring-2 ring-violet-500/20",
               )}
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold text-zinc-900">{plan.name}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
                     {plan.badge ? (
                       <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100">
                         {plan.badge}
@@ -141,7 +160,7 @@ export function SubscriptionPlans({
               <div className="mt-5 min-h-[88px]">
                 {isFree ? (
                   <div>
-                    <p className="text-2xl font-semibold text-zinc-900">Always free</p>
+                    <p className="text-2xl font-semibold text-foreground">Always free</p>
                     <p className="mt-1 text-sm text-zinc-500">No credit card required.</p>
                   </div>
                 ) : pricing ? (
@@ -150,7 +169,7 @@ export function SubscriptionPlans({
                       {pricing.compareAt ? (
                         <span className="text-lg text-zinc-400 line-through">${pricing.compareAt}</span>
                       ) : null}
-                      <span className="text-3xl font-semibold text-zinc-900">${pricing.amount}</span>
+                      <span className="text-3xl font-semibold text-foreground">${pricing.amount}</span>
                     </div>
                     <p className="text-sm text-zinc-500">{pricing.suffix}</p>
                     <p className="mt-2 text-xs text-zinc-400">Auto renews, cancel anytime.</p>
@@ -159,8 +178,8 @@ export function SubscriptionPlans({
               </div>
 
               {plan.creditsLabel && !isFree ? (
-                <div className="mt-3 rounded-xl bg-zinc-50 px-3 py-2 text-sm">
-                  <p className="font-medium text-zinc-800">
+                <div className="mt-3 rounded-xl bg-muted/50 px-3 py-2 text-sm">
+                  <p className="font-medium text-foreground">
                     {intervalLabel} {plan.creditsLabel}
                   </p>
                   {plan.creditsPerDollar ? (
@@ -175,7 +194,7 @@ export function SubscriptionPlans({
                 <Button
                   className="w-full"
                   variant={isCurrent ? "secondary" : "default"}
-                  disabled={isCurrent || busyPlan !== null}
+                  disabled={isCurrent || busyPlan !== null || paidUpgradeBlocked}
                   onClick={() => subscribe(plan.id)}
                 >
                   {busyPlan === plan.id
@@ -184,24 +203,26 @@ export function SubscriptionPlans({
                       ? "Current plan"
                       : isFree
                         ? "Downgrade to Free"
-                        : stripeEnabled
-                          ? "Upgrade with Stripe"
-                          : "Subscribe"}
+                        : paidUpgradeBlocked
+                          ? "Checkout unavailable"
+                          : paidCheckoutRequired || checkoutEnabled
+                            ? "Upgrade"
+                            : "Subscribe"}
                 </Button>
                 {plan.showTrial && !isCurrent && !isFree ? (
                   <Button
                     variant="outline"
                     className="w-full"
-                    disabled={busyPlan !== null || !isAdmin}
-                    onClick={() => subscribe(plan.id)}
+                    disabled={busyPlan !== null || !isAdmin || paidUpgradeBlocked}
+                    onClick={() => subscribe(plan.id, { trial: true })}
                   >
                     Start free trial
                   </Button>
                 ) : null}
               </div>
 
-              <div className="mt-5 flex-1 border-t border-zinc-100 pt-4">
-                <p className="text-sm font-medium text-zinc-800">With {plan.name}, you can:</p>
+              <div className="mt-5 flex-1 border-t border-border pt-4">
+                <p className="text-sm font-medium text-foreground">With {plan.name}, you can:</p>
                 <ul className="mt-3 space-y-2">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex gap-2 text-sm text-zinc-600">

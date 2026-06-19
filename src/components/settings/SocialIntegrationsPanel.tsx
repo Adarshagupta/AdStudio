@@ -90,8 +90,8 @@ export function SocialIntegrationsPanel({
 
   return (
     <div className="space-y-6">
-      <Card className="bg-white px-5 py-4">
-        <p className="text-sm text-zinc-700">
+      <Card className="px-5 py-4">
+        <p className="text-sm text-foreground">
           {configuredCount > 0
             ? `${configuredCount} account${configuredCount === 1 ? "" : "s"} connected to this workspace.`
             : "Connect your social accounts once, then publish from Studio Pro and the library."}

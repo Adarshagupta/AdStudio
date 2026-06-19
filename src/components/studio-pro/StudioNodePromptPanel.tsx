@@ -5,7 +5,7 @@ import { studioNodeDisplayText } from "@/lib/studio-pro/display-text";
 import type { StudioNode } from "@/lib/studio-pro/types";
 
 const compactField =
-  "w-full border-0 border-b border-zinc-200 bg-transparent px-1 py-1.5 text-xs leading-4 text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-purple-400";
+  "w-full border-0 border-b border-zinc-200 bg-transparent px-1 py-1.5 text-xs leading-4 text-foreground outline-none placeholder:text-zinc-400 focus:border-purple-400";
 
 export function StudioNodePromptPanel({
   node,

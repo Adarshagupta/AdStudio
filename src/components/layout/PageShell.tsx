@@ -33,7 +33,7 @@ export function PageShell({
   if (fullscreen) {
     return (
       <NotificationProvider>
-        <div className="relative h-screen w-screen overflow-hidden bg-[#fcfcfc]">
+        <div className="relative h-screen w-screen overflow-hidden bg-background">
           {children}
         </div>
       </NotificationProvider>

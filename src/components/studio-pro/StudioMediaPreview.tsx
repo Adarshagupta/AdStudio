@@ -48,11 +48,11 @@ export function StudioInspectorGeneratingPreview({ node }: { node: StudioNode })
         <div className="studio-shimmer absolute inset-0" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-4 text-center">
           {isImage ? (
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-200/80 bg-white/90 shadow-sm">
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-200/80 bg-card/90 shadow-sm">
               <ImageIcon className="h-6 w-6 animate-pulse text-zinc-500" />
             </div>
           ) : (
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-zinc-200/80 bg-white/90 shadow-sm">
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-zinc-200/80 bg-card/90 shadow-sm">
               <Film className="h-5 w-5 text-zinc-500" />
               <Loader2 className="absolute -right-1 -top-1 h-4 w-4 animate-spin text-zinc-600" />
             </div>
@@ -77,7 +77,7 @@ export function StudioMediaPreview({
 
   if (node.type === "image") {
     return (
-      <div className="overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50/80">
+      <div className="overflow-hidden rounded-xl border border-zinc-100 bg-muted/40">
         <div
           className="relative flex items-center justify-center overflow-hidden text-zinc-300"
           style={{ width: contentWidth, height: previewHeight }}
@@ -108,7 +108,7 @@ export function StudioMediaPreview({
 
   if (node.type === "video") {
     return (
-      <div className="overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50/80">
+      <div className="overflow-hidden rounded-xl border border-zinc-100 bg-muted/40">
         <div
           className="relative flex items-center justify-center overflow-hidden"
           style={{ width: contentWidth, height: previewHeight }}
