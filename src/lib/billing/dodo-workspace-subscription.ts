@@ -85,7 +85,6 @@ export async function createDodoWorkspaceSubscriptionCheckout(input: {
       show_on_demand_tag: false,
     },
     subscription_data: {
-      metadata,
       ...(input.trialDays
         ? {
             trial_period_days: input.trialDays,
