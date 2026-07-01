@@ -4,7 +4,6 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { approveWebLoginChallenge } from "@/lib/auth/qr-login";
 import { formatValidationErrors, parseRequestJson } from "@/lib/http/json";
-import { isWorkspaceOnboardingCompleteCached } from "@/lib/onboarding-gate";
 
 const approveSchema = z.object({
   sessionId: z.string().min(1),
