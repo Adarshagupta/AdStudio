@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito_Sans, Quicksand } from "next/font/google";
 
-import { Analytics } from "@/components/seo/Analytics";
+import { Analytics } from "@vercel/analytics/next";
+import { Analytics as CustomAnalytics } from "@/components/seo/Analytics";
 import { GoogleTagManagerBody, GoogleTagManagerHead } from "@/components/seo/GoogleTagManager";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
@@ -52,6 +53,7 @@ export default function RootLayout({
         <ThemeProvider>
           <GoogleTagManagerBody />
           {children}
+          <CustomAnalytics />
           <Analytics />
           <AppToaster />
           <ServiceWorkerRegister />
